@@ -1,0 +1,48 @@
+benchmark,diff_vs_previous_epoch_mm,diff_vs_baseline_dec2020_mm,reading_status,note
+7008,-13,-42,confirmed_by_report_text,"Largest subsidence; report text gives -13 (vs previous) and -42 (vs baseline) as the extremes"
+7009,-12,-41,machine_read_from_map,
+7016,-13,-38,machine_read_ambiguous,"A value of -8 may belong to this label"
+5410,-12,-36,machine_read_from_map,
+570,-11,-28,machine_read_from_map,
+5403,-8,-22,machine_read_from_map,
+490,-7,-18,machine_read_from_map,
+5400,-6,-18,machine_read_from_map,
+3550,-6,-18,machine_read_from_map,
+7010,-4,-16,machine_read_from_map,
+3912,-4,-13,machine_read_from_map,
+100501,-2,-9,machine_read_from_map,
+7004,-2,-6,machine_read_from_map,
+3906,-2,-6,machine_read_from_map,
+7003,-1,-4,machine_read_from_map,
+7015,-2,-4,machine_read_from_map,
+930,-1,-4,machine_read_from_map,
+3417,-1,-4,machine_read_from_map,
+7000,0,-3,machine_read_from_map,
+7011,-1,-3,machine_read_from_map,
+104151,0,-3,machine_read_from_map,
+870,-1,-2,machine_read_from_map,
+740,0,-2,machine_read_from_map,
+660,0,-2,machine_read_from_map,
+3143,1,-2,machine_read_from_map,
+7012,-1,-2,machine_read_from_map,
+7013,1,-1,machine_read_from_map,
+7014,0,-1,machine_read_from_map,
+A2890,0,0,machine_read_from_map,"Reference benchmark 000A2890 (underground), +19.388 m NAP, assumed stable"
+6105,1,0,machine_read_from_map,
+7006,1,0,machine_read_from_map,
+7007,1,0,machine_read_from_map,
+7515,1,0,machine_read_from_map,
+3351,2,0,machine_read_from_map,
+104150,1,1,machine_read_from_map,
+34E367,1,1,machine_read_from_map,
+34F600,1,1,machine_read_from_map,
+3330,0,1,machine_read_from_map,
+34F436,0,1,machine_read_from_map,
+119250,2,2,machine_read_from_map,
+113350,2,2,machine_read_from_map,
+301,14,14,machine_read_from_map,"Report flags an unexplained rise at benchmarks 300 and 301 (+11 and +14 mm)"
+300,11,,machine_read_ambiguous,"Second value not legible"
+7001,-1,,machine_read_ambiguous,"Second value not legible"
+7002,0,,machine_read_ambiguous,"Possibly 1 / -1"
+5401,-21,,machine_read_ambiguous,"Value order unclear"
+1020,-3,,machine_read_ambiguous,"Second value not legible"
