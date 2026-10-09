@@ -21,10 +21,9 @@ uruchomić **przed** sesjami 1–10, i co w nich zmienić po tym, czego dowiedzi
    To blokuje T1 w obecnej postaci i wymaga Twojej decyzji (D-A, sekcja 4).
 4. **Test prognozy w przypadku 2 też potrzebuje wydania 2018–2022** (dane uczące przed ostatnią epoką).
    Wniosek do Helpdesku warto złożyć od razu, bo jego czas obsługi jest nieznany i leży na ścieżce krytycznej.
-5. **Paczka `egms_article.zip` nie zawiera artykułu o EGMS.** Są w niej: preprint o wilgotności gleby w Chile
-   (egusphere-2025-2606), dwie karty wskaźników EDO (CDI, SMA) i praca dyplomowa o super-rozdzielczości Sentinel-2.
-   Prawdopodobnie trafiła tu przez pomyłkę; artykułu Fabris i Nazari 2026 w PDF nadal brak (pełny tekst jest w
-   `literatura_txt/`, więc nie blokuje to pracy).
+5. **Artykuł Fernández i in. 2018 (PDF) używa odwrotnej konwencji znaku LOS** (dodatni = oddalanie od satelity)
+   i pokazuje, że pomiar naziemny też bywa obciążony (niestabilne znaki). Wzoru dekompozycji nie wolno przepisać
+   bez zmiany znaku; repery 300 i 301 w Hengelo warto czytać w tym świetle (sekcja 2.6).
 
 ---
 
@@ -111,6 +110,19 @@ Przeczytałem `step_05_colab_run.py` (1221 linii) i `build_colab_master.py`.
 | **Bramka po `task_checks`** | **nowe; w AgriWatch tego nie ma**: błąd jednego zadania nie zatrzymuje następnych | ARCHITEKTURA wymaga, żeby błąd kontroli zatrzymał dalsze zadania tego przypadku. Propozycja: `run_task(..., requires=["checks:case_1"])` sprawdza w `gwl_runs` status zadania-warunku z bieżącej serii i przy braku `ok` zapisuje `skipped` z powodem |
 | `_selftest` | nowy, na wzór AgriWatch: katalog tymczasowy, dane syntetyczne EGMS (trend + sinusoida + szum, znany wektor LOS), prawdziwy `PTO1.txt` i tabele referencyjne | testy „z sensem naukowym" z `Plan_v1_potok.md` |
 | `build_colab_master.py` | struktura `CELLS` bez zmian; komórka 1 (Dysk, klon, `pull --ff-only`, autostash) przeniesiona; GPU niepotrzebne | notatnik `notebooks/EGMS_Check.ipynb` |
+
+### 2.6 Fernández i in. 2018 — lektura PDF (2026-10-09)
+
+Szczegóły w F1 (pozycja 4) i F4 (sekcje 4 i 8). Co zmienia w planie:
+
+| Ustalenie | Skutek |
+|---|---|
+| u_LOS dodatnie przy oddalaniu od satelity; wzór 1 w druku ma strony zamienione względem modelu wprost | F4, sekcja 4 poprawiona; w kodzie żadnych wzorów przepisanych z artykułu bez kontroli A1–A4 |
+| Rzut GNSS → LOS dał lepszą zgodność (ok. 0,7 cm/rok) niż dekompozycja orbit na pion i E-W | potwierdza regułę „kierunek zawsze GNSS → LOS” i L3 zamiast własnej dekompozycji w Hengelo |
+| Porównanie punktów InSAR w promieniu 100 m od stacji | ten sam promień co w metodyce EEA; spójne z buforem 100 m w przypadku 1 |
+| Niestabilność znaków pomiarowych (stacje 23 i 28) wykryta dopiero przez porównanie z InSAR i wizję w terenie | w przypadku 2 rozbieżność na pojedynczym reperze może wynikać z reperu, nie z EGMS; dlatego decyzja o reperach 300 i 301 i o opisie reperów (C3) przed obliczeniami |
+| Niepewność prędkości GNSS z błądzeniem losowym 1,5 / 2,5 mm/√rok | dodatkowy kandydat do decyzji o niepewności prędkości GNSS (F4, sekcja 8) |
+| Odrzucanie dni GNSS: niepewność > 20 mm lub > 10 mm od trendu | możliwa reguła dla PTO1 (sigma do 22,8 mm); tylko jako decyzja autora przed obliczeniami, nie domyślnie |
 
 ---
 
@@ -271,6 +283,7 @@ potem 2" z CLAUDE.md, więc wymaga Twojej zgody.
 | Mała gęstość punktów przy reperze 000A2890 | brak odniesienia | grupa stabilna, decyzja przed obliczeniami |
 | Brak sieci do serwerów danych w tym środowisku | sesje API niewykonalne tutaj | D-E |
 | Licencja raportu NLOG | ograniczenia publikacji wycinka | sprawdzić przed wpisem z przypadkiem 2 (S3) |
+| Niestabilny reper (osiadanie własne znaku lub budowli) | rozbieżność przypisana EGMS, choć źródłem jest reper | opis reperów (C3) i lista wyłączeń przed obliczeniami; rozbieżności raportować z możliwą przyczyną (Fernández i in. 2018: stacje 23 i 28) |
 
 ---
 
@@ -298,3 +311,4 @@ potem 2" z CLAUDE.md, więc wymaga Twojej zgody.
 | B2FIND, opis zbioru PANGAEA.958598: https://b2find.eudat.eu/dataset/5475e4be-cd5f-5a1f-a69a-e09adc455deb | zakres zbioru, przetwarzanie | metadane |
 | Pintori i Serpelloni 2024, doi:10.1029/2023EA003326 | wypiętrzenie do 7 mm w 01.2021–08.2022 | abstrakt |
 | `1_geoworldlook-agriscreen`: `step_05_colab_run.py`, `build_colab_master.py` | sekcja 2.5 | kod |
+| Fernández i in. 2018, Sci. Rep. 8:14782, doi:10.1038/s41598-018-33128-0 (PDF, 14 stron) | sekcja 2.6; F1, F4 | pełny tekst |

@@ -133,6 +133,18 @@ Kod dostępny częściowo, na prośbę.
 **Znaczenie dla nas:** w Lorce nie wolno rzutować samego pionu, potrzebny pełny rzut 3D.
 Zawiera też wzór dekompozycji orbit na pion i E-W.
 
+**Uzupełnienia z PDF (przeczytany w całości 2026-10-09; plik lokalnie w `docs/evidence/literatura_pdf/`):**
+- znak LOS w artykule: dodatni = oddalanie od satelity, czyli odwrotnie niż przyjmujemy dla EGMS (F4, sekcja 4),
+- zgodność liczona dla punktów A-DInSAR w promieniu **100 m** od stacji GNSS (tab. S5 i S6 w suplemencie):
+  ok. 0,7 cm/rok w pionie, ok. 1,0 cm/rok w E-W, ok. 0,7 cm/rok w LOS po rzucie 3D GNSS na obu orbitach,
+- dekompozycja na pion i E-W dała tu słabe wyniki (E-W na poziomie niepewności), rzut GNSS → LOS lepsze,
+- duże ruchy poziome przy stacjach 23 i 28 autorzy przypisali **niestabilności znaków pomiarowych** po porównaniu
+  z A-DInSAR i wizji w terenie; pomiar naziemny też bywa obciążony,
+- GNSS: GAMIT/GLOBK 10.6, ITRF2008, potem obrót do lokalnego układu przez minimalizację prędkości stacji ALAC, ALBA,
+  ALME; odrzucano dni z niepewnością > 20 mm lub odchyleniem > 10 mm od trendu; błądzenie losowe 1,5 / 2,5 mm/√rok,
+- A-DInSAR: 37 obrazów (19 wstępujących, 18 zstępujących), 185 interferogramów, okno 10.2015–02.2017, CPT,
+  wieloodczyt 3 × 15 (ok. 60 × 60 m), próg koherencji 0,4.
+
 **Ograniczenia:** to nie jest EGMS, tylko własne przetwarzanie. Dane dostępne na prośbę.
 
 ---

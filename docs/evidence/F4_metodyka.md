@@ -56,10 +56,26 @@ wschód ok. 0,5–0,7 ze znakiem zależnym od orbity; północ ok. 0,1. Ruch N-S
 
 ## 4. Dekompozycja dwóch orbit (tylko do zrozumienia produktu L3)
 
-Fernández i in. 2018, wzór 1: pion i E-W wyznacza się z LOS wstępującego i zstępującego,
-z kątami padania θ i kierunkami lotu α dla obu orbit, zaniedbując N-S. Wymaga interpolacji,
-bo punkty obu orbit się nie pokrywają. Dokładny zapis macierzy: PDF, str. 5
-(w ekstrakcie tekstowym wzór jest zniekształcony). W pipeline tego nie liczymy; korzystamy z L3.
+Fernández i in. 2018, wzór 1 (PDF, str. 5; sprawdzone w PDF 2026-10-09). Pion i E-W wyznacza się z LOS
+wstępującego i zstępującego, z kątami padania θ i kątami kursu satelity α dla obu orbit, zaniedbując N-S:
+
+```
+[u_LOS_asc]   [ −cos θ_asc   sin θ_asc · cos α_asc ]   [u_z ]
+[u_LOS_dsc] = [ −cos θ_dsc   sin θ_dsc · cos α_dsc ] · [u_ew]      →   [u_z, u_ew] = M⁻¹ · [u_LOS_asc, u_LOS_dsc]
+```
+
+Uwagi z lektury PDF:
+- **W artykule u_LOS jest dodatnie przy oddalaniu od satelity.** To odwrotnie niż w konwencji, którą przyjmujemy dla
+  EGMS (ujemne = oddalanie, za Fabris i Nazari 2026). Wzoru nie wolno przepisać bez zmiany znaku.
+- W druku po lewej stronie stoją (u_z, u_ew), a po prawej macierz o współczynnikach modelu wprost (LOS z pionu i E-W).
+  Spójny zapis to ten powyżej: macierz M daje LOS, a składowe wymagają odwrócenia M.
+- Kierunek dodatni u_ew i konwencja kąta α nie są w tekście zdefiniowane; współczynnik E-W sprawdzić na danych
+  (znak `los_east` przeciwny dla orbit, kontrola A3), a nie przyjmować z artykułu.
+- Pominięto poprawkę na kąt zeza (squint). Dekompozycja wymaga interpolacji, bo piksele orbit się nie pokrywają,
+  i jest dopuszczalna tylko przy sygnale gładkim i dobrze próbkowanym. W Lorce dała słabe wyniki, bo E-W było na
+  poziomie niepewności A-DInSAR; lepsza zgodność wyszła po rzucie 3D GNSS na LOS (ok. 0,7 cm/rok na obu orbitach).
+
+W pipeline tego nie liczymy; korzystamy z L3. To samo uzasadnia regułę z sekcji 3: kierunek zawsze GNSS → LOS.
 
 ## 5. Dopasowanie przestrzenne
 
@@ -116,7 +132,8 @@ ułamków mm/rok. Przy progu 1,5 mm/rok to nie jest pomijalne.
   (trend liniowy + sinusoida roczna) i opisać to w raporcie.
 - Dla GNSS stosuj ten sam model w tym samym oknie.
 - Niepewność prędkości GNSS z prostej regresji jest zaniżona (szum skorelowany). Sposób
-  szacowania wymaga decyzji autora; kandydaci: MIDAS, modele szumu potęgowego (HECTOR).
+  szacowania wymaga decyzji autora; kandydaci: MIDAS, modele szumu potęgowego (HECTOR), składnik błądzenia
+  losowego dodany do niepewności (Fernández i in. 2018: 1,5 mm/√rok poziomo, 2,5 mm/√rok pionowo).
 
 ## 9. Metryki
 
