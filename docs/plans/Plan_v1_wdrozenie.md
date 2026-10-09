@@ -124,6 +124,23 @@ Szczegóły w F1 (pozycja 4) i F4 (sekcje 4 i 8). Co zmienia w planie:
 | Niepewność prędkości GNSS z błądzeniem losowym 1,5 / 2,5 mm/√rok | dodatkowy kandydat do decyzji o niepewności prędkości GNSS (F4, sekcja 8) |
 | Odrzucanie dni GNSS: niepewność > 20 mm lub > 10 mm od trendu | możliwa reguła dla PTO1 (sigma do 22,8 mm); tylko jako decyzja autora przed obliczeniami, nie domyślnie |
 
+### 2.7 White Paper i EGMS-toolkit — lektura PDF (2026-10-09)
+
+Teksty obu PDF-ów są identyczne z plikami w `literatura_txt/`, więc nie zmieniają tego, co było w F1;
+przeczytałem je jednak w całości i kilka rzeczy trafia do planu. Szczegóły w F1 (pozycje 5 i 6).
+
+| Ustalenie | Skutek |
+|---|---|
+| White Paper nie definiuje sposobu liczenia 85% pokrycia | D-B zostaje decyzją autora; w raporcie podać definicję wprost |
+| White Paper ocenia dokładność na L2a, a L2b/L3 przez osobną walidację modelu GNSS | T1 na L2b sprawdza to, co widzi użytkownik, a nie dokładność samego InSAR; tak to opisać we wpisie. Test na L2a (F2, rozszerzenia) wymaga drugiej stacji (podwójne różnice) |
+| Lista przyczyn rozbieżności z White Paper (odległość, jakość pomiaru naziemnego, ograniczenia EGMS, rozdzielczość) | szablon sekcji „Co się nie zgadza” we wpisie i w `bulletin.md` |
+| UR17: użytkownicy chcą modelu GNSS w ETRF2014 | sprawdzić w dokumentacji wydania 2020–2024, czy zmienił się układ lub model GNSS. Ważne dla przypadku 2, bo nałożenie (2020–2024) i prognoza (2018–2022) używają różnych wydań; różnice względem reperu odniesienia usuwają większość wspólnego przesunięcia, ale nie gradient modelu |
+| Toolkit usuwa duplikaty z zakładek burstów przez przypisanie zakładki do jednego burstu (otoczka wklęsła), a nie przez próg odległości | kontrola A5 („0 par bliżej niż 1 m”) to nasza heurystyka i może nie wykryć duplikatów, jeśli nie mają identycznych współrzędnych. W sesji 4: rozkład odległości do najbliższego punktu z innego burstu w obrębie zakładki **i** reguła oparta na poligonach burstów (`poly` z wyniku `search`); dopiero potem decyzja o regule |
+| Duplikaty to 2–10% punktów, więcej gdy zakładka wypada na zabudowie | przy PTO1 sprawdzić, czy stacja leży w zakładce (artykuł podaje po trzy „sceny” na ścieżkę) |
+| Sezonowość w L2b obciążona kalibracją GNSS (za raportem walidacyjnym EEA) | korelację szeregów po usunięciu trendu raportować bez wniosków o sezonowości; to argument za oceną T1 na trendzie |
+| Serwer EGMS odrzuca zbyt częste zapytania | `sync_egms`: przerwa między zapytaniami i ponowienie tylko brakujących plików, z wpisem w `gwl_runs` |
+| Token toolkitu (32 znaki z Explorera) to inny mechanizm niż token CLMS API | toolkit zostaje zapasem; nie zakładać, że działa z nowym Explorerem |
+
 ---
 
 ## 3. Niespójności w dokumentach (do poprawy w sesji 0)
@@ -139,6 +156,7 @@ Szczegóły w F1 (pozycja 4) i F4 (sekcje 4 i 8). Co zmienia w planie:
 | N7 | `Plan_v1_dane_do_pobrania.md`, poz. 2–3 i 6b | wydanie 2018–2022 przez API | dopisać drogę przez Helpdesk lub ESA GEP (sekcja 2.2) |
 | N8 | `case_2_*.yaml`, `acceptance` | tylko 2 progi, a T2 ma 4 kryteria | dopisać próg prognozy i kontroli negatywnej oraz definicję reperu stabilnego (≤ 2 mm) |
 | N9 | `Plan_v1_otwarte_pytania.md`, A2 | zakłada, że brak 2018–2022 w API zatrzymuje pracę | zmienione: brak w API → wniosek do Helpdesku, praca idzie dalej (sekcja 5) |
+| N10 | `Plan_v1_kryteria_akceptacji.md`, A5 | kryterium „0 par bliżej niż 1 m” przypisane Hrysiewiczowi i in. 2024, a artykuł usuwa duplikaty przez przypisanie zakładki do jednego burstu (otoczka wklęsła) i progu odległości nie podaje | zmienić źródło na „nasza heurystyka” i dopisać regułę opartą na poligonach burstów (sekcja 2.7) |
 
 ---
 
@@ -149,7 +167,7 @@ Dla każdej podaję rekomendację; decyzja jest Twoja (CLAUDE.md, zasada 2). Zap
 | # | Decyzja | Warianty | Rekomendacja | Blokuje |
 |---|---|---|---|---|
 | **D-A** | Wydanie EGMS i okno dla T1 | (1) 2015–2021, okno ok. 01.2016–04.2021; (2) 2018–2022, okno 06.2018–04.2021 i jawne odstępstwo od A6; (3) dłuższy szereg GNSS (NGL lub INGV), jeśli istnieje, z wydaniem 2018–2022; (4) 2019–2023 z API, okno 01.2019–04.2021 | **(3), jeśli NGL ma PTO1** (5 minut sprawdzenia); w przeciwnym razie **(1) jako test T1 i (2) jako tabela „artykuł kontra my"**: oba wydania z jednego wniosku do Helpdesku. Wariant (4) tylko awaryjnie: 46% i dodatkowo wpływ suszy | sesje 2–5 |
-| **D-B** | Definicja A6 | (a) wspólne okno / okres wydania; (b) doby z GNSS / wspólne okno; (c) oba warunki | **(c)**: (a) ≥ 85% i (b) ≥ 85%; to wierne White Paper i odporne na krótkie okna | sesja 5 |
+| **D-B** | Definicja A6 | (a) wspólne okno / okres wydania; (b) doby z GNSS / wspólne okno; (c) oba warunki | **(c)**: (a) ≥ 85% i (b) ≥ 85%. White Paper (pełny tekst sprawdzony) mówi tylko „85% temporal overlap between EGMS products and validation datasets” i definicji nie podaje; jego brzmienie jest najbliższe (a), a (b) chroni przed dziurami w szeregu | sesja 5 |
 | **D-C** | Rola kryterium „100 m kontra 200 m" | wpływa na wynik T1 / tylko raport | tylko raport, bo reguła T1 już go nie używa; po prostu zostawić tabelę zgodną z regułą | sesja 5 |
 | **D-D** | Złożenie wniosku do CLMS Helpdesk | teraz / po sesji 2 | **teraz**: L2b 2018–2022 i 2015–2021 dla burstów nad PTO1 na ścieżkach 117, 44 i 95 oraz L3 pion 2018–2022 dla kafla z Hengelo. Numery burstów pokaże dopiero `search`; jeśli formularz ich wymaga, podać obszar (punkt PTO1 i prostokąt Hengelo) | ścieżka krytyczna T1 i testu prognozy |
 | D-E | Dostęp sieciowy dla sesji API | Colab / lokalnie / to środowisko w chmurze | w tym środowisku domeny `egms.land.copernicus.eu`, `download.pangaea.de`, `geodesy.unr.edu`, `www.nlog.nl` są zablokowane (proxy 403). Albo sesje 2, 3 i 9 w Colab lub lokalnie, albo dopisanie tych domen w ustawieniach sieci środowiska | sesje 2, 3, 9 |
@@ -283,6 +301,8 @@ potem 2" z CLAUDE.md, więc wymaga Twojej zgody.
 | Mała gęstość punktów przy reperze 000A2890 | brak odniesienia | grupa stabilna, decyzja przed obliczeniami |
 | Brak sieci do serwerów danych w tym środowisku | sesje API niewykonalne tutaj | D-E |
 | Licencja raportu NLOG | ograniczenia publikacji wycinka | sprawdzić przed wpisem z przypadkiem 2 (S3) |
+| Duplikaty z zakładek burstów bez identycznych współrzędnych | zawyżona liczba punktów i obciążona średnia w buforze | kontrola A5 rozszerzona o regułę poligonów burstów (sekcja 2.7) |
+| Zmiana układu lub modelu GNSS między wydaniami | niespójność nałożenia (2020–2024) i prognozy (2018–2022) w przypadku 2 | sprawdzić dokumentację wydania 2020–2024; porównania tylko względem reperu odniesienia |
 | Niestabilny reper (osiadanie własne znaku lub budowli) | rozbieżność przypisana EGMS, choć źródłem jest reper | opis reperów (C3) i lista wyłączeń przed obliczeniami; rozbieżności raportować z możliwą przyczyną (Fernández i in. 2018: stacje 23 i 28) |
 
 ---
@@ -312,3 +332,5 @@ potem 2" z CLAUDE.md, więc wymaga Twojej zgody.
 | Pintori i Serpelloni 2024, doi:10.1029/2023EA003326 | wypiętrzenie do 7 mm w 01.2021–08.2022 | abstrakt |
 | `1_geoworldlook-agriscreen`: `step_05_colab_run.py`, `build_colab_master.py` | sekcja 2.5 | kod |
 | Fernández i in. 2018, Sci. Rep. 8:14782, doi:10.1038/s41598-018-33128-0 (PDF, 14 stron) | sekcja 2.6; F1, F4 | pełny tekst |
+| Crosetto i in. 2025, Validation White Paper v3.0 (PDF, 19 stron) | sekcja 2.7; D-B; F1 | pełny tekst |
+| Hrysiewicz i in. 2024, Earth Sci. Inform. 17:3825–3837 (PDF, 13 stron) | sekcja 2.7; F1 | pełny tekst |

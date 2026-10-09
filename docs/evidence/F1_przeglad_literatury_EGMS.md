@@ -158,6 +158,20 @@ Zawiera też wzór dekompozycji orbit na pion i E-W.
 - **Wymagania:** Python 3, GDAL ≥ 3.8, GMT z GSHHG. Token z EGMS Explorer (końcówka dowolnego linku pobierania, ważny czasowo).
 - **Ograniczenie:** artykuł opisuje wydania 2015–2021 i 2018–2022. Obsługa nowszych jest niezweryfikowana (repozytorium: wersja 0.3.0 Beta, 10.2025).
 
+**Uzupełnienia z PDF (przeczytany 2026-10-09; tekst identyczny z plikiem w `literatura_txt/`):**
+- duplikaty powstają, bo punkty w zakładkach burstów i pasów są estymowane z burstu poprzedniego i następnego;
+  w przykładzie Dublina ok. 6% punktów ścieżki 001 (ok. 10% w obszarze zainteresowania, bo zakładki leżą na mieście)
+  i ok. 2% ścieżki 103 (< 1% w obszarze); odsetek zależy od tego, czy zakładka wypada na zabudowie,
+- **toolkit usuwa duplikaty algorytmem otoczki wklęsłej (concave hull, Park i Oh 2012)**, czyli przez przypisanie
+  obszaru zakładki do jednego burstu, a nie przez szukanie par punktów bliżej niż zadana odległość; artykuł nie
+  podaje, czy duplikaty mają identyczne współrzędne,
+- L3 nie ma tego problemu, ale daty akwizycji mogą się różnić między kaflami L3 a plikami L2b,
+- powołując się na raport walidacyjny EEA (Calero i in. 2023): sezonowość w L2b i L3 jest obciążona kalibracją
+  GNSS i można ją interpretować „ostrożnie, tylko dla L2a”,
+- serwer EGMS odrzuca zbyt częste zapytania; toolkit domyślnie czeka 15 s między zapytaniami i zaleca ponowne
+  uruchomienie dla brakujących plików,
+- token w toolkicie to 32-znakowy ciąg z EGMS Explorer (stary mechanizm pobierania), a nie token CLMS API.
+
 ---
 
 ## 6. Crosetto i in. 2025 — Validation White Paper
@@ -175,6 +189,20 @@ Zawiera też wzór dekompozycji orbit na pion i E-W.
 - zdarzeń bardzo szybkich InSAR nie uchwyci i trzeba to mówić wprost.
 
 **Co czytać:** rozdz. 3, 4.1, 4.3.
+
+**Uzupełnienia z PDF (przeczytany w całości 2026-10-09; tekst identyczny z plikiem w `literatura_txt/`):**
+- wymóg brzmi dosłownie: „At least 85% temporal overlap between EGMS products and validation datasets” (rozdz. 4.1);
+  **dokument nie definiuje, jak liczyć pokrycie** (względem okresu wydania czy szeregu referencyjnego),
+- walidacja z danymi in situ (rozdz. 4.1) dotyczy produktu **L2a**; L2b i L3 wymagają osobno walidacji modelu GNSS
+  (rozdz. 4.3), bo jego błędy przechodzą wprost do tych produktów; dokument odsyła do artefaktów w składowych
+  pionowej i poziomej modelu (ryc. 4 i 5 w GNSS Calibration Report, RD6),
+- stacja permanentna może służyć do walidacji, jeśli spełnia standardy i ma „wystarczająco długi okres obserwacji”,
+- dla danych in situ pierwszeństwo ma jakość danych przed losowym doborem miejsc; dozwolone są dedykowane miejsca testowe,
+- dyskusja rozbieżności ma rozważyć: odległość od pomiaru naziemnego, jakość pomiaru naziemnego, błędy i ograniczenia
+  EGMS, rozdzielczość przestrzenną EGMS,
+- wymagania użytkowników z ankiety EEA obejmują m.in. zmianę układu modelu GNSS na **ETRF2014** (UR17) i pobieranie
+  maszynowe przez API (UR27); czy wydanie 2020–2024 zmieniło układ, dokument nie mówi,
+- indeksy zgodności (IoA) tylko jako uzupełnienie wyników ilościowych.
 
 ---
 
