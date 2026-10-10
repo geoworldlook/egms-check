@@ -6,7 +6,7 @@
 > (`migracja/05_audyt.md`, 5.4).
 >
 > **Aktualizacja po migracji (nowe konto): [9. Audyt po migracji](migracja/09_audyt_po_migracji.md).**
-> Pierwszy prawdziwy przebieg E1 wykonano w Colab (21:08 UTC), zanim powstał ten dokument, ale nie został w nim
+> Pierwszy prawdziwy przebieg E1 wykonano w Colab (plik wyników 18:35 UTC, zapis notatnika na GitHub 21:08 UTC), zanim powstał ten dokument, ale nie został w nim
 > uwzględniony. Wynik: **CZĘŚCIOWO** (K1, K2 spełnione; K3 niespełnione). Plik 9 ma pierwszeństwo przed 2–7.
 
 ## Spis plików
