@@ -52,12 +52,14 @@ print('Projekt:', PROJECT_DIR)"""),
 Źródła wartości w komentarzach. Zmiana po zobaczeniu wyników jest niedozwolona; ewentualną zmianę zapisuje się z datą."""),
     ("code", """CFG = {
     # Wybór stacji (reguła zatwierdzona 2026-10-10)
-    'region_lonlat': (5.8, 52.9, 7.3, 53.6),     # Groningen i okolice (pole gazowe)
+    'region_lonlat': (5.8, 52.9, 7.3, 53.6),     # stacje osiadające: Groningen (pole gazowe)
+    'control_region_lonlat': (4.8, 52.4, 8.3, 54.0),  # stacje stabilne: region + ok. 60 km okolicy
     't_first_max': 2019.0, 't_last_min': 2024.25, # GNSS pokrywa wydanie 2019-2023
     'svu_max_mm_yr': 1.0,                         # niepewność prędkości GNSS
     'max_steps': 2,                               # skoki w szeregu GNSS
     'vu_subsiding_max': -2.0,                     # stacja osiadająca: vu <= -2 mm/rok
-    'vu_stable_abs_max': 0.5,                     # stacja stabilna (kontrola negatywna)
+    'vu_stable_abs_max': 1.0,                     # stacja stabilna: |vu| <= 1 mm/rok (kontrola negatywna)
+    'n_stable': 8, 'n_stable_min': 3,             # 8 stabilnych najbliższych strefy osiadania; < 3 = błąd
     # EGMS
     'release': '2019-2023', 'level': 'L2B',
     'extract_radius_m': 200,
@@ -79,17 +81,19 @@ GNSS_DIR = Path('data/02_Raw_Ground/3_gnss_ngl')
 FIG_DIR = Path('data/05_Final_Outputs/egmscheck/figures'); FIG_DIR.mkdir(parents=True, exist_ok=True)
 MANIFEST = Path('data/00_Metadata/MANIFEST.csv')
 DOWNLOADED_BY = 'GeoWorldLook'"""),
-    ("md", "## 2. Stacje GNSS (wszystkie spełniające regułę, bez wyboru ręcznego)"),
+    ("md", "## 2. Stacje GNSS: osiadające w Groningen + stabilne z okolicy (reguła, bez wyboru ręcznego)\n"
+           "`dist_km` = odległość stacji stabilnej od najbliższej stacji osiadającej."),
     ("code", """from pyproj import Transformer
 from step_01_ingest import read_ngl_midas, select_stations
 MIDAS_URL = 'https://geodesy.unr.edu/velocities/midas.IGS.txt'
 r = requests.get(MIDAS_URL, timeout=300); r.raise_for_status()
-stations = select_stations(read_ngl_midas(r.text), CFG['region_lonlat'], CFG['t_first_max'], CFG['t_last_min'],
-                           CFG['svu_max_mm_yr'], CFG['max_steps'], CFG['vu_subsiding_max'], CFG['vu_stable_abs_max'])
+stations = select_stations(read_ngl_midas(r.text), CFG['region_lonlat'], CFG['control_region_lonlat'],
+                           CFG['t_first_max'], CFG['t_last_min'], CFG['svu_max_mm_yr'], CFG['max_steps'],
+                           CFG['vu_subsiding_max'], CFG['vu_stable_abs_max'], CFG['n_stable'], CFG['n_stable_min'])
 stations['x_3035'], stations['y_3035'] = Transformer.from_crs(4326, 3035, always_xy=True).transform(
     stations['lon_deg'].to_numpy(), stations['lat_deg'].to_numpy())
 print(stations['group'].value_counts().to_string())
-stations[['site', 'group', 'lat_deg', 'lon_deg', 't_first', 't_last', 'vu_mm_yr', 'svu_mm_yr', 'n_steps']].round(3)"""),
+stations[['site', 'group', 'lat_deg', 'lon_deg', 't_first', 't_last', 'vu_mm_yr', 'svu_mm_yr', 'n_steps', 'dist_km']].round(3)"""),
     ("md", "## 3. GNSS: dobowe szeregi NGL (E, N, U; płyta euroazjatycka odjęta, jak w EGMS)"),
     ("code", """from step_01_ingest import ngl_tenv3_url, download_file, read_ngl_tenv3, NGL_LICENCE
 gnss = {}

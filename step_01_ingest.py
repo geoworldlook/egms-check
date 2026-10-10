@@ -306,23 +306,42 @@ def screen_stations(midas: pd.DataFrame, bbox_lonlat: tuple, t_first_max: float,
     return midas.loc[m, cols].sort_values("vu_mm_yr").reset_index(drop=True)
 
 
-def select_stations(midas: pd.DataFrame, region_lonlat: tuple, t_first_max: float, t_last_min: float,
-                    svu_max_mm_yr: float, max_steps: int, vu_subsiding_max: float, vu_stable_abs_max: float) -> pd.DataFrame:
+def select_stations(midas: pd.DataFrame, region_lonlat: tuple, control_region_lonlat: tuple, t_first_max: float,
+                    t_last_min: float, svu_max_mm_yr: float, max_steps: int, vu_subsiding_max: float,
+                    vu_stable_abs_max: float, n_stable: int, n_stable_min: int) -> pd.DataFrame:
     """
-    Reguła wyboru stacji (zatwierdzona 2026-10-10): wszystkie stacje w regionie z danymi w oknie,
-    niepewnością prędkości pionowej <= svu_max i liczbą skoków <= max_steps; grupa 'osiadająca'
-    (vu <= vu_subsiding_max) i 'stabilna' (|vu| <= vu_stable_abs_max). Bez wyboru ręcznego.
+    Reguła wyboru stacji (2026-10-10). Wspólne warunki jakości: dane w oknie, niepewność vu <= svu_max,
+    liczba skoków <= max_steps.
+      'osiadająca': wszystkie stacje w region_lonlat z vu <= vu_subsiding_max;
+      'stabilna'  : stacje w control_region_lonlat (region rozszerzony o okolicę) z |vu| <= vu_stable_abs_max,
+                    n_stable najbliższych stacji osiadającej (kolumna dist_km). Kontrola negatywna:
+                    ta sama metoda w okolicy musi pokazać brak ruchu.
+    Bez wyboru ręcznego. Wyjątek, gdy stacji stabilnych jest mniej niż n_stable_min.
     """
-    lo0, la0, lo1, la1 = region_lonlat
-    m = (midas["lon_deg"].between(lo0, lo1) & midas["lat_deg"].between(la0, la1)
-         & (midas["t_first"] <= t_first_max) & (midas["t_last"] >= t_last_min)
+    q = ((midas["t_first"] <= t_first_max) & (midas["t_last"] >= t_last_min)
          & (midas["svu_mm_yr"] <= svu_max_mm_yr) & (midas["n_steps"] <= max_steps))
-    st = midas[m].copy()
-    st["group"] = np.where(st["vu_mm_yr"] <= vu_subsiding_max, "osiadająca",
-                           np.where(st["vu_mm_yr"].abs() <= vu_stable_abs_max, "stabilna", "pominięta"))
-    st = st[st["group"] != "pominięta"]
-    cols = ["site", "group", "lat_deg", "lon_deg", "t_first", "t_last", "vu_mm_yr", "svu_mm_yr", "n_steps"]
-    return st[cols].sort_values(["group", "vu_mm_yr"]).reset_index(drop=True)
+
+    def inside(box):
+        lo0, la0, lo1, la1 = box
+        return midas["lon_deg"].between(lo0, lo1) & midas["lat_deg"].between(la0, la1)
+
+    sub = midas[q & inside(region_lonlat) & (midas["vu_mm_yr"] <= vu_subsiding_max)].assign(group="osiadająca")
+    if sub.empty:
+        raise RuntimeError("Brak stacji osiadających spełniających regułę.")
+    stab = midas[q & inside(control_region_lonlat) & (midas["vu_mm_yr"].abs() <= vu_stable_abs_max)].copy()
+    lat0, lon0 = np.deg2rad(stab["lat_deg"].to_numpy())[:, None], np.deg2rad(stab["lon_deg"].to_numpy())[:, None]
+    lat1, lon1 = np.deg2rad(sub["lat_deg"].to_numpy())[None, :], np.deg2rad(sub["lon_deg"].to_numpy())[None, :]
+    hav = np.sin((lat1 - lat0) / 2) ** 2 + np.cos(lat0) * np.cos(lat1) * np.sin((lon1 - lon0) / 2) ** 2
+    stab["dist_km"] = (2 * 6371.0 * np.arcsin(np.sqrt(hav))).min(axis=1) if len(stab) else []
+    print(f"Stacje stabilne spełniające regułę w regionie kontrolnym: {len(stab)}; wybrano {min(n_stable, len(stab))} "
+          f"najbliższych stacji osiadającej.")
+    stab = stab.nsmallest(n_stable, "dist_km").assign(group="stabilna")
+    if len(stab) < n_stable_min:
+        raise RuntimeError(f"Stacji stabilnych {len(stab)} < {n_stable_min}: kontrola negatywna byłaby zbyt słaba. "
+                           f"Rozszerz control_region_lonlat (decyzja przed pobraniem EGMS).")
+    sub = sub.assign(dist_km=0.0)
+    cols = ["site", "group", "lat_deg", "lon_deg", "t_first", "t_last", "vu_mm_yr", "svu_mm_yr", "n_steps", "dist_km"]
+    return pd.concat([sub, stab])[cols].sort_values(["group", "vu_mm_yr"]).reset_index(drop=True)
 
 
 def ngl_screening(session, headers: dict, endpoint: str, midas_url: str, bbox_lonlat: tuple,
@@ -462,6 +481,19 @@ def _selftest() -> None:
     mid = read_ngl_midas(line + "\n" + stable)
     sel = screen_stations(mid, (-25.0, 34.0, 45.0, 72.0), 2019.9, 2025.0, -2.0)
     assert list(sel["site"]) == ["PTO1"] and abs(sel["vu_mm_yr"].iat[0] + 4.5) < 1e-9
+    near = stable.replace("STBL", "NEAR").replace("50.0", "45.2")   # stabilna ~28 km od PTO1
+    far = stable.replace("STBL", "FARS").replace("50.0", "47.0")    # stabilna ~230 km od PTO1
+    mid3 = read_ngl_midas("\n".join([line, stable, near, far]))
+    sel = select_stations(mid3, (12.0, 44.5, 12.6, 45.1), (10.0, 44.0, 14.0, 48.0), 2019.0, 2024.25, 1.0, 2,
+                          -2.0, 1.0, 1, 1)
+    assert list(sel["site"]) == ["PTO1", "NEAR"] and list(sel["group"]) == ["osiadająca", "stabilna"]
+    assert 25 < sel["dist_km"].iat[1] < 32
+    try:
+        select_stations(mid3, (12.0, 44.5, 12.6, 45.1), (12.0, 44.5, 12.6, 45.1), 2019.0, 2024.25, 1.0, 2,
+                        -2.0, 1.0, 3, 1)
+        raise AssertionError("Oczekiwano wyjątku: brak stacji stabilnych")
+    except RuntimeError:
+        pass
     try:
         read_ngl_midas("XXXX MIDAS5 2008.0 2026.0")
         raise AssertionError("Oczekiwano wyjątku dla złej liczby kolumn")
