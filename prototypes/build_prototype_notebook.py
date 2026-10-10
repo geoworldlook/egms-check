@@ -230,8 +230,8 @@ for l in links:
     print('przerwy > 30 dni:', [(str(dates.iloc[i-1].date()), str(dates.iloc[i].date()), int(gaps.iloc[i])) for i in np.where(gaps > 30)[0]])"""),
     ("md", """## 9. Inne stacje GNSS: przegląd NGL (MIDAS, IGS20) i pokrycie EGMS
 Nie musimy ograniczać się do PTO1. NGL publikuje otwarte szeregi dobowe i prędkości MIDAS tysięcy stacji.
-Aktualny plik prędkości w układzie IGS20 to `midas.IGS.txt` (katalog https://geodesy.unr.edu/velocities/,
-aktualizowany co tydzień); `midas.IGS14.txt` nie jest już aktualizowany.
+Aktualny plik prędkości w układzie IGS20 to `midas.IGS.txt` (katalog https://geodesy.unr.edu/velocities/);
+`midas.IGS14.txt` nie jest już aktualizowany. Dane IGS20 sięgają na razie ok. 2024.65 (sierpień 2024).
 
 Kryteria ustalamy **przed** obejrzeniem listy i bierzemy wszystkie stacje, które je spełniają (bez wyboru pod wynik).
 Wartości poniżej to propozycja; zmień je przed uruchomieniem, jeśli chcesz inne.
@@ -247,7 +247,8 @@ TODAY = datetime.date.today().strftime('%Y%m%d')
 # Propozycja kryteriów (do zatwierdzenia przez autora):
 BBOX_LONLAT = (-25.0, 34.0, 45.0, 72.0)   # przybliżony zasięg EGMS (Europa)
 T_FIRST_MAX = 2019.0                       # dane od początku wydania 2019-2023 (i 2020-2024)
-T_LAST_MIN = 2025.0                        # dane do końca wydania 2020-2024
+T_LAST_MIN = 2024.25                       # 2019-2023 w całości i >= 85% wydania 2020-2024 (2020.0 + 0,85 * 5 lat);
+                                           # przetworzenie NGL IGS20 sięga na razie do ok. 2024.65 (stan 2026-10-10)
 VU_MAX_MM_YR = -2.0                        # osiadanie co najmniej 2 mm/rok (sygnał wyraźnie nad szumem)
 MAX_SEARCH = 30                            # dla ilu stacji pytać API EGMS o pokrycie
 RELEASE_FOR_COVERAGE = '2020-2024'
@@ -261,7 +262,11 @@ midas = read_ngl_midas(r.text)
 print(f'{MIDAS_URL}: {len(midas)} stacji, najpóźniejszy koniec danych {midas["t_last"].max():.3f}')
 print('PTO1:', midas.loc[midas['site'] == 'PTO1', ['t_first', 't_last', 'vu_mm_yr', 'svu_mm_yr']].to_dict('records'))
 if midas['t_last'].max() < T_LAST_MIN:
-    raise RuntimeError(f'Plik MIDAS kończy się przed {T_LAST_MIN} - nie jest aktualny; prześlij wydruk do Claude Code.')
+    raise RuntimeError(f'Dane w pliku MIDAS kończą się {midas["t_last"].max():.3f}, przed T_LAST_MIN={T_LAST_MIN}; prześlij wydruk do Claude Code.')
+lo0, la0, lo1, la1 = BBOX_LONLAT
+eu = midas[midas['lon_deg'].between(lo0, lo1) & midas['lat_deg'].between(la0, la1)]
+print(f'Stacje w prostokącie Europy: {len(eu)}; z danymi od <= {T_FIRST_MAX}: {(eu["t_first"] <= T_FIRST_MAX).sum()}; '
+      f'do >= {T_LAST_MIN}: {(eu["t_last"] >= T_LAST_MIN).sum()}; oba warunki: {((eu["t_first"] <= T_FIRST_MAX) & (eu["t_last"] >= T_LAST_MIN)).sum()}')
 
 cand = screen_stations(midas, BBOX_LONLAT, T_FIRST_MAX, T_LAST_MIN, VU_MAX_MM_YR)
 print(f'\nStacje spełniające kryteria: {len(cand)}')
