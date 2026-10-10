@@ -49,6 +49,10 @@ katalogi danych z prefiksem liczbowym, `docs/plans`, `docs/evidence/F*`).
 
 ## Uruchomienie (stan obecny)
 
+**Walidacja EGMS na stacjach GNSS, region Groningen (2026-10-10):** [`notebooks/EGMS_Check.ipynb`](notebooks/EGMS_Check.ipynb) —
+[Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/2_geoworldlook-egmscheck/blob/claude/dreamy-dirac-jd4vue/notebooks/EGMS_Check.ipynb)
+(wymaga tokenu CLMS na Dysku; pobranie EGMS po akceptacji rozmiaru w sekcji 5).
+
 **Prototyp w Colab (2026-10-10):** [`prototypes/EGMS_prototyp.ipynb`](prototypes/EGMS_prototyp.ipynb) —
 test metody na danych syntetycznych i opis szeregu GNSS PTO1, bez tokenu.
 [Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/2_geoworldlook-egmscheck/blob/claude/dreamy-dirac-jd4vue/prototypes/EGMS_prototyp.ipynb),
