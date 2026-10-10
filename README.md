@@ -49,6 +49,11 @@ katalogi danych z prefiksem liczbowym, `docs/plans`, `docs/evidence/F*`).
 
 ## Uruchomienie (stan obecny)
 
+**Prototyp w Colab (2026-10-10):** [`prototypes/EGMS_prototyp.ipynb`](prototypes/EGMS_prototyp.ipynb) —
+test metody na danych syntetycznych i opis szeregu GNSS PTO1, bez tokenu.
+[Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/2_geoworldlook-egmscheck/blob/claude/dreamy-dirac-jd4vue/prototypes/EGMS_prototyp.ipynb),
+potem `Środowisko wykonawcze → Uruchom wszystko`. Plan eksperymentów: [`docs/plans/Plan_v1_eksperymenty.md`](docs/plans/Plan_v1_eksperymenty.md).
+
 1. Przygotowanie krok po kroku: [`docs/plans/Instrukcja_startowa.md`](docs/plans/Instrukcja_startowa.md).
 2. Otwórz folder w Claude Code i wklejaj prompty z [`docs/plans/Prompty_Claude_Code.md`](docs/plans/Prompty_Claude_Code.md), po jednym na sesję.
 3. Kontrola tabel referencyjnych (bez danych, bez sieci):
