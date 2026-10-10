@@ -221,6 +221,52 @@ for l in links:
     print('kolumny:', list(t.columns)[:13])
     print('od', dates.min().date(), 'do', dates.max().date(), '| doby:', len(t))
     print('przerwy > 30 dni:', [(str(dates.iloc[i-1].date()), str(dates.iloc[i].date()), int(gaps.iloc[i])) for i in np.where(gaps > 30)[0]])"""),
+    ("md", """## 9. Inne stacje GNSS: przegląd NGL (MIDAS) i pokrycie EGMS
+Nie musimy ograniczać się do PTO1. NGL publikuje otwarte szeregi dobowe i prędkości MIDAS tysięcy stacji.
+Kryteria ustalamy **przed** obejrzeniem listy i bierzemy wszystkie stacje, które je spełniają (bez wyboru pod wynik).
+Wartości poniżej to propozycja; zmień je przed uruchomieniem, jeśli chcesz inne.
+
+Uwaga: EGMS kalibruje model GNSS m.in. na danych NGL, więc stacje z tej listy mogą nie być w pełni niezależne
+(White Paper dopuszcza je do walidacji; trzeba to napisać wprost)."""),
+    ("code", r"""from step_01_ingest import read_ngl_midas, screen_stations
+# Propozycja kryteriów (do zatwierdzenia przez autora):
+BBOX_LONLAT = (-25.0, 34.0, 45.0, 72.0)   # przybliżony zasięg EGMS (Europa)
+T_FIRST_MAX = 2019.0                       # dane od początku wydania 2019-2023 (i 2020-2024)
+T_LAST_MIN = 2025.0                        # dane do końca wydania 2020-2024
+VU_MAX_MM_YR = -2.0                        # osiadanie co najmniej 2 mm/rok (sygnał wyraźnie nad szumem)
+MAX_SEARCH = 30                            # dla ilu stacji pytać API EGMS o pokrycie
+RELEASE_FOR_COVERAGE = '2020-2024'
+
+midas_text = None
+for u in ('https://geodesy.unr.edu/velocities/midas.IGS20.txt', 'https://geodesy.unr.edu/velocities/midas.IGS14.txt'):
+    r = requests.get(u, timeout=300)
+    print(u, '->', r.status_code)
+    if r.ok:
+        midas_text, MIDAS_URL = r.text, u
+        break
+if midas_text is None:
+    raise FileNotFoundError('Nie znaleziono pliku MIDAS - sprawdź adres na https://geodesy.unr.edu (zakładka velocities).')
+print('Trzy pierwsze surowe wiersze (porównaj układ kolumn z README formatu MIDAS):')
+print('\n'.join(midas_text.splitlines()[:3]))
+midas = read_ngl_midas(midas_text)
+cand = screen_stations(midas, BBOX_LONLAT, T_FIRST_MAX, T_LAST_MIN, VU_MAX_MM_YR)
+print(f'\nStacje spełniające kryteria: {len(cand)} (z {len(midas)} w pliku {MIDAS_URL})')
+print('PTO1 na liście:', 'PTO1' in set(cand['site']), '| PTO1 w pliku MIDAS:',
+      midas.loc[midas['site'] == 'PTO1', ['t_first', 't_last', 'vu_mm_yr', 'svu_mm_yr']].to_dict('records'))
+
+cov = []
+for _, st in cand.head(MAX_SEARCH).iterrows():
+    res = search_egms(session, headers, API_ENDPOINT, point_query(st['lon_deg'], st['lat_deg'], 'L2B', RELEASE_FOR_COVERAGE))
+    h = pd.DataFrame(res['hits'])
+    cov.append({'site': st['site'], 'n_files': len(h),
+                'tracks': sorted(set(h['relativeOrbit'])) if len(h) else [],
+                'total_MB': round(h['filesize'].sum() / 1e6, 1) if len(h) else 0.0})
+cand_cov = cand.merge(pd.DataFrame(cov), on='site', how='left')
+pd.set_option('display.width', 200)
+print(cand_cov.to_string(index=False))
+out = Path(f'data/00_Metadata/ngl_screening_{TODAY}.csv')
+cand_cov.to_csv(out, index=False)
+print('Zapisano', out)"""),
 ]
 
 

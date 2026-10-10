@@ -10,6 +10,7 @@ https://egms.land.copernicus.eu/insar-api/archive
   II.  Listy dozwolonych wartości (levels, releases, relative_orbits, directions, product_types).
   III. Wyszukanie (POST /search) dla punktu lub prostokąta; tabela trafień z rozmiarami.
   IV.  Pobranie przyrostowe tylko plików potwierdzonych przez autora; SHA-256 i wpis w MANIFEST.csv.
+  IVb. Przegląd stacji GNSS NGL (prędkości MIDAS) według kryteriów podanych przez autora.
   V.   --selftest bez sieci: podpis JWT, wyszukanie, pobranie i manifest na atrapie serwera.
 
 Status: kod napisany według oficjalnego notatnika, NIE był uruchamiany z prawdziwym tokenem
@@ -184,6 +185,51 @@ def sync_egms(session, headers: dict, endpoint: str, result: dict, filenames: li
 
 
 # ==============================================================================
+# IVb. PRZEGLĄD STACJI GNSS (Nevada Geodetic Laboratory, prędkości MIDAS)
+# ==============================================================================
+# Plik prędkości MIDAS (Blewitt i in. 2016): jeden wiersz na stację, 27 kolumn. Układ kolumn spisany
+# z opisu formatu NGL z pamięci; parser sprawdza liczbę kolumn i zakresy wartości, a notatnik
+# drukuje kilka surowych wierszy do porównania z README formatu na stronie NGL.
+MIDAS_COLUMNS = ["site", "midas_version", "t_first", "t_last", "duration_yr", "n_epochs", "n_epochs_good",
+                 "n_pairs", "ve_m_yr", "vn_m_yr", "vu_m_yr", "sve_m_yr", "svn_m_yr", "svu_m_yr",
+                 "e0_m", "n0_m", "u0_m", "out_e", "out_n", "out_u", "sd_e", "sd_n", "sd_u",
+                 "n_steps", "lat_deg", "lon_deg", "height_m"]
+
+
+def read_ngl_midas(text: str) -> pd.DataFrame:
+    """Tekst pliku MIDAS -> tabela; prędkości przeliczone na mm/rok. Inna liczba kolumn = wyjątek."""
+    rows = [ln.split() for ln in text.splitlines() if ln.strip() and not ln.startswith("#")]
+    bad = [r[0] for r in rows if len(r) != len(MIDAS_COLUMNS)]
+    if bad:
+        raise ValueError(f"MIDAS: {len(bad)} wierszy z liczbą kolumn różną od {len(MIDAS_COLUMNS)}, np. {bad[:5]}")
+    df = pd.DataFrame(rows, columns=MIDAS_COLUMNS)
+    num = [c for c in MIDAS_COLUMNS if c not in ("site", "midas_version")]
+    df[num] = df[num].astype(float)
+    if not (df["lat_deg"].between(-90, 90).all() and df["lon_deg"].between(-360, 360).all()):
+        raise ValueError("MIDAS: szerokość lub długość poza zakresem - zły układ kolumn")
+    df["lon_deg"] = ((df["lon_deg"] + 180.0) % 360.0) - 180.0
+    for c in ("ve", "vn", "vu"):
+        df[f"{c}_mm_yr"] = df[f"{c}_m_yr"] * 1000.0
+        df[f"s{c}_mm_yr"] = df[f"s{c}_m_yr"] * 1000.0
+    return df
+
+
+def screen_stations(midas: pd.DataFrame, bbox_lonlat: tuple, t_first_max: float, t_last_min: float,
+                    vu_max_mm_yr: float) -> pd.DataFrame:
+    """
+    Stacje w prostokącie (lon_min, lat_min, lon_max, lat_max), z danymi od co najmniej t_first_max
+    do co najmniej t_last_min (lata dziesiętne) i prędkością pionową <= vu_max_mm_yr (osiadanie).
+    Kryteria podaje autor z góry; wynik to pełna lista spełniających je stacji, bez wyboru ręcznego.
+    """
+    lo0, la0, lo1, la1 = bbox_lonlat
+    m = (midas["lon_deg"].between(lo0, lo1) & midas["lat_deg"].between(la0, la1)
+         & (midas["t_first"] <= t_first_max) & (midas["t_last"] >= t_last_min)
+         & (midas["vu_mm_yr"] <= vu_max_mm_yr))
+    cols = ["site", "lat_deg", "lon_deg", "t_first", "t_last", "n_epochs_good", "vu_mm_yr", "svu_mm_yr", "n_steps"]
+    return midas.loc[m, cols].sort_values("vu_mm_yr").reset_index(drop=True)
+
+
+# ==============================================================================
 # V. TEST OFFLINE
 # ==============================================================================
 class _FakeResponse:
@@ -270,6 +316,18 @@ def _selftest() -> None:
         sync_egms(s, h, "https://fake/api", res, ["nie_ma.zip"], out, man, proj, 0.0, "selftest")
         raise AssertionError("Oczekiwano wyjątku dla pliku spoza wyniku")
     except KeyError:
+        pass
+    # Przegląd stacji MIDAS na dwóch syntetycznych wierszach (27 kolumn).
+    line = "PTO1 MIDAS5 2008.46 2026.70 18.2 6000 5900 5000 0.0001 0.0010 -0.0045 0.0001 0.0001 0.0004 " \
+           "0 0 0 0.01 0.01 0.02 0.001 0.001 0.003 1 44.9515 12.3341 30.0"
+    stable = line.replace("PTO1", "STBL").replace("-0.0045", "0.0002").replace("44.9515", "50.0")
+    mid = read_ngl_midas(line + "\n" + stable)
+    sel = screen_stations(mid, (-25.0, 34.0, 45.0, 72.0), 2019.9, 2025.0, -2.0)
+    assert list(sel["site"]) == ["PTO1"] and abs(sel["vu_mm_yr"].iat[0] + 4.5) < 1e-9
+    try:
+        read_ngl_midas("XXXX MIDAS5 2008.0 2026.0")
+        raise AssertionError("Oczekiwano wyjątku dla złej liczby kolumn")
+    except ValueError:
         pass
     print("SELFTEST step_01_ingest OK")
 
