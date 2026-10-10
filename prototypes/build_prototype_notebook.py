@@ -231,7 +231,15 @@ Wartości poniżej to propozycja; zmień je przed uruchomieniem, jeśli chcesz i
 
 Uwaga: EGMS kalibruje model GNSS m.in. na danych NGL, więc stacje z tej listy mogą nie być w pełni niezależne
 (White Paper dopuszcza je do walidacji; trzeba to napisać wprost)."""),
-    ("code", r"""from step_01_ingest import read_ngl_midas, screen_stations
+    ("code", r"""import re, datetime
+from pathlib import Path
+from urllib.parse import urljoin
+import numpy as np
+import pandas as pd
+import requests
+from step_01_ingest import API_ENDPOINT, search_egms, point_query, read_ngl_midas, screen_stations
+TODAY = datetime.date.today().strftime('%Y%m%d')
+
 # Propozycja kryteriów (do zatwierdzenia przez autora):
 BBOX_LONLAT = (-25.0, 34.0, 45.0, 72.0)   # przybliżony zasięg EGMS (Europa)
 T_FIRST_MAX = 2019.0                       # dane od początku wydania 2019-2023 (i 2020-2024)
@@ -240,23 +248,46 @@ VU_MAX_MM_YR = -2.0                        # osiadanie co najmniej 2 mm/rok (syg
 MAX_SEARCH = 30                            # dla ilu stacji pytać API EGMS o pokrycie
 RELEASE_FOR_COVERAGE = '2020-2024'
 
-midas_text = None
-for u in ('https://geodesy.unr.edu/velocities/midas.IGS20.txt', 'https://geodesy.unr.edu/velocities/midas.IGS14.txt'):
-    r = requests.get(u, timeout=300)
-    print(u, '->', r.status_code)
+# 1. Odnośniki do plików MIDAS na stronach NGL (adres pliku IGS20 nie jest znany z góry).
+midas_links = set()
+for page_url in ('https://geodesy.unr.edu/velocities/', 'https://geodesy.unr.edu/', 'https://geodesy.unr.edu/sitemap.php'):
+    r = requests.get(page_url, timeout=120)
+    print(page_url, '->', r.status_code)
     if r.ok:
-        midas_text, MIDAS_URL = r.text, u
-        break
-if midas_text is None:
-    raise FileNotFoundError('Nie znaleziono pliku MIDAS - sprawdź adres na https://geodesy.unr.edu (zakładka velocities).')
-print('Trzy pierwsze surowe wiersze (porównaj układ kolumn z README formatu MIDAS):')
-print('\n'.join(midas_text.splitlines()[:3]))
-midas = read_ngl_midas(midas_text)
+        midas_links |= {urljoin(page_url, h) for h in re.findall(r'href=["\']([^"\']+)["\']', r.text)
+                        if 'midas' in h.lower() and h.lower().endswith('.txt')}
+print('Pliki MIDAS znalezione na stronach NGL:')
+for l in sorted(midas_links):
+    print('  ', l)
+
+# 2. Każdy znaleziony plik: liczba stacji i najpóźniejsza data (czy plik jest aktualizowany).
+midas_by_url = {}
+for l in sorted(midas_links):
+    r = requests.get(l, timeout=300)
+    if not r.ok:
+        print(l, '->', r.status_code)
+        continue
+    try:
+        m = read_ngl_midas(r.text)
+    except ValueError as e:                  # inny format pliku (np. README) - pokazujemy i pomijamy
+        print(l, '-> nie jest plikiem prędkości MIDAS:', e)
+        continue
+    midas_by_url[l] = m
+    print(f'{l}: {len(m)} stacji, najpóźniejszy koniec danych {m["t_last"].max():.3f}, PTO1:',
+          m.loc[m['site'] == 'PTO1', ['t_first', 't_last', 'vu_mm_yr', 'svu_mm_yr']].to_dict('records'))
+current = {u: m for u, m in midas_by_url.items() if m['t_last'].max() >= T_LAST_MIN}
+if not current:
+    raise RuntimeError('Żaden znaleziony plik MIDAS nie sięga do T_LAST_MIN - prześlij wydruk powyżej do Claude Code.')
+if len(current) > 1:
+    print('UWAGA: kilka aktualnych plików MIDAS; użyty pierwszy alfabetycznie:', sorted(current))
+MIDAS_URL = sorted(current)[0]
+midas = current[MIDAS_URL]
+
+# 3. Stacje spełniające kryteria i ich pokrycie EGMS.
 cand = screen_stations(midas, BBOX_LONLAT, T_FIRST_MAX, T_LAST_MIN, VU_MAX_MM_YR)
 print(f'\nStacje spełniające kryteria: {len(cand)} (z {len(midas)} w pliku {MIDAS_URL})')
-print('PTO1 na liście:', 'PTO1' in set(cand['site']), '| PTO1 w pliku MIDAS:',
-      midas.loc[midas['site'] == 'PTO1', ['t_first', 't_last', 'vu_mm_yr', 'svu_mm_yr']].to_dict('records'))
-
+if cand.empty:
+    raise RuntimeError('Brak stacji spełniających kryteria - prześlij wydruk do Claude Code.')
 cov = []
 for _, st in cand.head(MAX_SEARCH).iterrows():
     res = search_egms(session, headers, API_ENDPOINT, point_query(st['lon_deg'], st['lat_deg'], 'L2B', RELEASE_FOR_COVERAGE))
