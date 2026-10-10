@@ -46,13 +46,25 @@ EGMS_LICENCE = "Copernicus Land Monitoring Service data policy (full, open and f
 # ==============================================================================
 # I. TOKEN
 # ==============================================================================
-def get_access_token(service_key_path: Path, session) -> str:
+def load_service_key(source: str) -> dict:
+    """
+    Klucz serwisowy CLMS z pliku (ścieżka) albo ze zmiennej środowiskowej ("env:NAZWA", cały JSON w zmiennej).
+    Brak pliku lub zmiennej = wyjątek. Zawartości nie drukujemy.
+    """
+    import os
+    if source.startswith("env:"):
+        return json.loads(os.environ[source[4:]])
+    return json.loads(Path(source).read_text(encoding="utf-8"))
+
+
+def get_access_token(service_key_path, session) -> str:
     """
     Klucz serwisowy CLMS (plik JSON z client_id, user_id, token_uri, private_key) -> token dostępu.
+    service_key_path: ścieżka do pliku albo "env:NAZWA_ZMIENNEJ".
     Wyjątek przy każdym błędzie; token nigdy nie trafia do logów.
     """
     import jwt  # pyjwt
-    key = json.loads(Path(service_key_path).read_text(encoding="utf-8"))
+    key = load_service_key(str(service_key_path))
     now = int(time.time())
     claim_set = {"iss": key["client_id"], "sub": key["user_id"], "aud": key["token_uri"],
                  "iat": now, "exp": now + TOKEN_LIFETIME_S}
@@ -293,6 +305,9 @@ def _selftest() -> None:
     files = {"EGMS_L2b_117_0265_IW2_VV_2018_2022_1.zip": b"x" * 3000, "EGMS_L2b_117_0266_IW2_VV_2018_2022_1.zip": b"y" * 10}
     s = _FakeSession(pub_pem, files)
     token = get_access_token(key_path, s)
+    import os
+    os.environ["EGMSCHECK_SELFTEST_KEY"] = key_path.read_text()
+    assert get_access_token("env:EGMSCHECK_SELFTEST_KEY", s) == token
     h = api_headers(token)
     lists = get_api_lists(s, h, "https://fake/api")
     assert set(lists) == set(LIST_NAMES)
@@ -336,8 +351,30 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
     ap = argparse.ArgumentParser(description="EGMS Check - KROK 1")
     ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--key", help="klucz CLMS: ścieżka do pliku JSON albo env:NAZWA_ZMIENNEJ")
+    ap.add_argument("--api-lists", action="store_true", help="zapisz listy wartości API do data/00_Metadata")
+    ap.add_argument("--search-point", nargs=4, metavar=("LON", "LAT", "LEVEL", "RELEASE"),
+                    help="wyszukaj pliki dla punktu, bez pobierania")
     a = ap.parse_args()
     if a.selftest:
         _selftest()
+    elif a.api_lists or a.search_point:
+        import requests
+        if not a.key:
+            raise SystemExit("Podaj --key (plik JSON albo env:NAZWA).")
+        session = requests.Session()
+        headers = api_headers(get_access_token(a.key, session))
+        today = datetime.now(timezone.utc).strftime("%Y%m%d")
+        if a.api_lists:
+            lists = get_api_lists(session, headers, API_ENDPOINT)
+            out = Path(f"data/00_Metadata/egms_api_lists_{today}.json")
+            out.write_text(json.dumps(lists, indent=1, ensure_ascii=False))
+            print(json.dumps({k: (v if k != "relative_orbits" else f"{len(v)} wartości") for k, v in lists.items()},
+                             ensure_ascii=False, indent=1))
+        if a.search_point:
+            lon, lat, level, release = a.search_point
+            tab = hits_table(search_egms(session, headers, API_ENDPOINT, point_query(float(lon), float(lat), level, release)))
+            print(tab.drop(columns=[c for c in ("poly", "bbox") if c in tab.columns]).to_string(index=False))
+            print(f"Razem: {len(tab)} plików, {tab['filesize_mb'].sum():.1f} MB")
     else:
         ap.print_help()
