@@ -30,6 +30,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 logger = logging.getLogger("EGMSCheck_Ingest")
@@ -186,7 +187,7 @@ def sync_egms(session, headers: dict, endpoint: str, result: dict, filenames: li
             status = "downloaded"
         digest = sha256_file(dest)
         update_manifest(manifest_path, {
-            "file_path": dest.resolve().relative_to(Path(project_dir).resolve()).as_posix(), "what": f"EGMS {hit['productLevel']} track "
+            "file_path": manifest_path_of(dest, project_dir), "what": f"EGMS {hit['productLevel']} track "
             f"{hit['relativeOrbit']} {hit['direction']} burst {hit['burstId']}",
             "source_url": f"{endpoint}/download/{fname}",
             "downloaded_on": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "downloaded_by": downloaded_by,
@@ -194,6 +195,70 @@ def sync_egms(session, headers: dict, endpoint: str, result: dict, filenames: li
         rows.append({"filename": fname, "status": status, "bytes": dest.stat().st_size, "sha256": digest})
         logger.info(f"{fname}: {status}")
     return pd.DataFrame(rows)
+
+
+def manifest_path_of(path: Path, project_dir: Path) -> str:
+    """Ścieżka do manifestu: względna wobec projektu albo bezwzględna, gdy plik leży poza projektem (np. dysk Colab)."""
+    p, root = Path(path).resolve(), Path(project_dir).resolve()
+    return p.relative_to(root).as_posix() if p.is_relative_to(root) else p.as_posix()
+
+
+# ------------------------------------------------------------------------------
+# Szeregi GNSS z Nevada Geodetic Laboratory (format tenv3, układ IGS20)
+# Pliki "EU" mają odjęty ruch płyty euroazjatyckiej, jak EGMS L2b/L3 (ETRF2000).
+# Adresy według odnośników na stronach stacji NGL (sprawdzone dla PTO1, 2026-10-10).
+# ------------------------------------------------------------------------------
+NGL_LICENCE = "NGL products: free use with citation (Blewitt et al. 2018, Eos 99)"
+
+
+def ngl_tenv3_url(site: str, frame: str) -> str:
+    if frame == "EU":
+        return f"https://geodesy.unr.edu/gps_timeseries/IGS20/tenv3/EU/{site}.EU.tenv3"
+    if frame == "IGS20":
+        return f"https://geodesy.unr.edu/gps_timeseries/IGS20/tenv3/IGS20/{site}.tenv3"
+    raise ValueError(f"Nieznany układ NGL: {frame}")
+
+
+def download_file(url: str, dest: Path, manifest_path: Path, project_dir: Path, what: str, licence: str,
+                  downloaded_by: str) -> str:
+    """Pobiera plik (jeśli go nie ma), liczy SHA-256 i dopisuje wiersz do manifestu. Zwraca SHA-256."""
+    import requests
+    dest = Path(dest)
+    if not dest.exists():
+        r = requests.get(url, timeout=300)
+        r.raise_for_status()
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        part = dest.with_suffix(dest.suffix + ".part")
+        part.write_bytes(r.content)
+        part.replace(dest)
+    digest = sha256_file(dest)
+    update_manifest(manifest_path, {"file_path": manifest_path_of(dest, project_dir), "what": what, "source_url": url,
+                                    "downloaded_on": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                                    "downloaded_by": downloaded_by, "sha256": digest, "licence": licence,
+                                    "egms_release": "", "notes": ""})
+    return digest
+
+
+def read_ngl_tenv3(path: Path) -> pd.DataFrame:
+    """
+    tenv3 -> dobowe przemieszczenia E, N, U [mm] względem pierwszej epoki szeregu.
+    Pozycja = część całkowita (_e0, ____n0, u0) + część ułamkowa (__east, _north, ____up), w metrach.
+    """
+    t = pd.read_csv(path, sep=r"\s+")
+    need = ["site", "YYMMMDD", "_e0(m)", "__east(m)", "____n0(m)", "_north(m)", "u0(m)", "____up(m)", "sig_u(m)"]
+    missing = [c for c in need if c not in t.columns]
+    if missing:
+        raise KeyError(f"{path}: brak kolumn tenv3 {missing}")
+    if t["site"].nunique() != 1:
+        raise ValueError(f"{path}: więcej niż jedna stacja w pliku")
+    out = pd.DataFrame({"date": pd.to_datetime(t["YYMMMDD"], format="%y%b%d")})
+    for comp, (i, f) in {"e": ("_e0(m)", "__east(m)"), "n": ("____n0(m)", "_north(m)"), "u": ("u0(m)", "____up(m)")}.items():
+        pos_m = t[i].astype(float) + t[f].astype(float)
+        out[f"{comp}_mm"] = (pos_m - pos_m.iloc[0]) * 1000.0
+    out["sig_u_mm"] = t["sig_u(m)"].astype(float) * 1000.0
+    if not out["date"].is_monotonic_increasing:
+        raise ValueError(f"{path}: daty nie rosną monotonicznie")
+    return out
 
 
 # ==============================================================================
@@ -239,6 +304,25 @@ def screen_stations(midas: pd.DataFrame, bbox_lonlat: tuple, t_first_max: float,
          & (midas["vu_mm_yr"] <= vu_max_mm_yr))
     cols = ["site", "lat_deg", "lon_deg", "t_first", "t_last", "n_epochs_good", "vu_mm_yr", "svu_mm_yr", "n_steps"]
     return midas.loc[m, cols].sort_values("vu_mm_yr").reset_index(drop=True)
+
+
+def select_stations(midas: pd.DataFrame, region_lonlat: tuple, t_first_max: float, t_last_min: float,
+                    svu_max_mm_yr: float, max_steps: int, vu_subsiding_max: float, vu_stable_abs_max: float) -> pd.DataFrame:
+    """
+    Reguła wyboru stacji (zatwierdzona 2026-10-10): wszystkie stacje w regionie z danymi w oknie,
+    niepewnością prędkości pionowej <= svu_max i liczbą skoków <= max_steps; grupa 'osiadająca'
+    (vu <= vu_subsiding_max) i 'stabilna' (|vu| <= vu_stable_abs_max). Bez wyboru ręcznego.
+    """
+    lo0, la0, lo1, la1 = region_lonlat
+    m = (midas["lon_deg"].between(lo0, lo1) & midas["lat_deg"].between(la0, la1)
+         & (midas["t_first"] <= t_first_max) & (midas["t_last"] >= t_last_min)
+         & (midas["svu_mm_yr"] <= svu_max_mm_yr) & (midas["n_steps"] <= max_steps))
+    st = midas[m].copy()
+    st["group"] = np.where(st["vu_mm_yr"] <= vu_subsiding_max, "osiadająca",
+                           np.where(st["vu_mm_yr"].abs() <= vu_stable_abs_max, "stabilna", "pominięta"))
+    st = st[st["group"] != "pominięta"]
+    cols = ["site", "group", "lat_deg", "lon_deg", "t_first", "t_last", "vu_mm_yr", "svu_mm_yr", "n_steps"]
+    return st[cols].sort_values(["group", "vu_mm_yr"]).reset_index(drop=True)
 
 
 def ngl_screening(session, headers: dict, endpoint: str, midas_url: str, bbox_lonlat: tuple,
