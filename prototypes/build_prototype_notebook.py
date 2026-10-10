@@ -201,7 +201,7 @@ from urllib.parse import urljoin
 import numpy as np
 page = requests.get(url, timeout=60)
 page.raise_for_status()
-links = sorted({urljoin(url, h) for h in re.findall(r'href=["\']([^"\']+)["\']', page.text) if 'tenv3' in h.lower()})
+links = sorted({urljoin(url, h) for h in re.findall(r'href=["\']([^"\']+)["\']', page.text) if h.lower().endswith('.tenv3')})   # bez README i innych plików
 print('Odnośniki tenv3 na stronie stacji:')
 for l in links:
     print('  ', l)

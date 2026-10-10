@@ -37,7 +37,7 @@ Stan na 2026-10-09. Kolumny: co ustalić, jak sprawdzić, co od tego zależy.
 | B3 | Czy PTO1 weszła do modelu GNSS użytego w EGMS? | EGMS GNSS Calibration Report, lista stacji |
 | B4 | Czy potrzebne jest kryterium wysokości punktów? | rozkład `height` w buforze |
 | B5 | Czy są szeregi po 09.2022 (np. w Nevada Geodetic Laboratory)? | http://geodesy.unr.edu, strona stacji |
-|  | **Stan 2026-10-10:** strona stacji PTO1 w NGL istnieje (HTTP 200). Zakres dat szeregu: do sprawdzenia komórką 8 notatnika `EGMS_pobranie_PTO1.ipynb` |  |
+|  | **Stan 2026-10-10:** NGL ma PTO1 (IGS20, plik `PTO1.tenv3` i `PTO1.EU.tenv3`), ale szereg obejmuje tylko **2010-07-22 – 2019-07-04** (3065 dób; przerwa 2018-12-16 → 2019-02-06). Jest krótszy niż PANGAEA (do 2021-04-13). NGL nie rozwiązuje problemu pokrycia dla PTO1 |  |
 
 ## C. Ważne — w trakcie przypadku 2
 
