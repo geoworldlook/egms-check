@@ -113,9 +113,10 @@ os.chdir(PROJECT_DIR)
 for p in (PROJECT_DIR, os.path.join(PROJECT_DIR, 'prototypes')):
     if p not in sys.path:
         sys.path.insert(0, p)
-# Moduły wczytane wcześniej w tej sesji są przeładowywane po każdej zmianie pliku (jak w AgriWatch).
-%load_ext autoreload
-%autoreload 2
+# Po git pull usuń z pamięci moduły projektu wczytane wcześniej w tej sesji, żeby import wziął nowy kod
+# (rozszerzenie autoreload w Colab z Pythonem 3.13 nie działa: importuje usunięty moduł `imp`).
+for _m in ('step_01_ingest', 'egms_simple_check'):
+    sys.modules.pop(_m, None)
 print('Projekt:', PROJECT_DIR)"""),
     ("md", "## 2. Stacja i token"),
     ("code", """from pathlib import Path
@@ -202,6 +203,9 @@ dopiero po decyzji."""),
     ("code", r"""import re, io
 from urllib.parse import urljoin
 import numpy as np
+import pandas as pd
+import requests
+url = 'https://geodesy.unr.edu/NGLStationPages/stations/PTO1.sta'
 page = requests.get(url, timeout=60)
 page.raise_for_status()
 links = sorted({urljoin(url, h) for h in re.findall(r'href=["\']([^"\']+)["\']', page.text) if h.lower().endswith('.tenv3')})   # bez README i innych plików
@@ -224,17 +228,17 @@ for l in links:
     print('kolumny:', list(t.columns)[:13])
     print('od', dates.min().date(), 'do', dates.max().date(), '| doby:', len(t))
     print('przerwy > 30 dni:', [(str(dates.iloc[i-1].date()), str(dates.iloc[i].date()), int(gaps.iloc[i])) for i in np.where(gaps > 30)[0]])"""),
-    ("md", """## 9. Inne stacje GNSS: przegląd NGL (MIDAS) i pokrycie EGMS
+    ("md", """## 9. Inne stacje GNSS: przegląd NGL (MIDAS, IGS20) i pokrycie EGMS
 Nie musimy ograniczać się do PTO1. NGL publikuje otwarte szeregi dobowe i prędkości MIDAS tysięcy stacji.
+Aktualny plik prędkości w układzie IGS20 to `midas.IGS.txt` (katalog https://geodesy.unr.edu/velocities/,
+aktualizowany co tydzień); `midas.IGS14.txt` nie jest już aktualizowany.
+
 Kryteria ustalamy **przed** obejrzeniem listy i bierzemy wszystkie stacje, które je spełniają (bez wyboru pod wynik).
 Wartości poniżej to propozycja; zmień je przed uruchomieniem, jeśli chcesz inne.
-
-Uwaga: EGMS kalibruje model GNSS m.in. na danych NGL, więc stacje z tej listy mogą nie być w pełni niezależne
+EGMS kalibruje model GNSS m.in. na danych NGL, więc stacje z listy mogą nie być w pełni niezależne
 (White Paper dopuszcza je do walidacji; trzeba to napisać wprost)."""),
-    ("code", r"""import re, datetime
+    ("code", r"""import datetime
 from pathlib import Path
-from urllib.parse import urljoin
-import numpy as np
 import pandas as pd
 import requests
 from step_01_ingest import API_ENDPOINT, search_egms, point_query, read_ngl_midas, screen_stations
@@ -247,45 +251,20 @@ T_LAST_MIN = 2025.0                        # dane do końca wydania 2020-2024
 VU_MAX_MM_YR = -2.0                        # osiadanie co najmniej 2 mm/rok (sygnał wyraźnie nad szumem)
 MAX_SEARCH = 30                            # dla ilu stacji pytać API EGMS o pokrycie
 RELEASE_FOR_COVERAGE = '2020-2024'
+MIDAS_URL = 'https://geodesy.unr.edu/velocities/midas.IGS.txt'
 
-# 1. Odnośniki do plików MIDAS na stronach NGL (adres pliku IGS20 nie jest znany z góry).
-midas_links = set()
-for page_url in ('https://geodesy.unr.edu/velocities/', 'https://geodesy.unr.edu/', 'https://geodesy.unr.edu/sitemap.php'):
-    r = requests.get(page_url, timeout=120)
-    print(page_url, '->', r.status_code)
-    if r.ok:
-        midas_links |= {urljoin(page_url, h) for h in re.findall(r'href=["\']([^"\']+)["\']', r.text)
-                        if 'midas' in h.lower() and h.lower().endswith('.txt')}
-print('Pliki MIDAS znalezione na stronach NGL:')
-for l in sorted(midas_links):
-    print('  ', l)
+r = requests.get(MIDAS_URL, timeout=300)
+r.raise_for_status()
+print('Trzy pierwsze surowe wiersze:')
+print('\n'.join(r.text.splitlines()[:3]))
+midas = read_ngl_midas(r.text)
+print(f'{MIDAS_URL}: {len(midas)} stacji, najpóźniejszy koniec danych {midas["t_last"].max():.3f}')
+print('PTO1:', midas.loc[midas['site'] == 'PTO1', ['t_first', 't_last', 'vu_mm_yr', 'svu_mm_yr']].to_dict('records'))
+if midas['t_last'].max() < T_LAST_MIN:
+    raise RuntimeError(f'Plik MIDAS kończy się przed {T_LAST_MIN} - nie jest aktualny; prześlij wydruk do Claude Code.')
 
-# 2. Każdy znaleziony plik: liczba stacji i najpóźniejsza data (czy plik jest aktualizowany).
-midas_by_url = {}
-for l in sorted(midas_links):
-    r = requests.get(l, timeout=300)
-    if not r.ok:
-        print(l, '->', r.status_code)
-        continue
-    try:
-        m = read_ngl_midas(r.text)
-    except ValueError as e:                  # inny format pliku (np. README) - pokazujemy i pomijamy
-        print(l, '-> nie jest plikiem prędkości MIDAS:', e)
-        continue
-    midas_by_url[l] = m
-    print(f'{l}: {len(m)} stacji, najpóźniejszy koniec danych {m["t_last"].max():.3f}, PTO1:',
-          m.loc[m['site'] == 'PTO1', ['t_first', 't_last', 'vu_mm_yr', 'svu_mm_yr']].to_dict('records'))
-current = {u: m for u, m in midas_by_url.items() if m['t_last'].max() >= T_LAST_MIN}
-if not current:
-    raise RuntimeError('Żaden znaleziony plik MIDAS nie sięga do T_LAST_MIN - prześlij wydruk powyżej do Claude Code.')
-if len(current) > 1:
-    print('UWAGA: kilka aktualnych plików MIDAS; użyty pierwszy alfabetycznie:', sorted(current))
-MIDAS_URL = sorted(current)[0]
-midas = current[MIDAS_URL]
-
-# 3. Stacje spełniające kryteria i ich pokrycie EGMS.
 cand = screen_stations(midas, BBOX_LONLAT, T_FIRST_MAX, T_LAST_MIN, VU_MAX_MM_YR)
-print(f'\nStacje spełniające kryteria: {len(cand)} (z {len(midas)} w pliku {MIDAS_URL})')
+print(f'\nStacje spełniające kryteria: {len(cand)}')
 if cand.empty:
     raise RuntimeError('Brak stacji spełniających kryteria - prześlij wydruk do Claude Code.')
 cov = []
@@ -293,10 +272,10 @@ for _, st in cand.head(MAX_SEARCH).iterrows():
     res = search_egms(session, headers, API_ENDPOINT, point_query(st['lon_deg'], st['lat_deg'], 'L2B', RELEASE_FOR_COVERAGE))
     h = pd.DataFrame(res['hits'])
     cov.append({'site': st['site'], 'n_files': len(h),
-                'tracks': sorted(set(h['relativeOrbit'])) if len(h) else [],
+                'tracks': sorted({int(x) for x in h['relativeOrbit']}) if len(h) else [],
                 'total_MB': round(h['filesize'].sum() / 1e6, 1) if len(h) else 0.0})
 cand_cov = cand.merge(pd.DataFrame(cov), on='site', how='left')
-pd.set_option('display.width', 200)
+pd.set_option('display.width', 220)
 print(cand_cov.to_string(index=False))
 out = Path(f'data/00_Metadata/ngl_screening_{TODAY}.csv')
 cand_cov.to_csv(out, index=False)
