@@ -113,6 +113,9 @@ os.chdir(PROJECT_DIR)
 for p in (PROJECT_DIR, os.path.join(PROJECT_DIR, 'prototypes')):
     if p not in sys.path:
         sys.path.insert(0, p)
+# Moduły wczytane wcześniej w tej sesji są przeładowywane po każdej zmianie pliku (jak w AgriWatch).
+%load_ext autoreload
+%autoreload 2
 print('Projekt:', PROJECT_DIR)"""),
     ("md", "## 2. Stacja i token"),
     ("code", """from pathlib import Path
