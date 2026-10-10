@@ -1,0 +1,285 @@
+"""
+================================================================================
+EGMS Check - KROK 1: DOSTĘP DO API EGMS, WYSZUKANIE I POBRANIE PLIKÓW, MANIFEST
+================================================================================
+Pobieranie gotowych produktów EGMS (Copernicus Land Monitoring Service) przez oficjalne API:
+https://egms.land.copernicus.eu/insar-api/archive
+
+  I.   Token: klucz serwisowy CLMS (JSON) -> JWT RS256 -> token dostępu (1 h).
+       Według oficjalnego notatnika copernicus-land/egms-api (EGMS-API.ipynb).
+  II.  Listy dozwolonych wartości (levels, releases, relative_orbits, directions, product_types).
+  III. Wyszukanie (POST /search) dla punktu lub prostokąta; tabela trafień z rozmiarami.
+  IV.  Pobranie przyrostowe tylko plików potwierdzonych przez autora; SHA-256 i wpis w MANIFEST.csv.
+  V.   --selftest bez sieci: podpis JWT, wyszukanie, pobranie i manifest na atrapie serwera.
+
+Status: kod napisany według oficjalnego notatnika, NIE był uruchamiany z prawdziwym tokenem
+(serwer EGMS niedostępny ze środowiska, w którym powstał). Pierwsze uruchomienie: Colab.
+Token jest kluczem prywatnym: nie drukujemy go, nie zapisujemy w repozytorium ani w logach.
+
+Literatura i źródła: docs/evidence/F5_zrodla_danych.md (sekcja 1), docs/plans/Plan_v1_wdrozenie.md.
+================================================================================
+"""
+
+import argparse
+import hashlib
+import json
+import logging
+import tempfile
+import time
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pandas as pd
+
+logger = logging.getLogger("EGMSCheck_Ingest")
+
+API_ENDPOINT = "https://egms.land.copernicus.eu/insar-api/archive"
+GRANT_TYPE = "urn:ietf:params:oauth:grant-type:jwt-bearer"
+TOKEN_LIFETIME_S = 3600          # jak w oficjalnym notatniku
+LIST_NAMES = ("levels", "releases", "relative_orbits", "directions", "product_types")
+MANIFEST_COLUMNS = ["file_path", "what", "source_url", "downloaded_on", "downloaded_by", "sha256",
+                    "licence", "egms_release", "notes"]
+EGMS_LICENCE = "Copernicus Land Monitoring Service data policy (full, open and free; attribution required)"
+
+
+# ==============================================================================
+# I. TOKEN
+# ==============================================================================
+def get_access_token(service_key_path: Path, session) -> str:
+    """
+    Klucz serwisowy CLMS (plik JSON z client_id, user_id, token_uri, private_key) -> token dostępu.
+    Wyjątek przy każdym błędzie; token nigdy nie trafia do logów.
+    """
+    import jwt  # pyjwt
+    key = json.loads(Path(service_key_path).read_text(encoding="utf-8"))
+    now = int(time.time())
+    claim_set = {"iss": key["client_id"], "sub": key["user_id"], "aud": key["token_uri"],
+                 "iat": now, "exp": now + TOKEN_LIFETIME_S}
+    grant = jwt.encode(claim_set, key["private_key"], algorithm="RS256")
+    r = session.post(key["token_uri"],
+                     headers={"Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded"},
+                     data={"grant_type": GRANT_TYPE, "assertion": grant})
+    r.raise_for_status()
+    token = r.json()["access_token"]
+    logger.info("Token dostępu CLMS uzyskany (ważny ok. 1 h).")
+    return token
+
+
+def api_headers(access_token: str) -> dict:
+    return {"Authorization": f"Bearer {access_token}", "Accept": "application/json"}
+
+
+# ==============================================================================
+# II. LISTY DOZWOLONYCH WARTOŚCI
+# ==============================================================================
+def get_api_lists(session, headers: dict, endpoint: str) -> dict:
+    """GET /levels, /releases, ... -> słownik surowych odpowiedzi JSON (zapisujemy je jako dowód, pytanie A2)."""
+    out = {}
+    for name in LIST_NAMES:
+        r = session.get(f"{endpoint}/{name}", headers=headers)
+        r.raise_for_status()
+        out[name] = r.json()
+    return out
+
+
+# ==============================================================================
+# III. WYSZUKANIE
+# ==============================================================================
+def search_egms(session, headers: dict, endpoint: str, query: dict) -> dict:
+    """POST /search. Wymagane w zapytaniu: levels, releases. Zwraca {"id": ..., "hits": [...]}."""
+    missing = [k for k in ("levels", "releases") if k not in query]
+    if missing:
+        raise KeyError(f"Zapytanie bez wymaganych pól: {missing}")
+    r = session.post(f"{endpoint}/search", headers=headers, data=json.dumps(query))
+    r.raise_for_status()
+    result = r.json()
+    if "hits" not in result or "id" not in result:
+        raise KeyError(f"Nieoczekiwana odpowiedź /search, klucze: {sorted(result)}")
+    return result
+
+
+def point_query(lon_deg: float, lat_deg: float, level: str, release: str) -> dict:
+    """Zapytanie dla jednego punktu (bbox może być jednym punktem; F5, sekcja 1)."""
+    return {"id": None, "bbox": [[lon_deg, lat_deg]], "levels": [level], "releases": [release]}
+
+
+def hits_table(result: dict) -> pd.DataFrame:
+    """Trafienia jako tabela; filesize w bajtach (plik skompresowany) -> MB."""
+    cols = ["filename", "filesize", "release", "productLevel", "relativeOrbit", "direction", "burstId"]
+    df = pd.DataFrame(result["hits"])
+    missing = [c for c in cols if c not in df.columns]
+    if missing:
+        raise KeyError(f"Trafienia bez pól {missing}; dostępne: {list(df.columns)}")
+    df = df[cols + [c for c in ("bbox", "poly") if c in df.columns]].copy()
+    df["filesize_mb"] = df["filesize"] / 1e6
+    return df
+
+
+# ==============================================================================
+# IV. POBRANIE I MANIFEST
+# ==============================================================================
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def update_manifest(manifest_path: Path, row: dict) -> None:
+    """Dopisuje wiersz; ta sama ścieżka pliku z inną sumą SHA-256 = błąd (dane surowe są niezmienne)."""
+    missing = [c for c in MANIFEST_COLUMNS if c not in row]
+    if missing:
+        raise KeyError(f"Wiersz manifestu bez pól {missing}")
+    m = pd.read_csv(manifest_path, dtype=str) if Path(manifest_path).exists() else pd.DataFrame(columns=MANIFEST_COLUMNS)
+    same = m[m["file_path"] == row["file_path"]]
+    if len(same):
+        if (same["sha256"] != row["sha256"]).any():
+            raise ValueError(f"{row['file_path']}: plik w manifeście ma inną sumę SHA-256")
+        return
+    m = pd.concat([m, pd.DataFrame([row])], ignore_index=True)
+    m.to_csv(manifest_path, index=False)
+
+
+def sync_egms(session, headers: dict, endpoint: str, result: dict, filenames: list, out_dir: Path,
+              manifest_path: Path, project_dir: Path, pause_s: float, downloaded_by: str) -> pd.DataFrame:
+    """
+    Pobiera WYŁĄCZNIE pliki z listy `filenames` (potwierdzonej przez autora po obejrzeniu rozmiarów).
+    Przyrostowo: plik istniejący o rozmiarze zgodnym z `filesize` jest pomijany. Zapis przez plik .part.
+    W manifeście adres bez identyfikatora zapytania (?id=... wygasa i nie jest częścią źródła).
+    """
+    hits = {h["filename"]: h for h in result["hits"]}
+    unknown = [f for f in filenames if f not in hits]
+    if unknown:
+        raise KeyError(f"Pliki spoza wyniku wyszukiwania: {unknown}")
+    out_dir.mkdir(parents=True, exist_ok=True)
+    rows = []
+    for k, fname in enumerate(filenames):
+        hit = hits[fname]
+        dest = out_dir / fname
+        status = "skipped_existing"
+        if not (dest.exists() and dest.stat().st_size == int(hit["filesize"])):
+            if k > 0:
+                time.sleep(pause_s)      # serwer odrzuca zbyt częste zapytania (Hrysiewicz i in. 2024)
+            r = session.get(f"{endpoint}/download/{fname}", params={"id": result["id"]}, headers=headers, stream=True)
+            r.raise_for_status()
+            part = dest.with_suffix(dest.suffix + ".part")
+            with open(part, "wb") as f:
+                for chunk in r.iter_content(chunk_size=1 << 20):
+                    f.write(chunk)
+            if part.stat().st_size != int(hit["filesize"]):
+                raise IOError(f"{fname}: pobrano {part.stat().st_size} B, oczekiwano {hit['filesize']} B")
+            part.replace(dest)
+            status = "downloaded"
+        digest = sha256_file(dest)
+        update_manifest(manifest_path, {
+            "file_path": dest.resolve().relative_to(Path(project_dir).resolve()).as_posix(), "what": f"EGMS {hit['productLevel']} track "
+            f"{hit['relativeOrbit']} {hit['direction']} burst {hit['burstId']}",
+            "source_url": f"{endpoint}/download/{fname}",
+            "downloaded_on": datetime.now(timezone.utc).strftime("%Y-%m-%d"), "downloaded_by": downloaded_by,
+            "sha256": digest, "licence": EGMS_LICENCE, "egms_release": hit["release"], "notes": status})
+        rows.append({"filename": fname, "status": status, "bytes": dest.stat().st_size, "sha256": digest})
+        logger.info(f"{fname}: {status}")
+    return pd.DataFrame(rows)
+
+
+# ==============================================================================
+# V. TEST OFFLINE
+# ==============================================================================
+class _FakeResponse:
+    def __init__(self, payload=None, content=b""):
+        self._payload, self._content = payload, content
+
+    def raise_for_status(self):
+        return None
+
+    def json(self):
+        return self._payload
+
+    def iter_content(self, chunk_size):
+        for i in range(0, len(self._content), chunk_size):
+            yield self._content[i:i + chunk_size]
+
+
+class _FakeSession:
+    """Atrapa serwera: sprawdza podpis JWT i zwraca ustalone odpowiedzi."""
+
+    def __init__(self, public_key_pem, files):
+        self.public_key_pem, self.files, self.calls = public_key_pem, files, []
+
+    def post(self, url, headers=None, data=None):
+        import jwt
+        self.calls.append(("POST", url))
+        if url.endswith("/token"):
+            claims = jwt.decode(data["assertion"], self.public_key_pem, algorithms=["RS256"], audience=url)
+            assert claims["iss"] == "client-1" and claims["sub"] == "user-1"
+            assert data["grant_type"] == GRANT_TYPE
+            return _FakeResponse({"access_token": "ACCESS"})
+        if url.endswith("/search"):
+            q = json.loads(data)
+            assert headers["Authorization"] == "Bearer ACCESS" and q["levels"] == ["L2B"]
+            hits = [{"filename": n, "filesize": len(c), "release": q["releases"][0], "productLevel": "L2B",
+                     "relativeOrbit": 117, "direction": "ascending", "burstId": i} for i, (n, c) in enumerate(self.files.items())]
+            return _FakeResponse({"id": "Q1", "hits": hits})
+        raise AssertionError(url)
+
+    def get(self, url, headers=None, params=None, stream=False):
+        self.calls.append(("GET", url))
+        name = url.rsplit("/", 1)[-1]
+        if "/download/" in url:
+            assert params == {"id": "Q1"}
+            return _FakeResponse(content=self.files[name])
+        return _FakeResponse([f"{name}-a", f"{name}-b"])
+
+
+def _selftest() -> None:
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+    tmp = Path(tempfile.mkdtemp(prefix="egmscheck_ingest_"))
+    priv = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    priv_pem = priv.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8,
+                                  serialization.NoEncryption()).decode()
+    pub_pem = priv.public_key().public_bytes(serialization.Encoding.PEM,
+                                             serialization.PublicFormat.SubjectPublicKeyInfo).decode()
+    key_path = tmp / "service_key.json"
+    key_path.write_text(json.dumps({"client_id": "client-1", "user_id": "user-1",
+                                    "token_uri": "https://fake/token", "private_key": priv_pem}))
+    files = {"EGMS_L2b_117_0265_IW2_VV_2018_2022_1.zip": b"x" * 3000, "EGMS_L2b_117_0266_IW2_VV_2018_2022_1.zip": b"y" * 10}
+    s = _FakeSession(pub_pem, files)
+    token = get_access_token(key_path, s)
+    h = api_headers(token)
+    lists = get_api_lists(s, h, "https://fake/api")
+    assert set(lists) == set(LIST_NAMES)
+    res = search_egms(s, h, "https://fake/api", point_query(12.3341, 44.9515, "L2B", "2018-2022"))
+    tab = hits_table(res)
+    assert len(tab) == 2 and tab["filesize_mb"].sum() > 0
+    proj = tmp / "proj"
+    out = proj / "data" / "01_Raw_EGMS" / "2018-2022" / "L2b"
+    man = proj / "data" / "00_Metadata" / "MANIFEST.csv"
+    man.parent.mkdir(parents=True)
+    r1 = sync_egms(s, h, "https://fake/api", res, list(files), out, man, proj, 0.0, "selftest")
+    assert (r1["status"] == "downloaded").all()
+    n_downloads = sum(1 for c in s.calls if "/download/" in c[1])
+    r2 = sync_egms(s, h, "https://fake/api", res, list(files), out, man, proj, 0.0, "selftest")
+    assert (r2["status"] == "skipped_existing").all()
+    assert sum(1 for c in s.calls if "/download/" in c[1]) == n_downloads, "drugie uruchomienie nie może pobierać"
+    m = pd.read_csv(man)
+    assert len(m) == 2 and m["source_url"].str.contains(r"\?id=").sum() == 0
+    assert m["sha256"].iat[0] == hashlib.sha256(files[m["file_path"].iat[0].rsplit("/", 1)[-1]]).hexdigest()
+    try:
+        sync_egms(s, h, "https://fake/api", res, ["nie_ma.zip"], out, man, proj, 0.0, "selftest")
+        raise AssertionError("Oczekiwano wyjątku dla pliku spoza wyniku")
+    except KeyError:
+        pass
+    print("SELFTEST step_01_ingest OK")
+
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(levelname)s - %(message)s")
+    ap = argparse.ArgumentParser(description="EGMS Check - KROK 1")
+    ap.add_argument("--selftest", action="store_true")
+    a = ap.parse_args()
+    if a.selftest:
+        _selftest()
+    else:
+        ap.print_help()

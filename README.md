@@ -22,7 +22,7 @@ Wynik trafi na blog GeoWorldLook: [`docs/plans/Plan_v1_wpis_na_blog.md`](docs/pl
 
 ```text
 ├── step_00_reference_check.py    # kontrola spójności tabel przepisanych z publikacji (działa już teraz)
-├── step_01_ingest.py             # [plan] EGMS przez oficjalne API (wyszukanie i pobranie), szereg GNSS, tabela reperów, manifest
+├── step_01_ingest.py             # [częściowo] EGMS przez oficjalne API (wyszukanie i pobranie), szereg GNSS, tabela reperów, manifest
 ├── step_02_checks_extract.py     # [plan] kontrole konwencji EGMS, duplikaty z zakładek burstów, wycinki do notatnika
 ├── step_03_compare_gnss.py       # [plan] przypadek 1: rzut na LOS, wspólne okno, prędkości, różnice
 ├── step_04_compare_levelling.py  # [plan] przypadek 2: odniesienie do reperu, różnice wysokości, prognoza
@@ -52,7 +52,10 @@ katalogi danych z prefiksem liczbowym, `docs/plans`, `docs/evidence/F*`).
 **Prototyp w Colab (2026-10-10):** [`prototypes/EGMS_prototyp.ipynb`](prototypes/EGMS_prototyp.ipynb) —
 test metody na danych syntetycznych i opis szeregu GNSS PTO1, bez tokenu.
 [Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/2_geoworldlook-egmscheck/blob/claude/dreamy-dirac-jd4vue/prototypes/EGMS_prototyp.ipynb),
-potem `Środowisko wykonawcze → Uruchom wszystko`. Plan eksperymentów: [`docs/plans/Plan_v1_eksperymenty.md`](docs/plans/Plan_v1_eksperymenty.md).
+potem `Środowisko wykonawcze → Uruchom wszystko`.
+Pobranie EGMS L2B dla PTO1 (wymaga tokenu CLMS na Dysku; pobiera dopiero po potwierdzeniu listy plików):
+[Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/2_geoworldlook-egmscheck/blob/claude/dreamy-dirac-jd4vue/prototypes/EGMS_pobranie_PTO1.ipynb).
+Plan eksperymentów: [`docs/plans/Plan_v1_eksperymenty.md`](docs/plans/Plan_v1_eksperymenty.md).
 
 1. Przygotowanie krok po kroku: [`docs/plans/Instrukcja_startowa.md`](docs/plans/Instrukcja_startowa.md).
 2. Otwórz folder w Claude Code i wklejaj prompty z [`docs/plans/Prompty_Claude_Code.md`](docs/plans/Prompty_Claude_Code.md), po jednym na sesję.
