@@ -241,6 +241,45 @@ def screen_stations(midas: pd.DataFrame, bbox_lonlat: tuple, t_first_max: float,
     return midas.loc[m, cols].sort_values("vu_mm_yr").reset_index(drop=True)
 
 
+def ngl_screening(session, headers: dict, endpoint: str, midas_url: str, bbox_lonlat: tuple,
+                  t_first_max: float, t_last_min: float, vu_max_mm_yr: float, max_search: int,
+                  release: str) -> pd.DataFrame:
+    """
+    Przegląd stacji NGL: plik MIDAS -> stacje spełniające kryteria -> pokrycie EGMS L2B (wyszukanie punktowe).
+    Drukuje dane kontrolne (surowe wiersze, zakres dat w pliku, liczby stacji po każdym warunku).
+    Wyjątek, gdy dane w pliku kończą się przed t_last_min albo żadna stacja nie spełnia kryteriów.
+    """
+    import requests
+    r = requests.get(midas_url, timeout=300)
+    r.raise_for_status()
+    print("Trzy pierwsze surowe wiersze:")
+    print("\n".join(r.text.splitlines()[:3]))
+    midas = read_ngl_midas(r.text)
+    t_end = midas["t_last"].max()
+    print(f"{midas_url}: {len(midas)} stacji, najpóźniejszy koniec danych {t_end:.3f}")
+    print("PTO1:", midas.loc[midas["site"] == "PTO1", ["t_first", "t_last", "vu_mm_yr", "svu_mm_yr"]].to_dict("records"))
+    if t_end < t_last_min:
+        raise RuntimeError(f"Dane w pliku MIDAS kończą się {t_end:.3f}, przed t_last_min={t_last_min}.")
+    lo0, la0, lo1, la1 = bbox_lonlat
+    eu = midas[midas["lon_deg"].between(lo0, lo1) & midas["lat_deg"].between(la0, la1)]
+    ok_t = (eu["t_first"] <= t_first_max) & (eu["t_last"] >= t_last_min)
+    print(f"Stacje w prostokącie: {len(eu)}; od <= {t_first_max}: {int((eu['t_first'] <= t_first_max).sum())}; "
+          f"do >= {t_last_min}: {int((eu['t_last'] >= t_last_min).sum())}; oba warunki: {int(ok_t.sum())}; "
+          f"oba + vu <= {vu_max_mm_yr} mm/rok: {int((ok_t & (eu['vu_mm_yr'] <= vu_max_mm_yr)).sum())}")
+    cand = screen_stations(midas, bbox_lonlat, t_first_max, t_last_min, vu_max_mm_yr)
+    if cand.empty:
+        raise RuntimeError("Brak stacji spełniających kryteria.")
+    cov = []
+    for _, st in cand.head(max_search).iterrows():
+        res = search_egms(session, headers, endpoint, point_query(st["lon_deg"], st["lat_deg"], "L2B", release))
+        h = pd.DataFrame(res["hits"])
+        cov.append({"site": st["site"], "n_files": len(h),
+                    "tracks": sorted({int(x) for x in h["relativeOrbit"]}) if len(h) else [],
+                    "total_MB": round(h["filesize"].sum() / 1e6, 1) if len(h) else 0.0})
+    print(f"Pokrycie EGMS ({release}) sprawdzone dla {len(cov)} z {len(cand)} stacji (najszybsze osiadanie najpierw).")
+    return cand.merge(pd.DataFrame(cov), on="site", how="left")
+
+
 # ==============================================================================
 # V. TEST OFFLINE
 # ==============================================================================
