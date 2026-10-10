@@ -16,7 +16,7 @@ python3.13 -m venv colab313 && colab313/bin/pip install "ipython==7.34.0" "ipyke
 colab313/bin/python -m ipykernel install --prefix colab313 --name colab313
 
 # 2. Atrapa klucza CLMS (jednorazowy klucz RSA) i dane testowe
-H=tests/colab_harness
+H=$PWD/tests/colab_harness   # ścieżka bezwzględna: PYTHONPATH musi dotrzeć do jądra
 colab313/bin/python $H/make_test_key.py /content/drive/MyDrive/GeoWorldLook/secrets/clms_token.json /tmp/pub.pem
 mkdir -p /tmp/fx/egms /tmp/fx/tenv3 && colab313/bin/python $H/make_fixtures.py /tmp/fx
 

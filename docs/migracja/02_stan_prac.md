@@ -6,8 +6,9 @@
 ### 2.1 Podsumowanie w jednym akapicie
 
 E1 ma gotowy, przetestowany notatnik (`notebooks/EGMS_Check.ipynb`). Na **prawdziwych danych** wykonano
-sekcje 1–4: wybór stacji, pobranie szeregów GNSS i listę plików EGMS. **Porównania EGMS z GNSS na prawdziwych
-danych jeszcze nie ma.** Następny krok to pobranie 4,4 GB EGMS (sekcja 5) po potwierdzeniu progów. E2 jest
+sekcje 1–4: wybór stacji, pobranie szeregów GNSS i listę plików EGMS. ~~Porównania EGMS z GNSS na prawdziwych
+danych jeszcze nie ma.~~ **Nieaktualne: przebieg sekcji 1–9 na prawdziwych danych istnieje, wniosek CZĘŚCIOWO
+([09_audyt_po_migracji.md](09_audyt_po_migracji.md)).** E2 jest
 na etapie planu: brak kodu, decyzja o miejscu (NRW czy Hengelo) otwarta.
 
 ### 2.2 Tabela stanu
@@ -21,7 +22,7 @@ na etapie planu: brak kodu, decyzja o miejscu (NRW czy Hengelo) otwarta.
 | E1 Groningen — wybór stacji | **wykonany na prawdziwych danych**: 27 osiadających (−2,3 do −6,8 mm/rok) + 8 stabilnych z okolicy (8–28 km) | wynik sekcji 2 w Colab (`03_metoda_i_decyzje.md`, 3.2) |
 | E1 — szeregi GNSS | **pobrane** (35 stacji, NGL IGS20, płyta euroazjatycka odjęta) | sekcja 3 w Colab; manifest na Dysku |
 | E1 — pliki EGMS | **zidentyfikowane**: 31 plików L2B 2019–2023, 4443 MB, ścieżki 15, 88 (wst.), 37, 110, 139 (zst.) | sekcja 4 w Colab |
-| E1 — pobranie, kontrole, porównanie, werdykt | **kod gotowy i przetestowany na danych testowych; na prawdziwych danych nieuruchomiony** | `tests/colab_harness/` |
+| E1 — pobranie, kontrole, porównanie, werdykt | **wykonane na prawdziwych danych** (kod `fe368e8`); wniosek CZĘŚCIOWO: K1 91%, K2 4,7 mm, K3 2,22 mm/rok (niespełnione) | zapis notatnika z wynikami na `main` (commit `2e781c9`); `09_audyt_po_migracji.md` |
 | E2 | plan; brak kodu | `docs/evidence/F6_przypadki_zapasowe/zapas_nrw_niwelacja.md`, `F3_przypadek_repery_Hengelo.md` |
 | Wpis na blog | plan | `docs/plans/Plan_v1_wpis_na_blog.md` |
 

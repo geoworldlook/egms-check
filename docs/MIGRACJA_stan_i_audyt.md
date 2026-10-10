@@ -4,6 +4,10 @@
 > Dokument startowy dla nowego konta (GitHub, Google, Claude). Czytaj go przed `CLAUDE.md`:
 > część zapisów w `CLAUDE.md` i `docs/ARCHITEKTURA.md` opisuje stan planowany z 2026-10-09, a nie obecny
 > (`migracja/05_audyt.md`, 5.4).
+>
+> **Aktualizacja po migracji (nowe konto): [9. Audyt po migracji](migracja/09_audyt_po_migracji.md).**
+> Pierwszy prawdziwy przebieg E1 wykonano w Colab (21:08 UTC), zanim powstał ten dokument, ale nie został w nim
+> uwzględniony. Wynik: **CZĘŚCIOWO** (K1, K2 spełnione; K3 niespełnione). Plik 9 ma pierwszeństwo przed 2–7.
 
 ## Spis plików
 
@@ -17,3 +21,4 @@
 | 6 | [6. Otwarte decyzje (w kolejności blokowania)](migracja/06_otwarte_decyzje.md) |
 | 7 | [7. Następne kroki](migracja/07_nastepne_kroki.md) |
 | 8 | [8. Pierwsza wiadomość do Claude na nowym koncie (do skopiowania)](migracja/08_prompt_nowa_sesja.md) |
+| 9 | [9. Audyt po migracji (nowe konto)](migracja/09_audyt_po_migracji.md) |

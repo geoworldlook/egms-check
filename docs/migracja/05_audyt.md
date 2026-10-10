@@ -13,8 +13,8 @@ Skala: **WYSOKI** — może zmienić wniosek; **ŚREDNI** — osłabia wniosek l
 | PTO1 nie spełnia warunku pokrycia 85% z żadnym wydaniem z API | prawdziwe dane (PANGAEA, NGL, API) |
 | 27 + 8 stacji w Groningen, 31 plików EGMS, 4,4 GB | prawdziwe dane (NGL, API) |
 | Notatnik E1 liczy poprawnie (odtwarza zadane prędkości, nachylenie 1,00) | **tylko dane testowe** o znanej odpowiedzi |
-| Zgodność EGMS z GNSS w Groningen | **brak wyniku** — nie wolno jej jeszcze ogłaszać |
-| Konwencja znaku i wektora LOS w plikach EGMS | niezweryfikowana; sprawdzi ją sekcja 6 na prawdziwych danych |
+| Zgodność EGMS z GNSS w Groningen | prawdziwe dane, jeden przebieg: CZĘŚCIOWO (`09_audyt_po_migracji.md`); pełne tabele tylko na starym Dysku |
+| Konwencja wektora LOS w plikach EGMS (A1–A3) | prawdziwe dane: A1, A2 < 0,001; A3 wst. −1 / zst. +1 — zgodne z założeniem |
 
 ### 5.2 Metodyka
 
