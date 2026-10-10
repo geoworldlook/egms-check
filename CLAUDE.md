@@ -1,5 +1,8 @@
 # CLAUDE.md — EGMS Check (GeoWorldLook)
 
+> **Stan bieżący (2026-10-10), migracja i audyt: `docs/MIGRACJA_stan_i_audyt.md` — czytaj najpierw.**
+> Sekcja „Dwa przypadki” niżej opisuje plan z 2026-10-09; przypadek GNSS to obecnie region Groningen.
+
 ## Cel projektu
 
 Własny projekt w ramach GeoWorldLook: sprawdzić, czy dane InSAR z European Ground Motion Service (EGMS)

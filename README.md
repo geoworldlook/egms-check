@@ -49,6 +49,8 @@ katalogi danych z prefiksem liczbowym, `docs/plans`, `docs/evidence/F*`).
 
 ## Uruchomienie (stan obecny)
 
+**Stan projektu, migracja i audyt:** [`docs/MIGRACJA_stan_i_audyt.md`](docs/MIGRACJA_stan_i_audyt.md)
+
 **Walidacja EGMS na stacjach GNSS, region Groningen (2026-10-10):** [`notebooks/EGMS_Check.ipynb`](notebooks/EGMS_Check.ipynb) —
 [Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/2_geoworldlook-egmscheck/blob/claude/dreamy-dirac-jd4vue/notebooks/EGMS_Check.ipynb)
 (wymaga tokenu CLMS na Dysku; pobranie EGMS po akceptacji rozmiaru w sekcji 5).
