@@ -22,6 +22,7 @@ które każdy może pobrać?
 | `Plan_v1_kryteria_akceptacji.md` | progi do zatwierdzenia przed pierwszym przebiegiem |
 | `Plan_v1_otwarte_pytania.md` | rzeczy niezweryfikowane i decyzje autora |
 | `Plan_v1_wpis_na_blog.md` | wymagania i układ wpisu na blog GeoWorldLook |
+| `Plan_v1_eksperymenty.md` | dwa proste eksperymenty (E1 GNSS PTO1, E2 niwelacja NRW) z prototypem kodu; propozycja zmiany przypadku 2 |
 | `Plan_v1_wdrozenie.md` | plan wdrożenia: ustalenia z danych i źródeł, decyzje blokujące, poprawki sesji |
 | `Instrukcja_startowa.md` | przygotowanie i kolejność sesji |
 | `Prompty_Claude_Code.md` | gotowe prompty, po jednym na sesję |
