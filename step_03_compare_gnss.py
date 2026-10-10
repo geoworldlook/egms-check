@@ -160,6 +160,8 @@ def overall(verdict_table: pd.DataFrame) -> str:
 # ==============================================================================
 # IV. WYKRESY (osie po angielsku)
 # ==============================================================================
+GROUP_EN = {"osiadająca": "subsiding", "stabilna": "stable"}
+
 def plot_velocity_scatter(results: pd.DataFrame, cfg: dict):
     """Główny wykres walidacji: prędkość EGMS kontra GNSS w LOS, linia 1:1 i pas +-próg."""
     import matplotlib.pyplot as plt
@@ -169,10 +171,12 @@ def plot_velocity_scatter(results: pd.DataFrame, cfg: dict):
     lim = [min(r["v_gnss_los"].min(), r["v_egms"].min()) - 1, max(r["v_gnss_los"].max(), r["v_egms"].max()) + 1]
     ax.fill_between(lim, [lim[0] - th, lim[1] - th], [lim[0] + th, lim[1] + th], color="0.9", label=f"±{th} mm/yr")
     ax.plot(lim, lim, color="0.4", lw=1, label="1:1")
+    colors = {"ascending": "tab:blue", "descending": "tab:orange"}
     for (grp, direction), g in r.groupby(["group", "direction"]):
-        ax.scatter(g["v_gnss_los"], g["v_egms"], s=36, marker="o" if direction == "ascending" else "s",
-                   facecolors="none" if grp == "stabilna" else None,
-                   label=f"{'subsiding' if grp == 'osiadająca' else 'stable'} station, {direction}")
+        c = colors[direction]
+        ax.scatter(g["v_gnss_los"], g["v_egms"], s=40, marker="o" if direction == "ascending" else "s",
+                   facecolors=c if grp == "osiadająca" else "white", edgecolors=c, linewidths=1.5,
+                   label=f"{GROUP_EN[grp]} station, {direction}")
     ax.set_xlim(lim); ax.set_ylim(lim)
     ax.set_xlabel("GNSS velocity projected to LOS [mm/yr]")
     ax.set_ylabel("EGMS L2b velocity, median within buffer [mm/yr]")

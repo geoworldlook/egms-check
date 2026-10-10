@@ -176,7 +176,7 @@ fig.savefig(FIG_DIR / 'groningen_velocity_scatter.png', dpi=200, bbox_inches='ti
     ("md", """## 9. Co widać w szeregach (przykłady wybrane regułą, nie ręcznie)
 Stacja o największym osiadaniu, stacja o medianie osiadania i stacja stabilna o najmniejszym |vu|;
 dla każdej ścieżka z największą liczbą punktów EGMS."""),
-    ("code", """from step_03_compare_gnss import series_for_plot, plot_series
+    ("code", """from step_03_compare_gnss import series_for_plot, plot_series, GROUP_EN
 sub = stations[stations['group'] == 'osiadająca'].sort_values('vu_mm_yr')
 stab = stations[stations['group'] == 'stabilna'].assign(a=lambda x: x['vu_mm_yr'].abs()).sort_values('a')
 examples = [sub.iloc[0]['site'], sub.iloc[len(sub) // 2]['site']] + ([stab.iloc[0]['site']] if len(stab) else [])
@@ -187,7 +187,7 @@ for site in examples:
     track = ps.groupby('track').size().idxmax()
     s = series_for_plot(ps[ps['track'] == track], DATE_COLS, gnss[site], CFG['radius_main_m'], CFG)
     row = results[(results['site'] == site) & (results['track'] == track) & (results['radius_m'] == CFG['radius_main_m'])].iloc[0]
-    fig = plot_series(s, f"{site} ({row['group']}), track {track}: v_GNSS,LOS {row['v_gnss_los']:.1f}, "
+    fig = plot_series(s, f"{site} ({GROUP_EN[row['group']]}), track {track}: v_GNSS,LOS {row['v_gnss_los']:.1f}, "
                          f"v_EGMS {row['v_egms']:.1f} mm/yr")
     fig.savefig(FIG_DIR / f'groningen_series_{site}_{track}.png', dpi=200, bbox_inches='tight'); plt.show()"""),
     ("md", """## 10. Jak czytać wynik
