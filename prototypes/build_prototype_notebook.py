@@ -192,6 +192,35 @@ r = requests.get(url, timeout=60)
 print(url, '->', r.status_code)
 if r.ok:
     print(r.text[:1500])"""),
+    ("md", """## 8. NGL: pliki szeregu PTO1 i ich zakres dat (bez zapisu na Dysk)
+Komórka znajduje na stronie stacji odnośniki do szeregów `tenv3`, wczytuje je **do pamięci** i podaje:
+pierwszą i ostatnią datę, liczbę dób, przerwy > 30 dni. Nic nie zapisuje; zapis z SHA-256 i manifestem
+dopiero po decyzji."""),
+    ("code", r"""import re, io
+from urllib.parse import urljoin
+import numpy as np
+page = requests.get(url, timeout=60)
+page.raise_for_status()
+links = sorted({urljoin(url, h) for h in re.findall(r'href=["\']([^"\']+)["\']', page.text) if 'tenv3' in h.lower()})
+print('Odnośniki tenv3 na stronie stacji:')
+for l in links:
+    print('  ', l)
+if not links:
+    print('Brak odnośników tenv3 - wklej do Claude Code pełny tekst strony stacji.')
+for l in links:
+    r = requests.get(l, timeout=120)
+    print('\n', l, '->', r.status_code)
+    if not r.ok:
+        continue
+    t = pd.read_csv(io.StringIO(r.text), sep=r'\s+')
+    if 'YYMMMDD' not in t.columns:
+        print('Nieoczekiwane kolumny:', list(t.columns)[:20])
+        continue
+    dates = pd.to_datetime(t['YYMMMDD'], format='%y%b%d')
+    gaps = dates.diff().dt.days
+    print('kolumny:', list(t.columns)[:13])
+    print('od', dates.min().date(), 'do', dates.max().date(), '| doby:', len(t))
+    print('przerwy > 30 dni:', [(str(dates.iloc[i-1].date()), str(dates.iloc[i].date()), int(gaps.iloc[i])) for i in np.where(gaps > 30)[0]])"""),
 ]
 
 

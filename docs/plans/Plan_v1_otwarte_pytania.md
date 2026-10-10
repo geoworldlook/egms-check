@@ -12,6 +12,8 @@ Stan na 2026-10-09. Kolumny: co ustalić, jak sprawdzić, co od tego zależy.
 |  |  | **Stan 2026-10-09:** plik jest; zakres 2008-06-18 – 2021-04-13 (nie 09.2022), 4248 dób, przerwy 30 d (09–10.2015) i 52 d (12.2018–02.2019), wyraźnego skoku nie widać. Szczegóły: `Plan_v1_wdrozenie.md`, sekcja 2.1 |  |  |
 | A2 | 1 | Czy wydanie EGMS 2018–2022 jest dostępne do pobrania? | zapytanie API `GET /releases` | okno ≥ 85%; przy braku: inne źródło GNSS lub jawne odstępstwo |
 |  |  | **Stan 2026-10-09:** według CLMS 2018–2022 i 2015–2021 są w archiwum (na wniosek przez Helpdesk); Explorer ma 2019–2023 i 2020–2024. Przy końcu GNSS w 04.2021 wspólne okno z 2018–2022 to 69% (< 85%). Odpowiedź API niesprawdzona. Decyzje D-A, D-B, D-D: `Plan_v1_wdrozenie.md`, sekcje 2.2–2.3 i 4 |  |  |
+|  |  | **Stan 2026-10-10 (API, uruchomienie w Colab):** `GET /releases` zwraca tylko `2019-2023` i `2020-2024` (zapis z łącznikiem); `levels`: L2A, L2B, L3; `product_types`: BASIC, CALIBRATED, ORTHO-UP, ORTHO-EAST; 76 ścieżek (zapis trzycyfrowy, np. `095`). Wydania 2015–2021 i 2018–2022 nie są dostępne przez API |  |  |
+| A2b | 1 | Bursty nad PTO1 (wyszukanie punktowe L2B) | 2026-10-10: ścieżka 117 — bursty 0263 i 0264 (IW3); 44 — 0265 i 0266 (IW1); 95 — 0807 i 0808 (IW2). **Na każdej ścieżce stacja leży w zakładce dwóch burstów**, więc duplikaty punktów dotyczą bufora wprost (kontrola A5). Rozmiar: 455 MB (2019–2023), 314 MB (2020–2024). Artykuł podaje „sceny” 264–266, 265–267, 806–808: zgodne co do ścieżek, bursty 0263 (117) spoza listy artykułu | sesja 4 |
 | A7 | 1 | Definicja pokrycia w kontroli A6 (wspólne okno / okres wydania czy doby z GNSS / wspólne okno) | decyzja autora przed pierwszym przebiegiem | wynik A6 i wybór wydania |
 | A3 | 2 | Tabela reperów: współrzędne, wysokości w epokach, dokładne daty | załącznik 5 w PDF; przepisać ok. 50 wierszy | cały przypadek 2 |
 | A4 | 2 | Czy istnieje epoka 12.2022? | tekst i załącznik 5 raportu | test prognozy |
@@ -35,6 +37,7 @@ Stan na 2026-10-09. Kolumny: co ustalić, jak sprawdzić, co od tego zależy.
 | B3 | Czy PTO1 weszła do modelu GNSS użytego w EGMS? | EGMS GNSS Calibration Report, lista stacji |
 | B4 | Czy potrzebne jest kryterium wysokości punktów? | rozkład `height` w buforze |
 | B5 | Czy są szeregi po 09.2022 (np. w Nevada Geodetic Laboratory)? | http://geodesy.unr.edu, strona stacji |
+|  | **Stan 2026-10-10:** strona stacji PTO1 w NGL istnieje (HTTP 200). Zakres dat szeregu: do sprawdzenia komórką 8 notatnika `EGMS_pobranie_PTO1.ipynb` |  |
 
 ## C. Ważne — w trakcie przypadku 2
 
