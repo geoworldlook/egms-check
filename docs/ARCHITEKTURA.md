@@ -21,7 +21,7 @@ notebooks/EGMS_Check.ipynb ──▶ step_05.setup_runtime ──▶ run_task(..
 Pliki EGMS pobiera zadanie `ingest_egms` przez oficjalne API (`https://egms.land.copernicus.eu/insar-api/archive`):
 zapytanie `search` dla punktu lub prostokąta, potem `download` do `data/01_Raw_EGMS/` na Dysku, przyrostowo
 (plik już pobrany nie jest pobierany ponownie; każdy trafia do manifestu). Token CLMS API leży na Dysku poza
-katalogiem repozytorium (`MyDrive/GeoWorldLook/secrets/clms_token.jwt`). Bez tokenu zadanie kończy się statusem
+katalogiem repozytorium (`MyDrive/GeoWorldLook/secrets/clms_token.json`). Bez tokenu zadanie kończy się statusem
 „pominięte: brak tokenu" zapisanym w `gwl_runs`, a dalsze zadania czytają wycinki z `data/03_Extracts/` w repozytorium.
 Dzięki temu czytelnik wpisu odtwarza wykresy bez konta w CLMS.
 

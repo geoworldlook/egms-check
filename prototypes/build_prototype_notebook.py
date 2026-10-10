@@ -85,7 +85,7 @@ Produkt: **EGMS Calibrated (L2B)**, ścieżki 117 i 44 (wstępujące) oraz 95 (z
 
 Kolejność (nie pomijaj kroków):
 1. Dysk Google i kod; dane trafiają na Dysk: `MyDrive/GeoWorldLook/egmscheck/data/01_Raw_EGMS/`.
-2. Token: klucz serwisowy CLMS na Dysku **poza repozytorium** (`MyDrive/GeoWorldLook/secrets/clms_token.jwt`).
+2. Token: klucz serwisowy CLMS na Dysku **poza repozytorium** (`MyDrive/GeoWorldLook/secrets/clms_token.json`).
    Token nie jest drukowany ani zapisywany.
 3. Listy wartości API: które wydania są dostępne (pytanie A2) — zapis do `data/00_Metadata/`.
 4. Wyszukanie plików dla punktu PTO1 we wszystkich wydaniach: nazwy, bursty, rozmiary. **Nic się nie pobiera.**
@@ -120,7 +120,7 @@ import requests
 from step_01_ingest import API_ENDPOINT, get_access_token, api_headers, get_api_lists, search_egms, point_query, hits_table
 from egms_simple_check import read_pangaea_gnss
 
-TOKEN_PATH = Path('/content/drive/MyDrive/GeoWorldLook/secrets/clms_token.jwt')   # klucz serwisowy CLMS (JSON)
+TOKEN_PATH = Path('/content/drive/MyDrive/GeoWorldLook/secrets/clms_token.json')   # klucz serwisowy CLMS (JSON)
 gnss, STATION_LON, STATION_LAT = read_pangaea_gnss('data/02_Raw_Ground/1_gnss_pangaea/PTO1.txt')
 print(f'PTO1 z pliku PANGAEA: lon {STATION_LON}, lat {STATION_LAT}')
 

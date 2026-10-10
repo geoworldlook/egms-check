@@ -94,4 +94,4 @@ Pełna lista: `docs/plans/Plan_v1_otwarte_pytania.md`.
 ## Konwencje pracy z użytkownikiem
 
 - Po każdej zmianie kodu podaj changelog. Przy poprawkach pokazuj tylko zmienione fragmenty.
-- Token CLMS API leży poza repozytorium (na Dysku: `MyDrive/GeoWorldLook/secrets/clms_token.jwt`); nie kopiuj go do repozytorium, notatnika ani logów.
+- Token CLMS API leży poza repozytorium (na Dysku: `MyDrive/GeoWorldLook/secrets/clms_token.json`); nie kopiuj go do repozytorium, notatnika ani logów.

@@ -12,7 +12,7 @@ Dane EGMS pobiera zadanie `ingest_egms` przez oficjalne API.**
 
 | # | Co | Skąd | Gdzie zapisać |
 |---|---|---|---|
-| 0 | Token CLMS API (plik JSON z kluczem prywatnym) | konto na stronie CLMS (https://land.copernicus.eu), zakładka z tokenami API; instrukcja: https://eea.github.io/clms-api-docs/authentication.html | `MyDrive/GeoWorldLook/secrets/clms_token.jwt`, poza repozytorium |
+| 0 | Token CLMS API (plik JSON z kluczem prywatnym) | konto na stronie CLMS (https://land.copernicus.eu), zakładka z tokenami API; instrukcja: https://eea.github.io/clms-api-docs/authentication.html | `MyDrive/GeoWorldLook/secrets/clms_token.json`, poza repozytorium |
 
 Opis API: `docs/evidence/F5_zrodla_danych.md`, sekcja 1. Kod z oficjalnego notatnika nie był przeze mnie uruchamiany.
 
