@@ -15,6 +15,10 @@ data/05_Final_Outputs/*
 !data/05_Final_Outputs/.gitkeep
 data/_selftest/
 
+# Etap B: produkty ASF HyP3 i katalogi robocze MintPy (duże; na Dysku, nie w repozytorium)
+data/01_Raw_InSAR/
+data/03_Extracts/*/mintpy_*
+
 # Rejestr gwl_* (baza danych na Dysku Google, nie w repo)
 data/registry/*
 
