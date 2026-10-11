@@ -30,9 +30,10 @@ prędkość (fit_velocity) i mediana w oknie wokół daty (gnss_at_dates) z step
         ruchu wskazówek zegara [deg] (geometryGeo.h5: incidenceAngle, azimuthAngle; dla HyP3 MintPy przelicza
         lv_theta, lv_phi z radianów: inc = 90 - theta, az = phi - 90; objects/stackDict.py).
         Znak: MintPy ts = -lambda/(4 pi) * faza (ifgram_inversion.py), enu2los: "motion toward satellite as
-        positive". EGMS: ujemne = oddalanie od satelity, czyli też dodatnie = do satelity, a wektor LOS EGMS
-        też wskazuje od ziemi do satelity (los_up > 0). ODWRACANIE ZNAKU NIE JEST POTRZEBNE. Kontrola na danych:
-        check_los_vs_egms (ta sama ścieżka: zgodne los_up i znak los_east).
+        positive". EGMS: przyjęte ujemne = oddalanie od satelity i wektor LOS od ziemi do satelity (los_up > 0);
+        w dokumentacji niezweryfikowane (CLAUDE.md), sprawdzane na danych kontrolami F4_metodyka, sekcja 2 (step_02).
+        Przy tej konwencji ODWRACANIE ZNAKU NIE JEST POTRZEBNE. Kontrola na danych przed porównaniem:
+        check_los_vs_egms (ta sama ścieżka: zgodne los_up i znak los_east) oraz corr w align_to_reference.
   VIII. Szeregi w punktach: mediana pikseli okna window_px x window_px, tylko piksele maski maskTempCoh.h5
         (MintPy zapisuje piksele nieodwrócone jako 0, nie NaN, i nie maskuje szeregu: ifgram_inversion.py);
         metry -> mm; format długi (Plan_v2, sekcja 2.2) ze źródłem S1_HYP3_MINTPY. Dowiązanie do EGMS:
@@ -45,14 +46,20 @@ Odstępstwa od specyfikacji 4.4 (do akceptacji autora):
   - submit_missing ma parametr cost_per_job (koszt jednego zlecenia w kredytach HyP3; bez wartości domyślnej,
     z CHECK_CONFIG); max_credits None = RuntimeError (decyzja autora).
   - mintpy_series_at_points ma dodatkowe parametry mask_h5 (maskTempCoh.h5), region i track (kolumny formatu
-    długiego, których plik MintPy nie zawiera); wynik ma dodatkową kolumnę status.
+    długiego, których plik MintPy nie zawiera); wynik ma dodatkową kolumnę status, a track jest tekstem (jak
+    step_07._track_label). Wiersze bez szeregu mają los_* NaN, więc przed step_07.validate_long / write_long
+    wywołujący rozdziela wynik funkcją split_long_status (szeregi 'ok' + tabela statusów, jak step_07).
   - write_mintpy_template / expected_timeseries_name wymagają w mcfg kluczy deramp i solid_earth_tides (oraz
     weather_model dla troposphere 'pyaps'), których nie ma w CHECK_CONFIG ze specyfikacji; poprawka jonosferyczna
     stale 'no' (jedyna metoda MintPy, split_spectrum, wymaga warstw jonosfery, których produkt HyP3 nie ma);
     mintpy.save.hdfEos5 = no, mintpy.plot = no (przebieg automatyczny; ryciny robi step_07).
   - INSAR_ISCE_BURST tylko dla jednego burstu (produkty różnych burstów nie mają wspólnego obszaru do przycięcia).
+    INSAR_ISCE_MULTI_BURST: reguły grupy z asf_search/burst2safe (<= 15 burstów, ciągłość, zachodzenie podpasów)
+    sprawdzane przed wysłaniem (check_burst_contiguity); looks tylko z listy hyp3_sdk.
+  - clip_to_common_overlap: dwa produkty tej samej pary dat = ValueError (zdublowany DATE12 w stosie MintPy).
   - dodane: product_name_and_type (wzorce nazw z MintPy prep_hyp3), check_burst_contiguity, fill_burst_gaps,
-    reference_lalo_from_rule, check_los_vs_egms, describe_product; transform_xy przeniesione z prototypu.
+    reference_lalo_from_rule, check_los_vs_egms, split_long_status, describe_product; transform_xy przeniesione
+    z prototypu.
 
 Literatura i źródła: Yunjun, Fattahi, Amelung 2019 (MintPy, Computers & Geosciences 133, 104331); Berardino,
 Fornaro, Lanari, Sansosti 2002 (SBAS, IEEE TGRS 40(11)); dokumentacja ASF HyP3, burst InSAR product guide
@@ -96,6 +103,9 @@ SOURCE = "S1_HYP3_MINTPY"
 MM_PER_M = 1000.0
 HYP3_LICENCE = "ASF HyP3 products: open, Copernicus Sentinel data (ESA) processed by ASF"
 JOB_TYPES = ("INSAR_ISCE_MULTI_BURST", "INSAR_ISCE_BURST")
+HYP3_LOOKS = ("20x4", "10x2", "5x1")    # hyp3_sdk 7.7.8, HyP3.prepare_insar_isce_*_job: looks: Literal[...]
+MAX_MULTI_BURST = 15                    # asf_search 14.0.3, S1MultiBurstGroup.check_group_validity (z burst2safe)
+JOB_STATUS_RANK = {"SUCCEEDED": 0, "RUNNING": 1, "PENDING": 2}     # wybór spośród zleceń o tej samej tożsamości
 BURST_COLUMNS = ["scene_name", "full_burst_id", "start_time", "date", "platform", "flight_direction",
                  "relative_orbit", "footprint_wkt"]
 STACK_COLUMNS = ["date", "scene_names", "burst_ids", "platform", "n_bursts"]
@@ -105,6 +115,8 @@ DOWNLOAD_COLUMNS = ["job_id", "job_type", "status_code", "product_name", "date1"
 CLIP_COLUMNS = ["product", "layer", "clip_path", "width", "height", "left", "bottom", "right", "top", "status"]
 LONG_COLUMNS = ["region", "source", "site", "track", "direction", "component", "los_east", "los_north", "los_up",
                 "date", "disp_mm", "ref_date", "reference", "n_points", "status"]
+SERIES_KEY = ["region", "source", "site", "track", "component"]
+SERIES_STATUS_COLUMNS = SERIES_KEY + ["direction", "n_points", "ref_date", "reference", "status"]
 ALIGN_COLUMNS = ["site", "track", "n_matched", "offset_mm", "std_diff_mm", "corr", "status"]
 EGMS_ALIGN_NEED = ["source", "site", "track", "date", "disp_mm", "ref_date", "reference"]
 MIN_ALIGN_MATCHES = 10                  # reguła specyfikacji 4.4 (jak minimum obserwacji w step_03.fit_velocity)
@@ -155,6 +167,24 @@ def _require_columns(df: pd.DataFrame, cols: list, what: str) -> None:
     missing = [c for c in cols if c not in df.columns]
     if missing:
         raise KeyError(f"{what}: brak kolumn {missing}; dostępne: {list(df.columns)}")
+
+
+def _track_label(x) -> str:
+    """
+    Etykieta ścieżki jako tekst, ta sama reguła co step_07_monitoring._track_label (format długi przechowuje track
+    jako tekst; validate_long odrzuca liczby): 88, 88.0, "88" -> "88"; "L3" bez zmian; pusta, NaN, bool = wyjątek.
+    """
+    if isinstance(x, str):
+        if not x.strip():
+            raise ValueError("Pusta etykieta ścieżki")
+        return x
+    if isinstance(x, (bool, np.bool_)):
+        raise TypeError(f"Etykieta ścieżki nie może być typu bool: {x!r}")
+    if isinstance(x, (int, np.integer)):
+        return str(int(x))
+    if isinstance(x, (float, np.floating)) and np.isfinite(x) and float(x).is_integer():
+        return str(int(x))
+    raise ValueError(f"Nieprawidłowa etykieta ścieżki: {x!r}")
 
 
 # Przeniesione z prototypes/egms_simple_check.py (transform_xy), zachowanie bez zmian.
@@ -240,7 +270,9 @@ def search_bursts(aoi_wkt: str, relative_orbit: int, start, end, polarization: s
     if not rows:
         raise RuntimeError(f"asf_search: brak burstów SLC dla ścieżki {relative_orbit}, {start} - {end}, {polarization}")
     df = pd.DataFrame(rows)
-    df["start_time"] = pd.to_datetime(df["start_time"], utc=True).dt.tz_convert(None)
+    # ISO8601: CMR podaje czas z częścią ułamkową sekundy albo bez; pandas 2.x bez tego formatu zgaduje wzorzec
+    # z pierwszego wiersza i odrzuca wiersze o innej precyzji (ValueError na prawdziwym wyniku wyszukania).
+    df["start_time"] = pd.to_datetime(df["start_time"], utc=True, format="ISO8601").dt.tz_convert(None)
     df["date"] = df["start_time"].dt.normalize()
     df["flight_direction"] = df["flight_direction"].str.lower()
     df["relative_orbit"] = df["relative_orbit"].astype(int)
@@ -274,7 +306,10 @@ def bursts_covering_points(bursts: pd.DataFrame, points_lonlat: pd.DataFrame) ->
     from shapely.geometry import Point
     _require_columns(bursts, ["full_burst_id", "footprint_wkt"], "bursts")
     _require_columns(points_lonlat, ["lon_deg", "lat_deg"], "points_lonlat")
-    pts = [Point(lo, la) for lo, la in zip(points_lonlat["lon_deg"], points_lonlat["lat_deg"])]
+    ll = points_lonlat[["lon_deg", "lat_deg"]].to_numpy(float)
+    if len(ll) == 0 or not np.isfinite(ll).all():
+        raise ValueError(f"points_lonlat: pusta tabela albo współrzędne NaN (wiersze {np.where(~np.isfinite(ll).all(axis=1))[0].tolist()})")
+    pts = [Point(lo, la) for lo, la in ll]
     labels = list(points_lonlat["site"]) if "site" in points_lonlat.columns else list(range(len(pts)))
     hit, covered = set(), np.zeros(len(pts), bool)
     for bid, g in bursts.groupby("full_burst_id"):
@@ -292,18 +327,33 @@ def bursts_covering_points(bursts: pd.DataFrame, points_lonlat: pd.DataFrame) ->
 
 def check_burst_contiguity(burst_ids: list) -> None:
     """
-    Jedna ścieżka; w każdym podpasie numery burstów bez przerw. Nazwa produktu INSAR_ISCE_MULTI_BURST
-    (MintPy prep_hyp3) koduje dla podpasa tylko pierwszy burst i ich liczbę, więc ciąg musi być ciągły.
+    Grupa burstów jednego zlecenia INSAR_ISCE_MULTI_BURST. Reguły:
+      - jedna ścieżka; w każdym podpasie numery burstów bez przerw (nazwa produktu, MintPy prep_hyp3, koduje dla
+        podpasa tylko pierwszy burst i ich liczbę; burst2safe wymaga kolejnych numerów);
+      - co najwyżej MAX_MULTI_BURST par burst/podpas, a w sąsiednich (kolejnych użytych) podpasach pierwszy i ostatni
+        numer różnią się najwyżej o 1 - przeniesione z asf_search 14.0.3, S1MultiBurstProduct.py,
+        S1MultiBurstGroup.check_group_validity (zapożyczone tam z burst2safe, którego używa HyP3). Grupa łamiąca te
+        reguły kończy się zleceniem FAILED po pobraniu kredytów, więc sprawdzamy przed wysłaniem.
     """
     parsed = [_parse_burst_id(b) for b in burst_ids]
+    if not parsed or len(set(burst_ids)) != len(burst_ids):
+        raise ValueError(f"Pusta albo zdublowana lista burstów: {burst_ids}")
     if len({t for t, _, _ in parsed}) != 1:
         raise ValueError(f"Bursty z kilku ścieżek: {sorted(burst_ids)}")
-    gaps = []
+    if len(parsed) > MAX_MULTI_BURST:
+        raise ValueError(f"{len(parsed)} burstów > {MAX_MULTI_BURST} (limit grupy INSAR_ISCE_MULTI_BURST); podziel obszar")
+    gaps, ranges = [], {}
     for sw in sorted({s for _, _, s in parsed}):
         nums = sorted(n for _, n, s in parsed if s == sw)
         gaps += [f"IW{sw}: {a:06d} -> {b:06d}" for a, b in zip(nums[:-1], nums[1:]) if b - a != 1]
+        ranges[sw] = (nums[0], nums[-1])
     if gaps:
         raise ValueError(f"Bursty nieciągłe w podpasie ({gaps}); uzupełnij fill_burst_gaps albo podziel obszar.")
+    sws = sorted(ranges)
+    bad = [f"IW{a} {ranges[a]} / IW{b} {ranges[b]}" for a, b in zip(sws[:-1], sws[1:])
+           if abs(ranges[a][0] - ranges[b][0]) > 1 or abs(ranges[a][1] - ranges[b][1]) > 1]
+    if bad:
+        raise ValueError(f"Podpasy nie zachodzą na siebie (pierwszy/ostatni burst różni się o > 1): {bad}")
 
 
 def fill_burst_gaps(burst_ids: list) -> list[str]:
@@ -336,6 +386,9 @@ def acquisition_stack(bursts: pd.DataFrame, burst_ids: list) -> pd.DataFrame:
     if unknown:
         raise ValueError(f"Bursty spoza wyniku wyszukania: {unknown}")
     b = bursts[bursts["full_burst_id"].isin(burst_ids)]
+    dup = b.duplicated(["full_burst_id", "date"], keep=False)
+    if dup.any():                        # by_id.at[...] zwróciłby wtedy serię zamiast nazwy sceny
+        raise ValueError(f"Zdublowane (burst, data): {b.loc[dup, ['full_burst_id', 'date']].astype(str).head(4).to_dict('records')}")
     rows, dropped = [], []
     for date, g in b.groupby("date"):
         by_id = g.set_index("full_burst_id")
@@ -392,6 +445,8 @@ def prepare_jobs(stack: pd.DataFrame, pairs: list, job_type: str, looks: str, ap
         _require(f"hyp3.{n}", v)
     if job_type not in JOB_TYPES:
         raise ValueError(f"Nieobsługiwany typ zlecenia {job_type!r}; dozwolone {JOB_TYPES}")
+    if looks not in HYP3_LOOKS:
+        raise ValueError(f"looks {looks!r}: dozwolone {HYP3_LOOKS} (hyp3_sdk)")
     if not isinstance(apply_water_mask, bool):
         raise ValueError(f"apply_water_mask musi być True/False, jest {apply_water_mask!r}")
     _require_columns(stack, STACK_COLUMNS, "stack")
@@ -456,15 +511,23 @@ def submit_missing(hyp3, jobs: list, name: str, max_credits: float, cost_per_job
         raise ValueError(f"cost_per_job = {cost_per_job}: oczekiwano > 0")
     if not jobs:
         raise ValueError("Pusta lista zleceń")
-    wrong =sorted({j.get("name") for j in jobs if j.get("name") != name}, key=str)
+    wrong = sorted({j.get("name") for j in jobs if j.get("name") != name}, key=str)
     if wrong:
         raise ValueError(f"Zlecenia z inną nazwą niż {name!r}: {wrong}")
     keys = [_job_key(j["job_type"], j["job_parameters"]) for j in jobs]
     if len(set(keys)) != len(keys):
         raise ValueError("Zdublowane zlecenia na liście jobs")
-    existing = {}
+    # Kilka zleceń o tej samej tożsamości (np. FAILED i ponowione ręcznie): raportujemy najlepsze
+    # (SUCCEEDED > RUNNING > PENDING > FAILED / inne), niezależnie od kolejności zwróconej przez API.
+    existing, n_same = {}, Counter()
     for job in hyp3.find_jobs(name=name):
-        existing.setdefault(_job_key(job.job_type, job.job_parameters), job)
+        k = _job_key(job.job_type, job.job_parameters)
+        n_same[k] += 1
+        if k not in existing or JOB_STATUS_RANK.get(job.status_code, 3) < JOB_STATUS_RANK.get(existing[k].status_code, 3):
+            existing[k] = job
+    multi = sum(1 for v in n_same.values() if v > 1)
+    if multi:
+        print(f"UWAGA: {multi} par granul ma kilka zleceń pod nazwą {name!r} (sprawdź duplikaty produktów przed MintPy).")
     conflicts = []
     for k, j in zip(keys, jobs):
         if k in existing:
@@ -653,6 +716,13 @@ def clip_to_common_overlap(product_dirs: list, layers: list, out_dir) -> pd.Data
     for n in names:
         if product_name_and_type(n)[0] != n:
             raise ValueError(f"Katalog {n!r}: nazwa nie jest nazwą produktu HyP3")
+    # Ta sama para dat dwa razy (np. dwa udane zlecenia tej samej pary) dałaby w stosie MintPy zdublowany DATE12.
+    by_pair = {}
+    for n in names:
+        by_pair.setdefault(product_dates(n), []).append(n)
+    dup = {f"{a.date()}_{b.date()}": v for (a, b), v in by_pair.items() if len(v) > 1}
+    if dup:
+        raise ValueError(f"Kilka produktów tej samej pary dat (wybierz jeden świadomie): {dup}")
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     stale = sorted(d.name for d in out_dir.iterdir() if d.is_dir() and d.name not in names)
@@ -935,14 +1005,17 @@ def check_los_vs_egms(vec_own, vec_egms, tol: float) -> dict:
     Kontrola konwencji przed porównaniem (ta sama ścieżka): |los_up_own - los_up_EGMS| <= tol i ten sam niezerowy
     znak los_east. Zwraca wartości i 'pass'; wywołujący zatrzymuje obliczenia, gdy pass = False.
     """
+    tol = float(_require("tol", tol))
     e0, n0, u0 = (float(v) for v in vec_own)
     e1, n1, u1 = (float(v) for v in vec_egms)
+    if not np.isfinite([e0, n0, u0, e1, n1, u1]).all():
+        raise ValueError(f"Wektor LOS z NaN: własny {vec_own}, EGMS {vec_egms}")
     d_up = abs(u0 - u1)
     cosang = (e0 * e1 + n0 * n1 + u0 * u1) / (np.hypot(np.hypot(e0, n0), u0) * np.hypot(np.hypot(e1, n1), u1))
     sign_ok = np.sign(e0) == np.sign(e1) != 0
     return {"d_los_up": d_up, "sign_east_own": float(np.sign(e0)), "sign_east_egms": float(np.sign(e1)),
-            "angle_deg": float(np.rad2deg(np.arccos(np.clip(cosang, -1.0, 1.0)))), "threshold": float(tol),
-            "pass": bool(d_up <= float(_require("tol", tol)) and sign_ok)}
+            "angle_deg": float(np.rad2deg(np.arccos(np.clip(cosang, -1.0, 1.0)))), "threshold": tol,
+            "pass": bool(d_up <= tol and sign_ok)}
 
 
 # ==============================================================================
@@ -979,15 +1052,17 @@ def mintpy_series_at_points(ts_h5, geom_h5, mask_h5, points: pd.DataFrame, windo
     Szereg MintPy w punktach (site, lon_deg, lat_deg): piksel jak coord.lalo2yx (floor((y - Y_FIRST)/Y_STEP + 0.01)),
     mediana pikseli okna window_px x window_px (nieparzyste; okno przycięte do rastra) spośród pikseli maski
     maskTempCoh.h5 i skończonych we wszystkich datach; metry -> mm. los_* z mediany incidenceAngle/azimuthAngle
-    tych pikseli (los_unit_vector). Punkt poza rastrem albo bez ważnych pikseli = wiersze z disp_mm NaN i powodem.
-    ref_date = REF_DATE (szereg MintPy jest tam zerem - sprawdzane), reference = punkt odniesienia MintPy.
+    tych pikseli (los_unit_vector). Punkt poza rastrem albo bez ważnych pikseli = wiersze z disp_mm i los_* NaN
+    i powodem w status. ref_date = REF_DATE (szereg MintPy jest tam zerem - sprawdzane), reference = punkt
+    odniesienia MintPy; track jako tekst (_track_label). Przed zapisem formatu długiego (step_07.validate_long wymaga
+    los_*) wiersze bez szeregu oddziela split_long_status.
     """
     import h5py
     w = int(_require("hyp3.mintpy.window_px", window_px))
     if w < 1 or w % 2 == 0:
         raise ValueError(f"window_px = {window_px}: oczekiwano nieparzystej liczby >= 1")
     _require("region", region)
-    _require("track", track)
+    track = _track_label(_require("track", track))          # tekst, jak w formacie długim step_07
     _require_columns(points, ["site", "lon_deg", "lat_deg"], "points")
     if points["site"].duplicated().any():
         raise ValueError(f"Zdublowane punkty: {sorted(points.loc[points['site'].duplicated(), 'site'])}")
@@ -1041,6 +1116,9 @@ def mintpy_series_at_points(ts_h5, geom_h5, mask_h5, points: pd.DataFrame, windo
                 continue
             inc = float(np.median(fg["incidenceAngle"][r0:r1, c0:c1][valid]))
             az = float(np.median(fg["azimuthAngle"][r0:r1, c0:c1][valid]))
+            if not (np.isfinite(inc) and np.isfinite(az)):
+                parts.append(nan.assign(status=f"NaN: brak kąta padania/azymutu ({MINTPY_GEOMETRY}) w pikselach okna"))
+                continue
             le, ln, lu = los_unit_vector(inc, az)
             disp = np.median(block[:, valid], axis=1) * MM_PER_M
             parts.append(pd.DataFrame({**base, "site": site, "los_east": le, "los_north": ln, "los_up": lu,
@@ -1067,18 +1145,21 @@ def align_to_reference(own_long: pd.DataFrame, egms_long: pd.DataFrame, overlap_
     _require_columns(egms_long, EGMS_ALIGN_NEED, "egms_long")
     t0, t1 = pd.Timestamp(_require("overlap_start", overlap_start)), pd.Timestamp(_require("hyp3.overlap_end", overlap_end))
     hw = float(_require("half_window_days", half_window_days))
-    if egms_long["source"].nunique() != 1:
-        raise ValueError(f"egms_long z kilku źródeł: {sorted(egms_long['source'].unique())}")
-    egms = egms_long.assign(track_key=egms_long["track"].astype(str), date=pd.to_datetime(egms_long["date"]))
-    if egms.duplicated(["site", "track_key", "date"]).any():
-        raise ValueError("egms_long: zdublowane (site, track, date)")
-    own = own_long.assign(track_key=own_long["track"].astype(str), date=pd.to_datetime(own_long["date"]))
+    for what, df in (("egms_long", egms_long), ("own_long", own_long)):
+        if df["source"].nunique() != 1:
+            raise ValueError(f"{what} z kilku źródeł albo pusty: {sorted(df['source'].unique())}")
+    # Klucz ścieżki przez _track_label: 88, 88.0 (CSV z pustymi polami) i "88" to ta sama ścieżka; samo astype(str)
+    # dałoby "88.0" != "88" i po cichu status "brak szeregu EGMS" dla wszystkich punktów.
+    egms = egms_long.assign(track=egms_long["track"].map(_track_label), date=pd.to_datetime(egms_long["date"]))
+    own = own_long.assign(track=own_long["track"].map(_track_label), date=pd.to_datetime(own_long["date"]))
+    for what, df in (("egms_long", egms), ("own_long", own)):
+        if df.duplicated(["site", "track", "date"]).any():
+            raise ValueError(f"{what}: zdublowane (site, track, date)")
     rows, shifted = [], []
-    for (site, tk), g in own.groupby(["site", "track_key"], sort=True):
+    for (site, tk), g in own.groupby(["site", "track"], sort=True):
         g = g.sort_values("date")
-        e = egms[(egms["site"] == site) & (egms["track_key"] == tk)].sort_values("date")
-        row = {"site": site, "track": g["track"].iat[0], "n_matched": 0, "offset_mm": np.nan, "std_diff_mm": np.nan,
-               "corr": np.nan}
+        e = egms[(egms["site"] == site) & (egms["track"] == tk)].sort_values("date")
+        row = {"site": site, "track": tk, "n_matched": 0, "offset_mm": np.nan, "std_diff_mm": np.nan, "corr": np.nan}
         win = g[(g["date"] >= t0) & (g["date"] <= t1) & g["disp_mm"].notna()]
         if e.empty:
             status = "NaN: brak szeregu EGMS dla (site, track)"
@@ -1087,7 +1168,9 @@ def align_to_reference(own_long: pd.DataFrame, egms_long: pd.DataFrame, overlap_
         else:
             if e["reference"].nunique() != 1 or e["ref_date"].nunique() != 1:
                 raise ValueError(f"{site}/{tk}: EGMS z kilkoma odniesieniami")
-            e_at = gnss_at_dates(e.set_index("date")["disp_mm"], pd.DatetimeIndex(win["date"]), hw)
+            # Mediana tylko z dat EGMS z wartością: NaN w oknie (np. daty przed ref_date, step_07) dałby NaN mediany
+            # i zgubił dopasowanie mimo innych wartości w oknie; liczba dopasowań trafia do n_matched.
+            e_at = gnss_at_dates(e[e["disp_mm"].notna()].set_index("date")["disp_mm"], pd.DatetimeIndex(win["date"]), hw)
             d = win["disp_mm"].to_numpy() - e_at.to_numpy()
             m = np.isfinite(d)
             row["n_matched"] = int(m.sum())
@@ -1099,7 +1182,7 @@ def align_to_reference(own_long: pd.DataFrame, egms_long: pd.DataFrame, overlap_
                            corr=float(np.corrcoef(win["disp_mm"].to_numpy()[m], e_at.to_numpy()[m])[0, 1]))
                 status = "ok"
         rows.append({**row, "status": status})
-        s = g.drop(columns="track_key").copy()
+        s = g.copy()
         s["disp_mm"] = s["disp_mm"] - row["offset_mm"]          # NaN, gdy dowiązanie się nie udało
         if status == "ok":
             s["reference"], s["ref_date"] = e["reference"].iat[0], pd.Timestamp(e["ref_date"].iat[0])
@@ -1108,6 +1191,27 @@ def align_to_reference(own_long: pd.DataFrame, egms_long: pd.DataFrame, overlap_
     table = pd.DataFrame(rows, columns=ALIGN_COLUMNS)
     print(f"Dowiązanie do EGMS ({egms_long['source'].iat[0]}): {table['status'].value_counts().to_dict()}")
     return pd.concat(shifted, ignore_index=True)[LONG_COLUMNS], table
+
+
+def split_long_status(long_with_status: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Wynik mintpy_series_at_points / align_to_reference -> (szeregi, statusy), jak step_07.egms_points_to_long:
+    szeregi = wiersze serii ze statusem 'ok', bez kolumny status (format długi sekcji 2.2; step_07.validate_long
+    wymaga los_* i odrzuca puste); statusy = wiersz na KAŻDY szereg (SERIES_STATUS_COLUMNS), także bez wartości,
+    z powodem NaN. Status niejednolity w obrębie szeregu = ValueError (oba źródła nadają go całemu szeregowi).
+    """
+    _require_columns(long_with_status, LONG_COLUMNS, "long_with_status")
+    df = long_with_status.assign(track=long_with_status["track"].map(_track_label))
+    per = df.groupby(SERIES_KEY)["status"].nunique()
+    if (per > 1).any():
+        raise ValueError(f"Szeregi z kilkoma statusami: {per[per > 1].index.tolist()[:5]}")
+    status = (df.groupby(SERIES_KEY, sort=True)
+              .agg(direction=("direction", "first"), n_points=("n_points", "first"), ref_date=("ref_date", "first"),
+                   reference=("reference", "first"), status=("status", "first")).reset_index()[SERIES_STATUS_COLUMNS])
+    series = df[df["status"] == "ok"].drop(columns="status").reset_index(drop=True)
+    if series[["los_east", "los_north", "los_up"]].isna().any().any():
+        raise ValueError("Szereg ze statusem 'ok' bez wektora LOS")
+    return series, status
 
 
 # ==============================================================================
@@ -1148,9 +1252,12 @@ class _FakeAsf:
 
 
 def _synthetic_bursts(dates, burst_nums, drop: set) -> list:
-    """Bursty IW1 ścieżki testowej; obrys burstu k: lon 5-6, lat 52.0 + 0.2 (k - k0) .. + 0.25 (zakładki 0.05)."""
+    """
+    Bursty IW1 ścieżki testowej; obrys burstu k: lon 5-6, lat 52.0 + 0.2 (k - k0) .. + 0.25 (zakładki 0.05).
+    startTime na przemian bez i z częścią ułamkową sekundy (oba warianty ISO 8601 występują w CMR).
+    """
     out = []
-    for d in dates:
+    for n_d, d in enumerate(dates):
         for i, b in enumerate(burst_nums):
             if (d, b) in drop:
                 continue
@@ -1158,7 +1265,8 @@ def _synthetic_bursts(dates, burst_nums, drop: set) -> list:
             ring = [[5.0, la], [6.0, la], [6.0, la + 0.25], [5.0, la + 0.25], [5.0, la]]
             out.append(_FakeProduct(
                 {"sceneName": f"S1_{b:06d}_IW1_{d:%Y%m%d}T054312_VV_{b % 65536:04X}-BURST",
-                 "startTime": f"{d:%Y-%m-%d}T05:43:12Z", "platform": "Sentinel-1A", "flightDirection": "ASCENDING",
+                 "startTime": f"{d:%Y-%m-%d}T05:43:12{'.654321' if n_d % 2 else ''}Z", "platform": "Sentinel-1A",
+                 "flightDirection": "ASCENDING",
                  "pathNumber": _T_TRACK, "polarization": "VV", "burst": {"fullBurstID": f"{_T_TRACK:03d}_{b:06d}_IW1"}},
                 {"type": "Polygon", "coordinates": [ring]}))
     return out
@@ -1342,6 +1450,8 @@ def _selftest() -> None:
             kw = fake_asf.calls[-1]
             assert kw["dataset"] == "SLC-BURST" and kw["relativeOrbit"] == _T_TRACK and kw["polarization"] == "VV"
             assert list(b.columns) == BURST_COLUMNS and len(b) == 89 and (b["flight_direction"] == "ascending").all()
+            assert b["start_time"].dt.tz is None and set(b["start_time"].dt.strftime("%H:%M:%S")) == {"05:43:12"}
+            assert (b["date"] == b["start_time"].dt.normalize()).all() and set(b["date"]) == set(dates)
             _expect_raises(ValueError, search_bursts, aoi, 15, "2024-01-01", "2024-12-31", "VV", match="inne ścieżki")
             _expect_raises(ValueError, search_bursts, aoi, _T_TRACK, "2024-01-01", None, "VV", match="None")
             pts = pd.DataFrame({"site": ["P1", "P2", "FAR"], "lon_deg": [5.5, 5.5, 8.0], "lat_deg": [52.30, 52.50, 50.0]})
@@ -1349,6 +1459,11 @@ def _selftest() -> None:
             assert cov == ["088_100002_IW1", "088_100003_IW1"], cov
             _expect_raises(ValueError, check_burst_contiguity, ["088_100001_IW1", "088_100003_IW1"], match="nieciągłe")
             assert fill_burst_gaps(["088_100001_IW1", "088_100003_IW1"]) == [f"088_{n}_IW1" for n in nums]
+            # Reguły grupy asf_search/burst2safe: podpasy zachodzą (+-1) - tak; przesunięte o 2 - nie; > 15 - nie.
+            check_burst_contiguity(["088_100001_IW1", "088_100002_IW1", "088_100002_IW2", "088_100003_IW2"])
+            _expect_raises(ValueError, check_burst_contiguity, ["088_100001_IW1", "088_100003_IW2"], match="nie zachodzą")
+            _expect_raises(ValueError, check_burst_contiguity, [f"088_{100001 + i}_IW1" for i in range(16)],
+                           match=f"> {MAX_MULTI_BURST}")
             stack = acquisition_stack(b, cov)
             assert len(stack) == 29 and dates[5] not in set(stack["date"])
             assert stack["scene_names"].iat[0] == [f"S1_{n:06d}_IW1_20240105T054312_VV_{n % 65536:04X}-BURST"
@@ -1375,6 +1490,8 @@ def _selftest() -> None:
             assert j0["job_parameters"] == {"reference": stack["scene_names"].iat[0], "secondary": stack["scene_names"].iat[1],
                                             "apply_water_mask": True, "looks": "20x4"}, j0
             _expect_raises(ValueError, prepare_jobs, stack, pairs[:2], "INSAR_ISCE_BURST", "20x4", True, name)
+            _expect_raises(ValueError, prepare_jobs, stack, pairs[:2], "INSAR_ISCE_MULTI_BURST", "20x5", True, name,
+                           match="looks")
             one = prepare_jobs(acquisition_stack(b, ["088_100002_IW1"]), pairs[:1], "INSAR_ISCE_BURST", "20x4", False, name)
             assert one[0]["job_parameters"]["granules"][0].startswith("S1_100002_IW1_20240105")
             hy = FakeHyP3(credits=5)
@@ -1391,6 +1508,15 @@ def _selftest() -> None:
             other = prepare_jobs(stack, pairs[:6], "INSAR_ISCE_MULTI_BURST", "10x2", True, name)
             _expect_raises(ValueError, submit_missing, hy, other, name, 100, 1.0, match="inne parametry")
             _expect_raises(ValueError, submit_missing, hy, jobs + jobs[:1], name, 100, 1.0, match="Zdublowane")
+            # Dwa zlecenia tej samej tożsamości (FAILED zwrócone przez API pierwsze, potem SUCCEEDED): raport SUCCEEDED.
+            hy2 = FakeHyP3(credits=100)
+            submit_missing(hy2, jobs[:1], name, 100, 1.0)
+            ok_job = hy2.jobs[0]
+            hy2.jobs.insert(0, FakeJob(job_type=ok_job.job_type, job_id="job-failed", request_time=ok_job.request_time,
+                                       status_code="FAILED", user_id="selftest", name=name,
+                                       job_parameters=dict(ok_job.job_parameters), files=[]))
+            r4 = submit_missing(hy2, jobs[:1], name, 100, 1.0)
+            assert list(r4["status_code"]) == ["SUCCEEDED"] and list(r4["job_id"]) == [ok_job.job_id], r4
 
             # 5. Pobranie: tylko SUCCEEDED, manifest z SHA-256, drugie uruchomienie bez pobierania.
             hy.jobs[0].status_code, hy.jobs[1].status_code = "FAILED", "RUNNING"
@@ -1438,6 +1564,14 @@ def _selftest() -> None:
             _expect_raises(ValueError, clip_to_common_overlap, [bad / "crs" / pn[0]], _T_LAYERS, bad / "o3",
                            match="brak warstwy 'dem'")
             _expect_raises(ValueError, clip_to_common_overlap, prods[:2], _T_LAYERS, clip, match="spoza bieżącej")
+            p0 = Path(prods[0])
+            twin = p0.parent / (p0.name[:-4] + "FFFF")      # ta sama para dat, inny produkt (kompletny, poprawne nazwy)
+            twin.mkdir()
+            for f in p0.iterdir():
+                shutil.copy2(f, twin / f.name.replace(p0.name, twin.name))
+            _expect_raises(ValueError, clip_to_common_overlap, prods + [twin], _T_LAYERS, bad / "o4",
+                           match="tej samej pary dat")
+            shutil.rmtree(twin)
 
             # 7. Szablon MintPy, nazwa szeregu końcowego, uruchomienie (atrapa smallbaselineApp.py na PATH).
             mcfg = {"troposphere": "no", "deramp": "no", "solid_earth_tides": False, "topographic_residual": True,
@@ -1496,6 +1630,7 @@ def _selftest() -> None:
             asc, desc = los_unit_vector(40.0, 102.0), los_unit_vector(40.0, -102.0)
             assert check_los_vs_egms(asc, los_unit_vector(41.0, 101.0), 0.05)["pass"]
             assert not check_los_vs_egms(asc, desc, 0.05)["pass"]
+            _expect_raises(ValueError, check_los_vs_egms, asc, asc, None, match="None")
 
             # 9. Szeregi w punktach: znana prędkość odzyskana przez step_03.fit_velocity; maska; NaN z powodem.
             mdates = pd.date_range("2024-01-05", periods=46, freq="12D")
@@ -1516,6 +1651,12 @@ def _selftest() -> None:
             assert own[own["site"] == "B"]["disp_mm"].isna().all() and own[own["site"] == "B"]["status"].iat[0].startswith("NaN: brak ważnych")
             assert own[own["site"] == "C"]["disp_mm"].isna().all() and "poza zasięgiem" in own[own["site"] == "C"]["status"].iat[0]
             assert (own["direction"] == "ascending").all() and (own["ref_date"] == mdates[0]).all()
+            assert (own["track"] == str(_T_TRACK)).all(), "track jako tekst (format długi step_07)"
+            # Kontrakt z step_07: szeregi 'ok' przechodzą validate_long; punkty bez szeregu tylko w tabeli statusów.
+            from step_07_monitoring import validate_long
+            ser, st = split_long_status(own)
+            assert sorted(ser["site"].unique()) == ["A", "D"] and len(validate_long(ser)) == 2 * len(mdates)
+            assert list(st["site"]) == ["A", "B", "C", "D"] and list(st["status"] == "ok") == [True, False, False, True]
 
             # 10. Dowiązanie do EGMS: offset = v (t0_EGMS - t_ref własny) w latach; za mało dat -> NaN z powodem.
             edates = pd.date_range("2020-01-03", "2024-12-31", freq="6D")
@@ -1535,6 +1676,16 @@ def _selftest() -> None:
                 assert (shifted[shifted["site"] == s]["reference"] == "absolute").all()
             assert tab.set_index("site").loc["B", "status"] == "NaN: brak szeregu EGMS dla (site, track)"
             assert shifted[shifted["site"].isin(["B", "C"])]["disp_mm"].isna().all()
+            ser_s, st_s = split_long_status(shifted)
+            assert len(validate_long(ser_s)) == 2 * len(mdates) and (ser_s["reference"] == "absolute").all()
+            # Ścieżka EGMS jako float (CSV z pustymi polami) i NaN w EGMS co trzecią datę: ten sam wynik dowiązania
+            # (mediana okna +-6 dni z dat z wartością; bez pominięcia NaN część dat straciłaby dopasowanie).
+            egms_nan = egms.assign(track=float(_T_TRACK),
+                                   disp_mm=egms["disp_mm"].where(np.arange(len(egms)) % 3 != 1))
+            _, tab_nan = align_to_reference(own, egms_nan, "2024-01-01", "2024-12-31", 6)
+            assert (tab_nan.set_index("site").loc[["A", "D"], "n_matched"] == 31).all(), tab_nan
+            assert np.allclose(tab_nan.set_index("site").loc[["A", "D"], "offset_mm"],
+                               tab.set_index("site").loc[["A", "D"], "offset_mm"], atol=0.3)
             _, few = align_to_reference(own, egms, "2024-12-01", "2024-12-31", 6)
             ra = few.set_index("site").loc["A"]
             assert np.isnan(ra["offset_mm"]) and ra["status"].startswith("NaN: za mało dopasowanych dat"), ra

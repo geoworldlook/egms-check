@@ -37,8 +37,11 @@ odniesienie, sposób odczytu, progi) pochodzą z CHECK_CONFIG; sygnatury nie maj
 """
 
 import argparse
+import csv
+import io
 import json
 import tempfile
+import unicodedata
 from pathlib import Path
 
 import numpy as np
@@ -104,6 +107,16 @@ def _inside(lon: pd.Series, lat: pd.Series, aoi: tuple) -> pd.Series:
     return lon.between(lo0, lo1) & lat.between(la0, la1)
 
 
+def _require_valid(df: pd.DataFrame, date_col: str, num_cols: list, what: str) -> None:
+    """Data bez braków i liczby skończone; inaczej ValueError (brak wartości nie może dać wyniku 'ok')."""
+    if df[date_col].isna().any():
+        raise ValueError(f"{what}: {int(df[date_col].isna().sum())} wierszy bez daty w kolumnie {date_col}")
+    for c in num_cols:
+        bad = ~np.isfinite(df[c].to_numpy(float))
+        if bad.any():
+            raise ValueError(f"{what}: {int(bad.sum())} wartości nieskończonych lub NaN w kolumnie {c}")
+
+
 def _no_duplicates(df: pd.DataFrame, keys: list, what: str) -> None:
     dup = df.duplicated(keys, keep=False)
     if dup.any():
@@ -162,6 +175,8 @@ def select_stations_aoi(midas: pd.DataFrame, aoi_lonlat: tuple, t_first_max: flo
               "liczone (GNSS „jeśli są\").")
         return _empty_sites()
     vu = sel["vu_mm_yr"]
+    if not np.isfinite(vu.to_numpy(float)).all():                # NaN trafiłby po cichu do grupy 'inna'
+        raise ValueError(f"MIDAS: vu bez wartości dla stacji {sel.loc[~np.isfinite(vu), 'site'].tolist()}")
     sel["group"] = np.select([vu <= vu_subsiding_max, vu.abs() <= vu_stable_abs_max], ["osiadająca", "stabilna"],
                              "inna")
     x, y = transform_xy(sel["lon_deg"].to_numpy(float), sel["lat_deg"].to_numpy(float), 4326, 3035)
@@ -175,20 +190,41 @@ def select_stations_aoi(midas: pd.DataFrame, aoi_lonlat: tuple, t_first_max: flo
 # ==============================================================================
 def _read_nrw_csv(path: Path, encoding: str, columns: list, what: str) -> pd.DataFrame:
     """
-    CSV Geobasis NRW jako tekst (bez konwersji przez pandas). Nagłówki bez spacji i cudzysłowów na brzegach;
-    BOM nie jest usuwany (plik z BOM czytaj z encoding 'utf-8-sig' - inaczej KeyError z listą kolumn).
+    CSV Geobasis NRW jako tekst (moduł csv, bez konwersji i bez zgadywania przez pandas). Zwraca tylko kolumny
+    `columns` (inne kolumny pliku są pomijane), wartości bez spacji na brzegach.
+    Nagłówki: bez spacji i cudzysłowów na brzegach, w normalizacji Unicode NFC (litera „o" + znak łączący U+0308
+    = „ö", więc „Höhe" pasuje niezależnie od zapisu); BOM na początku pliku usuwany jawnie. Głośno: wiersz z inną
+    liczbą pól niż nagłówek (np. średnik na końcu wierszy danych - pandas przesunąłby wtedy po cichu kolumny
+    o jedną), błędne cudzysłowy, zdublowana nazwa kolumny, brak kolumny (KeyError z listą dostępnych), brak
+    wierszy danych, pusty Punktkennzeichen. Puste linie są pomijane.
     """
-    df = pd.read_csv(path, sep=NRW_SEP, dtype=str, na_filter=False, skipinitialspace=True,
-                     encoding=_require("encoding", encoding))
-    df.columns = [str(c).strip().strip('"').strip() for c in df.columns]
+    with open(path, newline="", encoding=_require("encoding", encoding)) as f:
+        text = f.read().removeprefix("\ufeff")
+    reader = csv.reader(io.StringIO(text, newline=""), delimiter=NRW_SEP, quotechar='"', skipinitialspace=True,
+                        strict=True)
+    try:
+        rows = [(reader.line_num, r) for r in reader if r and not (len(r) == 1 and not r[0].strip())]
+    except csv.Error as e:                     # błędne cudzysłowy: zgłoszone z numerem linii, nie naprawiane
+        raise ValueError(f"{path} ({what}): błędny CSV w linii {reader.line_num}: {e}") from e
+    if not rows:
+        raise ValueError(f"{path} ({what}): plik pusty")
+    header = [unicodedata.normalize("NFC", c).strip().strip('"').strip() for c in rows[0][1]]
+    dup = sorted({c for c in header if header.count(c) > 1})
+    if dup:
+        raise ValueError(f"{path} ({what}): zdublowane nazwy kolumn {dup} w nagłówku {header}")
+    bad = [(ln, len(r)) for ln, r in rows[1:] if len(r) != len(header)]
+    if bad:
+        raise ValueError(f"{path} ({what}): {len(bad)} wierszy z liczbą pól różną od nagłówka ({len(header)}), "
+                         f"np. (linia, pola) {bad[:5]} - średnik na końcu wiersza albo pole bez cudzysłowu?")
+    df = pd.DataFrame([r for _, r in rows[1:]], columns=header, dtype=object)
     _require_columns(df, columns, f"{path} ({what})")
     if df.empty:
         raise ValueError(f"{path} ({what}): brak wierszy danych")
     df = df[columns].apply(lambda s: s.str.strip())
     empty_id = df["Punktkennzeichen"] == ""
     if empty_id.any():
-        raise ValueError(f"{path} ({what}): {int(empty_id.sum())} wierszy bez Punktkennzeichen, "
-                         f"np. wiersze {list(df.index[empty_id][:5] + 2)}")
+        lines = [rows[1 + k][0] for k in np.flatnonzero(empty_id.to_numpy())[:5]]
+        raise ValueError(f"{path} ({what}): {int(empty_id.sum())} wierszy bez Punktkennzeichen, np. linie {lines}")
     return df
 
 
@@ -213,7 +249,8 @@ def _parse_dates(s: pd.Series, what: str) -> pd.Series:
 def read_nrw_points(path: Path, encoding: str) -> pd.DataFrame:
     """
     Höhenfestpunkt - Punktliste: Punktkennzeichen; Name des Punktes; Ostwert; Nordwert; Höhe; Schwerewert.
-    Kolumny jak w pliku; Punktkennzeichen jako tekst (zera wiodące zostają); Ostwert, Nordwert [m, crs_epsg]
+    Kolumny NRW_POINT_COLUMNS (nazwy jak w pliku, inne kolumny pomijane); Punktkennzeichen jako tekst
+    (zera wiodące zostają); Ostwert, Nordwert [m, crs_epsg]
     i Höhe [m, DHHN2016] jako liczby. Name des Punktes i Schwerewert zostają tekstem (nieużywane w obliczeniach).
     Brak kolumny = KeyError z listą dostępnych; zła liczba = ValueError; zdublowany reper = ValueError.
     """
@@ -252,6 +289,7 @@ def levelling_long(points: pd.DataFrame, series: pd.DataFrame, crs_epsg: int, ao
     aoi = _check_aoi(aoi_lonlat)
     _no_duplicates(points, ["Punktkennzeichen"], "Punktliste")
     _no_duplicates(series, ["Punktkennzeichen", "Messungsdatum"], "Punktliste mit Zeitfolge")
+    _require_valid(series, "Messungsdatum", ["Höhe"], "Punktliste mit Zeitfolge")
     ids = pd.Index(series["Punktkennzeichen"].unique())
     no_xy = ids.difference(pd.Index(points["Punktkennzeichen"]))
     if len(no_xy):
@@ -303,6 +341,7 @@ def epochs_in_release(lev: pd.DataFrame, release_start, release_end, rule: str, 
         raise ValueError(f"Okno wydania {t0.date()} - {t1.date()}: początek musi być przed końcem")
     min_span = float(_require("min_span_yr", min_span_yr))
     _no_duplicates(lev, ["benchmark_id", "epoch_date"], "niwelacja (format długi)")
+    _require_valid(lev, "epoch_date", [], "niwelacja (format długi)")
     rows = []
     for bid, g in lev.groupby("benchmark_id", sort=True):
         d = pd.DatetimeIndex(g["epoch_date"]).sort_values()
@@ -368,7 +407,10 @@ def _reference(reference) -> tuple[str, list]:
 
 
 def _egms_u_series(egms_long_u: pd.DataFrame, ref_type: str) -> dict:
-    """Format długi (Plan_v2, sekcja 2.2), tylko składowa 'U' jednego źródła -> {site: szereg [mm]}."""
+    """
+    Format długi (Plan_v2, sekcja 2.2), tylko składowa 'U' jednego źródła o wspólnym odniesieniu
+    (kolumna reference, jeśli jest: jedna wartość; dla 'absolute' równa 'absolute') -> {site: szereg [mm]}.
+    """
     _require_columns(egms_long_u, EGMS_U_NEED, "EGMS pion (format długi)")
     if egms_long_u.empty:
         raise ValueError("EGMS pion (format długi): brak wierszy")
@@ -377,11 +419,14 @@ def _egms_u_series(egms_long_u: pd.DataFrame, ref_type: str) -> dict:
         raise ValueError(f"EGMS pion: oczekiwano tylko component 'U', jest {comp}")
     if "source" in egms_long_u.columns and egms_long_u["source"].nunique() > 1:
         raise ValueError(f"EGMS pion: więcej niż jedno źródło {sorted(egms_long_u['source'].unique())}; podaj jedno")
-    if ref_type == "absolute" and "reference" in egms_long_u.columns:
+    if "reference" in egms_long_u.columns:
         refs = sorted(egms_long_u["reference"].astype(str).unique())
-        if refs != ["absolute"]:
+        if ref_type == "absolute" and refs != ["absolute"]:
             raise ValueError(f"reference 'absolute', a szeregi EGMS mają odniesienie {refs}: zbiory niespójne")
+        if len(refs) > 1:     # 'stable_group': różnica z grupą ma sens tylko przy wspólnym odniesieniu szeregów
+            raise ValueError(f"Szeregi EGMS mają różne odniesienia {refs}: zbiory niespójne")
     d = egms_long_u.assign(site=egms_long_u["site"].astype(str), date=pd.to_datetime(egms_long_u["date"]))
+    _require_valid(d, "date", [], "EGMS pion (format długi)")      # disp_mm NaN dozwolone (pomijane w odczycie)
     _no_duplicates(d, ["site", "date"], "EGMS pion (format długi)")
     return {s: pd.Series(g["disp_mm"].to_numpy(float), index=pd.DatetimeIndex(g["date"])).sort_index()
             for s, g in d.groupby("site")}
@@ -424,6 +469,7 @@ def compare_levelling(lev: pd.DataFrame, epoch_pairs: pd.DataFrame, egms_long_u:
     _require_columns(lev, ["benchmark_id", "epoch_date", "height_m"], "niwelacja (format długi)")
     _require_columns(epoch_pairs, ["benchmark_id", "t1", "t2", "status"], "pary epok")
     _no_duplicates(lev, ["benchmark_id", "epoch_date"], "niwelacja (format długi)")
+    _require_valid(lev, "epoch_date", ["height_m"], "niwelacja (format długi)")
     egms = _egms_u_series(egms_long_u, ref_type)
     h = {str(b): pd.Series(g["height_m"].to_numpy(float) * MM_PER_M, index=pd.DatetimeIndex(g["epoch_date"])).sort_index()
          for b, g in lev.groupby("benchmark_id")}
@@ -432,6 +478,10 @@ def compare_levelling(lev: pd.DataFrame, epoch_pairs: pd.DataFrame, egms_long_u:
         if miss_lev or miss_egms:
             raise ValueError(f"Grupa odniesienia: brak niwelacji {miss_lev}, brak szeregu EGMS {miss_egms} "
                              f"(zmiana grupy to decyzja autora)")
+    cand = {str(b) for b, s in zip(epoch_pairs["benchmark_id"], epoch_pairs["status"]) if s == "ok"} - set(ref_ids)
+    if cand and not cand & set(egms):          # pojedynczy brak = status; zero trafień = błąd złączenia
+        raise ValueError(f"Żaden z {len(cand)} reperów z parą epok 'ok' nie ma szeregu EGMS: identyfikatory niwelacji "
+                         f"np. {sorted(cand)[:5]}, EGMS np. {sorted(egms)[:5]} (format identyfikatorów, zera wiodące?)")
     label = "absolute" if ref_type == "absolute" else "stable_group:" + "|".join(ref_ids)
     rows = []
     for p in epoch_pairs.itertuples(index=False):
@@ -481,6 +531,8 @@ def compare_levelling(lev: pd.DataFrame, epoch_pairs: pd.DataFrame, egms_long_u:
     out["diff_mm"] = out["dh_egms_mm"] - out["dh_lev_mm"]
     out["v_lev_mm_yr"] = out["dh_lev_mm"] / out["dt_yr"]
     out["v_egms_dh_mm_yr"] = out["dh_egms_mm"] / out["dt_yr"]
+    if not np.isfinite(out.loc[out["status"] == "ok", ["dt_yr", "diff_mm"]].to_numpy(float)).all():
+        raise RuntimeError("compare_levelling: wiersz ze statusem 'ok' ma wartość NaN (niespójność wewnętrzna)")
     print(f"Porównanie z niwelacją ({label}): {int((out['status'] == 'ok').sum())} z {len(out)} reperów ze statusem 'ok'")
     return out
 
@@ -553,6 +605,10 @@ def summarize_levelling(res: pd.DataFrame, th: dict) -> pd.DataFrame:
     ok = res[res["status"] == "ok"]
     if ok.empty:
         raise ValueError(f"Brak reperów ze statusem 'ok' (z {len(res)}): kryteriów nie da się policzyć")
+    vals = ["dh_lev_mm", "dh_egms_mm", "diff_mm", "v_lev_mm_yr", "v_egms_dh_mm_yr"]
+    nonfinite = ~np.isfinite(ok[vals].to_numpy(float)).all(axis=1)
+    if nonfinite.any():                        # robust_stats pominąłby je po cichu, a n w tabeli byłoby zawyżone
+        raise ValueError(f"{int(nonfinite.sum())} wierszy ze statusem 'ok' ma NaN w {vals}: wynik niespójny")
     rows = []
     med = robust_stats(ok["diff_mm"].abs().to_numpy())["median"]
     rows.append(("N1 mediana |Δh_EGMS - Δh_niw|", f"{med:.1f} mm", f"<= {th['median_abs_dh_mm']} mm",
@@ -584,7 +640,8 @@ def summarize_levelling(res: pd.DataFrame, th: dict) -> pd.DataFrame:
     if len(ok) >= 3 and sxx > 0:
         slope, intercept = np.polyfit(x, y, 1)
         se = float(np.sqrt(((y - (slope * x + intercept)) ** 2).sum() / (len(x) - 2) / sxx))
-        rows.append((name, f"{slope:.2f} ± {se:.2f} (wyraz wolny {intercept:+.1f} mm)", "bliskie 1", None, len(ok)))
+        rows.append((name, f"{slope:.2f}, błąd standardowy {se:.2f} (wyraz wolny {intercept:+.1f} mm)", "bliskie 1",
+                     None, len(ok)))
     else:
         rows.append((name, "za mało reperów lub brak zróżnicowania Δh_niw", "bliskie 1", None, len(ok)))
     return pd.DataFrame(rows, columns=SUMMARY_COLUMNS)
@@ -644,6 +701,8 @@ def _selftest() -> None:
         _expect_raises(ValueError, select_stations_aoi, mid, None, *gargs, match="decyzja autora")
         _expect_raises(KeyError, select_stations_aoi, mid.drop(columns="svu_mm_yr"), (6.0, 50.8, 6.8, 51.2), *gargs,
                        match="svu_mm_yr")
+        _expect_raises(ValueError, select_stations_aoi, mid.assign(vu_mm_yr=mid["vu_mm_yr"].where(mid["site"] != "STBA")),
+                       (6.0, 50.8, 6.8, 51.2), *gargs, match="STBA")
 
         # 2. Syntetyczna niecka osiadania (EPSG:3035) i repery; wartości testowe, nie dane.
         x0, y0 = transform_xy(6.40, 50.95, 4326, 3035)
@@ -698,6 +757,22 @@ def _selftest() -> None:
         bad.write_text("Punktkennzeichen;Name des Punktes;Ostwert;Nordwert;Höhe;Schwerewert\n1;a;;5650000,0;2,0;\n",
                        encoding="utf-8")
         _expect_raises(ValueError, read_nrw_points, bad, "utf-8", match="Ostwert")
+        head = "Punktkennzeichen;Name des Punktes;Ostwert;Nordwert;Höhe;Schwerewert\n"
+        row = '"B01";"a";350000,5;5650000,25;100,1234;"981123,4"'
+        for body in (row + ";\n" + row.replace("B01", "B02") + ";\n",          # średnik na końcu wierszy danych
+                     row + ';"x"\n' + row.replace("B01", "B02") + "\n",         # pole nadmiarowe w jednym wierszu
+                     row + "\n" + '"B02";"b";350100,5\n'):                       # wiersz za krótki
+            bad.write_text(head + body, encoding="utf-8")                        # pandas: ciche przesunięcie kolumn
+            _expect_raises(ValueError, read_nrw_points, bad, "utf-8", match="liczbą pól")
+        bad.write_text(head + row.replace('"a"', '"a"x') + "\n", encoding="utf-8")
+        _expect_raises(ValueError, read_nrw_points, bad, "utf-8", match="błędny CSV w linii 2")
+        bad.write_text(head.replace("Schwerewert", "Höhe") + row + "\n", encoding="utf-8")
+        _expect_raises(ValueError, read_nrw_points, bad, "utf-8", match="zdublowane nazwy")
+        bad.write_text("\ufeff" + head.replace("Punktkennzeichen", '"Punktkennzeichen"').replace("Höhe", "Ho\u0308he")
+                       + row + "\n\n" + row.replace("B01", "B02") + "\n", encoding="utf-8")  # BOM, NFD, pusta linia
+        p_bom = read_nrw_points(bad, "utf-8")
+        assert p_bom["Punktkennzeichen"].tolist() == ["B01", "B02"] and p_bom["Ostwert"].tolist() == [350000.5] * 2
+        assert p_bom["Nordwert"].tolist() == [5650000.25] * 2 and p_bom["Höhe"].tolist() == [100.1234] * 2
 
         # 4. Format długi: przeliczenie 25832 -> 3035/WGS84 (powrót do położenia), filtr obszaru, błędy głośne.
         aoi = (6.30, 50.90, 6.50, 51.00)
@@ -730,6 +805,11 @@ def _selftest() -> None:
         _expect_raises(ValueError, epochs_in_release, lev, "2020-01-01", "2024-12-31", "all_pairs", 1.0, match="reguła")
         _expect_raises(ValueError, epochs_in_release, lev, "2020-01-01", "2024-12-31", "first_last_in_release", None,
                        match="min_span_yr")
+        edge = pd.DataFrame({"benchmark_id": "Z", "epoch_date": pd.to_datetime(
+            ["2019-12-31", "2020-01-01", "2022-01-01", "2024-12-31", "2025-01-01"])})        # obie granice włącznie
+        ez = epochs_in_release(edge, "2020-01-01", "2024-12-31", "first_last_in_release", 1.0).iloc[0]
+        assert (ez["t1"], ez["t2"], ez["n_epochs_in_release"], ez["status"]) == (
+            pd.Timestamp("2020-01-01"), pd.Timestamp("2024-12-31"), 3, "ok"), ez
 
         # 6. EGMS pion w formacie długim: niecka + ruch wspólny; B08 bez szeregu, B09 szereg do 2023-06-30.
         yrs = years_since(egms_dates, t_egms0)
@@ -785,6 +865,15 @@ def _selftest() -> None:
                        method, match="niespójne")
         _expect_raises(ValueError, compare_levelling, lev, ep, egms_long, {"type": "absolute"}, "nearest",
                        match="sposób odczytu")
+        mixed = egms_long.assign(reference=np.where(egms_long["site"] == "S01", "B05", "absolute"))
+        _expect_raises(ValueError, compare_levelling, lev, ep, mixed, {"type": "stable_group", "ids": ids}, method,
+                       match="różne odniesienia")
+        _expect_raises(ValueError, compare_levelling, lev, ep, egms_long.assign(site="E" + egms_long["site"]),
+                       {"type": "absolute"}, method, match="Żaden z")                  # identyfikatory niezgodne
+        _expect_raises(ValueError, compare_levelling, lev.assign(height_m=lev["height_m"].where(lev.index != 3)), ep,
+                       egms_long, {"type": "absolute"}, method, match="height_m")
+        _expect_raises(ValueError, compare_levelling, lev, ep, egms_long.assign(component="LOS"), {"type": "absolute"},
+                       method, match="component")
 
         # 7. Kryteria: odniesienie do grupy stabilnej spełnia progi, ruch wspólny EGMS bez odniesienia - nie.
         th = {"median_abs_dh_mm": 5.0, "sign_min_signal_mm": 6.0, "sign_agreement": 0.90, "stable_max_lev_mm": 2.0,
@@ -793,6 +882,16 @@ def _selftest() -> None:
         assert list(sg.columns) == SUMMARY_COLUMNS and len(sg) == 6
         assert sg["spełnione"].iloc[:4].tolist() == [True, True, True, True], sg
         assert sg.at[1, "n"] == 4 and sg.at[1, "wynik"].startswith("100%")             # B01-B04: |Δh| >= 6 mm
+        assert sg.at[0, "wynik"] == f"{ok_g['diff_mm'].abs().median():.1f} mm" and sg.at[0, "n"] == len(ok_g)
+        n_stab = int((ok_g["dh_lev_mm"].abs() <= 2.0).sum())                         # wybór po niwelacji, nie po EGMS
+        assert sg.at[2, "n"] == n_stab != int((ok_g["dh_egms_mm"].abs() <= 2.0).sum()), sg
+        dv_g = (ok_g["v_egms_dh_mm_yr"] - ok_g["v_lev_mm_yr"]).median()
+        assert sg.at[3, "wynik"] == f"mediana {dv_g:+.2f} mm/rok" and abs(float(sg.at[5, "wynik"].split(",")[0]) - 1) < 0.05
+        neg = summarize_levelling(res_g.reset_index().assign(v_egms_dh_mm_yr=res_g["v_egms_dh_mm_yr"].to_numpy() - 3.0), th)
+        assert neg.at[3, "spełnione"] is False and neg.at[3, "wynik"] == f"mediana {dv_g - 3.0:+.2f} mm/rok", neg  # |bias|
+        nan_ok = res_g.reset_index()
+        nan_ok.loc[nan_ok["benchmark_id"] == "B01", "dh_egms_mm"] = np.nan
+        _expect_raises(ValueError, summarize_levelling, nan_ok, th, match="NaN")
         sa = summarize_levelling(res_a.reset_index(), th)
         bias_a = float((ok_a["v_egms_dh_mm_yr"] - ok_a["v_lev_mm_yr"]).median())
         assert abs(bias_a - common_mm_yr) < 1.0 and sa.at[0, "spełnione"] is False and sa.at[3, "spełnione"] is False, sa

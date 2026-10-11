@@ -12,7 +12,8 @@ wzorzec kolumn dat z step_02_checks_extract.
        (ścieżka "37" i punkt "0042" przechodzą przez plik bez zmiany typu).
   II.  Szeregi w formacie długim:
          EGMS: dla pary (punkt, ścieżka) mediana punktów w promieniu R w każdej dacie, co najmniej N punktów
-         (Koudogbo i in. 2025, rozdz. 2.3.1.1; jak E1); wektor LOS = średnia punktów; odniesienie = pierwsza data.
+         (Koudogbo i in. 2025, rozdz. 2.3.1.1; jak E1); wektor LOS = średnia punktów; odniesienie = pierwsza data
+         z wartością (zapisana w ref_date). Odniesienie 'absolute' tylko dla produktów kalibrowanych (L2b, L3 U).
          Para z oczekiwanej listy (punkt x ścieżka) z mniej niż N punktami NIE daje szeregu, ale ma wiersz w tabeli
          statusów z liczbą punktów i powodem (poprawka cichego pominięcia N3b, docs/migracja/09_audyt_po_migracji.md).
          GNSS: dobowe E, N, U [mm] rzutowane na LOS: d_LOS = E * los_east + N * los_north + U * los_up (F4, sekcja 3),
@@ -24,8 +25,10 @@ wzorzec kolumn dat z step_02_checks_extract.
          v i sigma_formal: step_03.fit_velocity (MNK, szum biały). Reszty modelu mają autokorelację, więc
          sigma_formal jest zaniżone (F4, sekcja 8). Poprawka AR(1): rho1 = autokorelacja reszt z opóźnieniem 1,
          n_eff = n (1 - rho1) / (1 + rho1),  sigma_real = sigma_formal * sqrt(n / n_eff)
-         (efektywna liczba obserwacji dla trendu, Santer i in. 2000, JGR 105(D6), 7337-7356; cytowane z wiedzy
-         ogólnej, tekstu nie ma w docs/evidence/literatura_txt). Przybliżenia, jawnie:
+         (efektywna liczba obserwacji dla trendu: Santer i in. 2000, JGR 105(D6), 7337-7356; cytowane z wiedzy
+         ogólnej, tekstu nie ma w docs/evidence/literatura_txt; Santer i in. liczą też wariancję reszt z n_eff - 2
+         stopniami swobody - tu postać uproszczona ze specyfikacji, przy małym n_eff mniej zachowawcza).
+         n_eff nie większe od liczby parametrów modelu = brak stopni swobody: NaN i status. Przybliżenia, jawnie:
            - opóźnienie 1 = kolejna akwizycja, nie stały odstęp czasu; przy próbkowaniu 6/12 dni i przerwach
              rho1 jest przybliżeniem autokorelacji procesu;
            - rho1 < 0 traktujemy jak 0 (sigma_real = sigma_formal): ujemna autokorelacja nie może zmniejszyć
@@ -49,6 +52,8 @@ wzorzec kolumn dat z step_02_checks_extract.
 Odstępstwa od specyfikacji 4.3 (do akceptacji autora):
   - egms_points_to_long ma dodatkowy wymagany argument expected_pairs (site, track, direction: lista par z wyszukania
     plików) i zwraca krotkę (szeregi, statusy); bez listy oczekiwanych par para bez punktów w wycinku znika (N3b).
+    source musi mieć prefiks EGMS_L2b (kierunki asc/desc) albo EGMS_L3U (kierunek 'vertical'); ref_date = pierwsza
+    data z wartością mediany (gdy kafel L3 nie ma pierwszej daty sumy kafli), a nie bezwarunkowo pierwsza kolumna.
   - sampling_table(dates, s1b_end) zwraca (tabela, podsumowanie); data końca 1B jest parametrem.
   - velocity_realistic i detection_curve mają wymagany argument min_obs (w CHECK_CONFIG['monitoring'] go nie ma);
     min_obs < 10 = ValueError, bo step_03.fit_velocity i tak wymaga co najmniej 10 obserwacji.
@@ -86,6 +91,8 @@ COMPONENTS = ("LOS", "U")
 VERTICAL_LOS = (0.0, 0.0, 1.0)
 DIRECTION_COMPONENT = {"ascending": "LOS", "descending": "LOS", "vertical": "U"}   # step_04: L3 = 'vertical'
 GNSS_SOURCE = {"LOS": "GNSS_NGL_LOS", "U": "GNSS_NGL_U"}                          # nazwy źródeł z sekcji 2.2
+# Produkty EGMS kalibrowane (odniesienie 'absolute') i ich składowa; L2a (względny) nie jest tu dozwolony.
+EGMS_SOURCE_COMPONENT = {"EGMS_L2b": "LOS", "EGMS_L3U": "U"}                     # prefiksy nazw z sekcji 2.2
 REFERENCE_ABSOLUTE = "absolute"     # EGMS L2b/L3 kalibrowane modelem GNSS, GNSS w układzie EU: brak punktu odniesienia
 
 VELOCITY_MODELS = ("linear", "linear_annual")   # jak step_03.fit_velocity
@@ -126,13 +133,17 @@ def validate_long(df: pd.DataFrame) -> pd.DataFrame:
     """
     Kontrola formatu długiego (sekcja 2.2). Błąd przy: braku kolumny (KeyError), dacie innej niż datetime64 bez strefy
     albo z godziną (TypeError / ValueError), pustym kluczu lub wartości wymaganej (ValueError), etykiecie nie-tekstowej
-    (TypeError), nieznanej składowej, wektorze innym niż (0, 0, 1) dla U, niejednoznacznym ref_date lub wektorze
-    w szeregu, duplikacie (source, site, track, component, date). disp_mm może być NaN (jawny brak), n_points też
-    (GNSS, niwelacja). Zwraca kopię z kolumnami LONG_COLUMNS, posortowaną po kluczu.
+    (TypeError), nieznanej składowej, wektorze innym niż (0, 0, 1) dla U, niejednoznacznym ref_date, wektorze, kierunku
+    lub regionie w szeregu, duplikacie (source, site, track, component, date). disp_mm może być NaN (jawny brak),
+    n_points też (GNSS, niwelacja). Zwraca kopię z kolumnami LONG_COLUMNS, posortowaną po kluczu; kolumny spoza
+    LONG_COLUMNS (np. 'status' z step_08) są pomijane z ostrzeżeniem w logu - powody NaN trzeba zapisać osobno.
     """
     missing = [c for c in LONG_COLUMNS if c not in df.columns]
     if missing:
         raise KeyError(f"Format długi: brak kolumn {missing}; dostępne: {list(df.columns)}")
+    extra = [c for c in df.columns if c not in LONG_COLUMNS]
+    if extra:
+        logger.warning(f"Format długi: pomijam kolumny spoza sekcji 2.2: {extra}")
     out = df[LONG_COLUMNS].copy()
     for c in ("date", "ref_date"):
         if not pd.api.types.is_datetime64_dtype(out[c]):
@@ -143,7 +154,7 @@ def validate_long(df: pd.DataFrame) -> pd.DataFrame:
     if na.any():
         raise ValueError(f"Format długi: puste wartości w kolumnach wymaganych {na[na > 0].to_dict()}")
     for c in LONG_TEXT:
-        bad = out[c].map(type) != str
+        bad = ~out[c].map(lambda v: isinstance(v, str)).astype(bool)
         if bad.any():
             raise TypeError(f"Kolumna {c}: oczekiwano tekstu, są typy {sorted({type(v).__name__ for v in out.loc[bad, c]})}")
         if (out[c].str.strip() == "").any():
@@ -160,9 +171,10 @@ def validate_long(df: pd.DataFrame) -> pd.DataFrame:
     bad_dir = ~u & ~out["direction"].isin(["ascending", "descending"])
     if bad_dir.any():
         raise ValueError(f"Wiersze LOS bez kierunku ascending/descending: {sorted(out.loc[bad_dir, 'direction'].astype(str).unique())}")
-    per = out.groupby(LONG_KEY[:-1])[["ref_date", "los_east", "los_north", "los_up"]].nunique()
+    per = out.groupby(LONG_KEY[:-1])[["ref_date", "los_east", "los_north", "los_up", "direction", "region"]].nunique()
     if (per > 1).any().any():
-        raise ValueError(f"Szeregi z więcej niż jedną datą odniesienia lub wektorem LOS: {per[(per > 1).any(axis=1)].index.tolist()[:5]}")
+        raise ValueError(f"Szeregi z więcej niż jedną datą odniesienia, wektorem LOS, kierunkiem lub regionem: "
+                         f"{per[(per > 1).any(axis=1)].index.tolist()[:5]}")
     dup = out.duplicated(LONG_KEY, keep=False)
     if dup.any():
         raise ValueError(f"Duplikaty klucza {LONG_KEY}: {dup.sum()} wierszy, np. "
@@ -196,14 +208,25 @@ def egms_points_to_long(points: pd.DataFrame, date_cols: list, region: str, sour
     track, direction; albo komórki step_04.l3_cells_at_sites) -> format długi.
     Dla każdej oczekiwanej pary (site, track) z expected_pairs: punkty z distance_m <= radius_m; co najmniej min_points
     -> szereg = mediana punktów w każdej dacie (np.median jak step_03.compare_station_track; NaN punktu daje NaN daty),
-    los_* = średnia punktów, n_points, ref_date = pierwsza data, disp_mm względem pierwszej daty, reference 'absolute'.
-    Składowa z kierunku: ascending/descending -> LOS, vertical -> U (wektor musi być 0, 0, 1).
+    los_* = średnia punktów, n_points, ref_date = pierwsza data z wartością mediany (zwykle pierwsza kolumna dat;
+    późniejsza tylko, gdy kafel L3 nie ma pierwszych dat sumy kafli, step_04.l3_cells_at_sites), disp_mm względem
+    ref_date (daty wcześniejsze = NaN), reference 'absolute' (tylko produkty kalibrowane: source z prefiksem
+    EGMS_L2b albo EGMS_L3U; inny prefiks = ValueError).
+    Składowa z kierunku: ascending/descending -> LOS, vertical -> U (wektor musi być 0, 0, 1); musi zgadzać się
+    ze składową źródła (EGMS_L2b -> LOS, EGMS_L3U -> U).
     Zwraca (szeregi, statusy). Statusy: wiersz na KAŻDĄ oczekiwaną parę (region, source, site, track, direction,
-    radius_m, min_points, n_points, status): 'ok', 'brak punktów EGMS w promieniu R m' albo 'za mało punktów EGMS
-    (n < N) w promieniu R m'. Para obecna w punktach, a nieobecna w expected_pairs = ValueError (niespójna konfiguracja).
+    radius_m, min_points, n_points, ref_date, status): 'ok', 'brak punktów EGMS w promieniu R m', 'za mało punktów EGMS
+    (n < N) w promieniu R m' albo 'mediana punktów bez wartości we wszystkich datach'. Para obecna w punktach,
+    a nieobecna w expected_pairs = ValueError (niespójna konfiguracja); puste expected_pairs i distance_m = NaN też.
     """
     date_cols = list(date_cols)
     need = ["site", "track", "direction", "distance_m", "los_east", "los_north", "los_up"] + date_cols
+    src_comp = [c for p, c in EGMS_SOURCE_COMPONENT.items() if str(source).startswith(p)]
+    if len(src_comp) != 1:
+        raise ValueError(f"source {source!r}: oczekiwano prefiksu {sorted(EGMS_SOURCE_COMPONENT)} (produkt kalibrowany, "
+                         f"odniesienie 'absolute'); EGMS L2a jest względny i nie może dostać 'absolute'")
+    if len(expected_pairs) == 0:
+        raise ValueError(f"{source}: puste expected_pairs - nie ma czego raportować (lista par z wyszukania plików)")
     if len(points) == 0:
         # step_02.extract_points zwraca pd.DataFrame() bez kolumn, gdy nic nie leży w promieniu: każda para dostaje status.
         logger.info(f"{source}: brak punktów EGMS dla wszystkich {len(expected_pairs)} oczekiwanych par")
@@ -229,7 +252,13 @@ def egms_points_to_long(points: pd.DataFrame, date_cols: list, region: str, sour
         raise ValueError(f"expected_pairs: powtórzone pary {exp.loc[exp.duplicated(['site', 'track']), ['site', 'track']].values.tolist()}")
     unknown_dir = set(exp["direction"]) - set(DIRECTION_COMPONENT)
     if unknown_dir:
-        raise ValueError(f"Nieznane kierunki {sorted(unknown_dir)}; dozwolone {sorted(DIRECTION_COMPONENT)}")
+        raise ValueError(f"Nieznane kierunki {sorted(map(str, unknown_dir))}; dozwolone {sorted(DIRECTION_COMPONENT)}")
+    wrong_comp = sorted({d for d in exp["direction"] if DIRECTION_COMPONENT[d] != src_comp[0]})
+    if wrong_comp:
+        raise ValueError(f"source {source!r} ma składową {src_comp[0]}, a expected_pairs ma kierunki {wrong_comp}")
+    if points["distance_m"].isna().any():
+        raise ValueError(f"Punkty EGMS: {int(points['distance_m'].isna().sum())} punktów bez distance_m (NaN); "
+                         f"nie wiadomo, czy leżą w promieniu")
     pts = points.assign(track=points["track"].map(_track_label))
     pair_dir = pts.groupby(["site", "track"])["direction"].agg(lambda s: set(s))
     multi = pair_dir[pair_dir.map(len) > 1]
@@ -249,7 +278,7 @@ def egms_points_to_long(points: pd.DataFrame, date_cols: list, region: str, sour
         p = groups.get((site, track), pts.iloc[:0])
         n = len(p)
         row = {"region": region, "source": source, "site": site, "track": track, "direction": direction,
-               "radius_m": radius_m, "min_points": int(min_points), "n_points": n}
+               "radius_m": radius_m, "min_points": int(min_points), "n_points": n, "ref_date": pd.NaT}
         if n == 0:
             status.append({**row, "status": f"brak punktów EGMS w promieniu {radius_m:g} m"})
             continue
@@ -257,17 +286,23 @@ def egms_points_to_long(points: pd.DataFrame, date_cols: list, region: str, sour
             status.append({**row, "status": f"za mało punktów EGMS ({n} < {min_points}) w promieniu {radius_m:g} m"})
             continue
         med = np.median(p[date_cols].to_numpy(float), axis=0)
-        if not np.isfinite(med[0]):
-            raise ValueError(f"{site}/{track}: brak wartości w pierwszej dacie {date_cols[0]} (data odniesienia)")
+        fin = np.flatnonzero(np.isfinite(med))
+        if len(fin) == 0:
+            status.append({**row, "status": "mediana punktów bez wartości we wszystkich datach"})
+            continue
+        i_ref = int(fin[0])
+        if i_ref > 0:
+            logger.info(f"{source} {site}/{track}: data odniesienia {date_cols[i_ref]} (brak wartości w {i_ref} "
+                        f"pierwszych datach, disp_mm = NaN)")
         le, ln, lu = (float(p[c].mean()) for c in ("los_east", "los_north", "los_up"))
         component = DIRECTION_COMPONENT[direction]
         if component == "U" and (le, ln, lu) != VERTICAL_LOS:
             raise ValueError(f"{site}/{track}: kierunek 'vertical' wymaga wektora (0, 0, 1), jest ({le}, {ln}, {lu})")
         series.append(pd.DataFrame({"region": region, "source": source, "site": site, "track": track,
                                     "direction": direction, "component": component, "los_east": le, "los_north": ln,
-                                    "los_up": lu, "date": dates, "disp_mm": med - med[0], "ref_date": dates[0],
+                                    "los_up": lu, "date": dates, "disp_mm": med - med[i_ref], "ref_date": dates[i_ref],
                                     "reference": REFERENCE_ABSOLUTE, "n_points": float(n)}))
-        status.append({**row, "status": "ok"})
+        status.append({**row, "ref_date": dates[i_ref], "status": "ok"})
     st = pd.DataFrame(status)
     n_bad = int((st["status"] != "ok").sum())
     if n_bad:
@@ -332,11 +367,14 @@ def sampling_table(dates: pd.DatetimeIndex, s1b_end) -> tuple[pd.DataFrame, pd.D
     ('before_s1b_end' gdy date <= s1b_end, inaczej 'after_s1b_end'; odstęp należy do okresu późniejszej akwizycji).
     Podsumowanie: wiersz na okres i 'all': n_dates, n_gaps, n_gap_6_days, n_gap_12_days, n_gap_other (dokładnie 6 / 12
     dni / reszta), median_gap_days (NaN bez odstępów), first_date, last_date. s1b_end z CHECK_CONFIG (do potwierdzenia).
+    Daty muszą być dniami (północ): godzina akwizycji dałaby odstęp 6,0001 dnia liczony jako 'inny'.
     """
     d = _check_dates(dates, "sampling_table")
     if len(d) < 2:
         raise ValueError(f"sampling_table: za mało dat ({len(d)})")
-    if s1b_end is None:
+    if (d != d.normalize()).any():
+        raise ValueError("sampling_table: daty z godziną; podaj dzień akwizycji (np. DatetimeIndex.normalize())")
+    if s1b_end is None or pd.isna(s1b_end):
         raise ValueError("sampling_table: brak daty końca Sentinel-1B (decyzja w CHECK_CONFIG['monitoring'])")
     s1b = pd.Timestamp(s1b_end)
     gap = np.r_[np.nan, np.diff(d.to_numpy()) / np.timedelta64(1, "D")]
@@ -388,7 +426,10 @@ def velocity_realistic(dates, y_mm, model: str, sigma_method: str, min_obs: int)
     Prędkość [mm/rok] i niepewność z poprawką na autokorelację reszt.
     v, sigma_formal: step_03.fit_velocity (MNK, szum biały). rho1_raw = sum(e_i e_{i+1}) / sum(e_i^2) reszt modelu
     w kolejności akwizycji (przybliżenie przy nieregularnym próbkowaniu); rho1 = max(rho1_raw, 0);
-    n_eff = n (1 - rho1) / (1 + rho1); sigma_real = sigma_formal * sqrt(n / n_eff) (Santer i in. 2000).
+    n_eff = n (1 - rho1) / (1 + rho1) (Santer i in. 2000); sigma_real = sigma_formal * sqrt(n / n_eff) - postać
+    uproszczona ze specyfikacji (Santer i in. liczą wariancję reszt z n_eff - 2 stopniami swobody, co przy małym n_eff
+    daje większe sigma; tu tego nie ma). n_eff <= liczba parametrów modelu (2 albo 4) = brak efektywnych stopni
+    swobody: sigma_real NaN i status z powodem (v i sigma_formal zostają do wglądu).
     sigma_method inny niż 'ar1' -> ValueError. Mniej niż min_obs skończonych obserwacji -> NaN i status z powodem
     (fit_velocity nie jest wołane). Reszty dokładnie zerowe -> rho1 nieokreślone: NaN i status.
     """
@@ -424,8 +465,10 @@ def velocity_realistic(dates, y_mm, model: str, sigma_method: str, min_obs: int)
     if r >= 1.0:
         return {**out, "rho1_raw": r_raw, "rho1": r, "status": f"rho1 = {r:.3f} >= 1: n_eff nieokreślone"}
     n_eff = n * (1.0 - r) / (1.0 + r)
-    return {**out, "rho1_raw": r_raw, "rho1": r, "n_eff": n_eff, "sigma_real": float(s_formal * np.sqrt(n / n_eff)),
-            "status": "ok"}
+    out.update(rho1_raw=r_raw, rho1=r, n_eff=n_eff)
+    if n_eff <= A.shape[1]:
+        return {**out, "status": f"n_eff = {n_eff:.1f} <= liczba parametrów modelu ({A.shape[1]}): niepewność nieokreślona"}
+    return {**out, "sigma_real": float(s_formal * np.sqrt(n / n_eff)), "status": "ok"}
 
 
 def detection_curve(series: pd.Series, start, windows_months: list, model_short: str, model_long: str,
@@ -539,6 +582,8 @@ def _source_color(source: str) -> str:
 
 def _s1b_line(ax, s1b_end, label: bool) -> None:
     import matplotlib.transforms as mtransforms
+    if s1b_end is None or pd.isna(s1b_end):
+        raise ValueError("Brak daty końca Sentinel-1B (CHECK_CONFIG['monitoring']['s1b_end_date'])")
     x = pd.Timestamp(s1b_end)
     ax.axvline(x, color=MUTED, lw=1.0, zorder=1)
     if label:
@@ -570,8 +615,10 @@ def plot_l3_map(cells: pd.DataFrame, sites: pd.DataFrame, title: str, vlim_perce
     if lim == 0.0:
         raise ValueError("Zakres skali zerowy (wszystkie |v| w percentylu = 0)")
     x, y = cells["easting"].to_numpy(float)[ok] / 1000.0, cells["northing"].to_numpy(float)[ok] / 1000.0
-    ux = np.unique(x)
-    spacing = float(np.min(np.diff(ux))) if len(ux) > 1 else 0.1
+    # Rozstaw siatki: mediana odstępów unikalnych eastingów zaokrąglonych do 1 m (minimum dałoby ułamek metra przy
+    # szumie zmiennoprzecinkowym współrzędnych i niewidoczne komórki); jedna kolumna komórek -> 100 m (siatka L3).
+    ux = np.unique(np.round(x * 1000.0)) / 1000.0
+    spacing = float(np.median(np.diff(ux))) if len(ux) > 1 else 0.1
     w, h = max(np.ptp(x), spacing), max(np.ptp(y), spacing)
     ax_w = 5.6                                                        # szerokość osi [cal] przy figurze 8"
     fig, ax = plt.subplots(figsize=(8, float(np.clip(ax_w * h / w + 1.6, 4.0, 10.0))), facecolor=SURFACE)
@@ -783,6 +830,13 @@ def _selftest() -> None:
     assert sb["median_gap_days"] == 6 and sa["median_gap_days"] == 12
     _expect(ValueError, sampling_table, dates[::-1], s1b_end)
     _expect(ValueError, sampling_table, dates, None)
+    _expect(ValueError, sampling_table, dates + pd.Timedelta(hours=5, minutes=43), s1b_end)        # godzina akwizycji
+    # Granica: akwizycja dokładnie w dniu końca 1B należy do okresu 'przed'; odstęp do następnej - do 'po'.
+    tb, _ = sampling_table(pd.DatetimeIndex([s1b_end - pd.Timedelta(days=6), s1b_end, s1b_end + pd.Timedelta(days=12)]),
+                           s1b_end)
+    assert tb["period"].tolist() == [PERIOD_BEFORE, PERIOD_BEFORE, PERIOD_AFTER], tb
+    s3 = sampling_table(pd.DatetimeIndex(["2020-01-01", "2020-01-04", "2020-01-10"]), s1b_end)[1].set_index("period").loc["all"]
+    assert (s3["n_gap_6_days"], s3["n_gap_12_days"], s3["n_gap_other"]) == (1, 0, 1), s3              # odstęp 3 dni = inny
     # Podpróbkowanie odcinka 6-dniowego co 2 -> same odstępy 12 dni.
     s6 = pd.Series(np.arange(len(d6), dtype=float), index=d6)
     sub = subsample(s6, 2)
@@ -802,6 +856,10 @@ def _selftest() -> None:
     assert r_neg["rho1_raw"] < 0 and r_neg["rho1"] == 0.0 and r_neg["sigma_real"] == r_neg["sigma_formal"], r_neg
     r_few = velocity_realistic(dd[:12], np.r_[np.full(3, np.nan), np.arange(9.0)], "linear", "ar1", 10)
     assert r_few["n"] == 9 and np.isnan(r_few["v_mm_yr"]) and r_few["status"].startswith("za mało"), r_few
+    # Silnie skorelowane reszty przy 12 obserwacjach: n_eff <= 2 parametry -> sigma_real NaN z powodem, nie wynik.
+    d12s = pd.date_range("2020-01-01", periods=12, freq="12D")
+    r_dof = velocity_realistic(d12s, np.cumsum(np.cumsum(np.random.default_rng(4).normal(0, 1, 12))), "linear", "ar1", 10)
+    assert r_dof["n_eff"] <= 2 and np.isnan(r_dof["sigma_real"]) and r_dof["status"].startswith("n_eff"), r_dof
     _expect(ValueError, velocity_realistic, dd, tt, "linear", "bootstrap", 10)
     _expect(ValueError, velocity_realistic, dd, tt, "linear", "ar1", 5)
     _expect(ValueError, velocity_realistic, dd, tt, "quadratic", "ar1", 10)
@@ -829,6 +887,15 @@ def _selftest() -> None:
     # Seria 12-dniowa: okno 3-miesięczne ma < 10 obserwacji -> status, nie wynik.
     c12 = detection_curve(pd.Series(y_sub, index=dates), "2023-01-01", [3, 12], "linear", "linear_annual", "ar1", 2.0, 10)
     assert c12["status"].iat[0].startswith("za mało") and pd.isna(c12["detected"].iat[0]) and c12["status"].iat[1] == "ok", c12
+    # Reguły okna: początek przed danymi (> 1 mies.) = niepełne; okno po danych = brak obserwacji; koniec wyłączny.
+    c_early = detection_curve(pd.Series(y_sub, index=dates), "2019-10-01", [6], "linear", "linear_annual", "ar1", 2.0, 10)
+    assert c_early["status"].iat[0].startswith("okno niepełne: pierwsza") and np.isnan(c_early["v_mm_yr"].iat[0]), c_early
+    c_late = detection_curve(pd.Series(y_sub, index=dates), "2026-01-01", [3], "linear", "linear_annual", "ar1", 2.0, 10)
+    assert c_late["status"].iat[0] == "brak obserwacji w oknie" and c_late["n"].iat[0] == 0, c_late
+    dday = pd.date_range("2020-01-01", "2020-04-01", freq="D")                      # 2020-04-01 = start + 3 mies.
+    c_end = detection_curve(pd.Series(np.random.default_rng(1).normal(0, 1, len(dday)), index=dday), "2020-01-01", [3], "linear",
+                            "linear_annual", "ar1", 2.0, 10)
+    assert c_end["n"].iat[0] == 31 + 29 + 31 and c_end["last_date"].iat[0] == pd.Timestamp("2020-03-31"), c_end
     # time_to_detection na krzywej o znanej odpowiedzi (okno bez wyniku pomijane).
     hand = pd.DataFrame({"window_months": [3, 6, 12, 24, 36], "status": ["ok", "ok", "okno niepełne", "ok", "ok"],
                          "detected": pd.array([True, False, pd.NA, True, True], dtype="boolean")})
@@ -840,11 +907,12 @@ def _selftest() -> None:
     date_cols = [d.strftime("%Y%m%d") for d in dates]
     truth = -4.0 * t * 0.78
     x0, y0 = 4_100_000.0, 3_300_000.0
-    off = np.array([-2.0, -1.0, 0.0, 1.0, 2.0])
+    off = np.array([-2.0, -1.0, 0.0, 1.0, 5.0])                     # niesymetryczne: mediana = truth, średnia != truth
     vals_a = truth[None, :] + off[:, None] * (1.0 + np.arange(len(dates)))[None, :]   # mediana = truth dokładnie
-    pts_a = pd.DataFrame({"site": "A", "track": 37, "direction": "ascending", "distance_m": [10, 30, 50, 70, 90],
-                          "los_east": [-0.60, -0.62, -0.61, -0.59, -0.58], "los_north": -0.11,
-                          "los_up": [0.78, 0.77, 0.79, 0.78, 0.78]})
+    # Punkt w odległości dokładnie 100 m należy do bufora (<=, jak step_03); wektor: średnia (-0.58, 0.80) != mediana.
+    pts_a = pd.DataFrame({"site": "A", "track": 37, "direction": "ascending", "distance_m": [10, 30, 50, 70, 100],
+                          "los_east": [-0.60, -0.62, -0.61, -0.59, -0.48], "los_north": -0.11,
+                          "los_up": [0.78, 0.77, 0.79, 0.78, 0.88]})
     far = pts_a.iloc[:1].assign(distance_m=150.0)                                        # poza promieniem 100 m
     pts = pd.concat([
         pd.concat([pts_a, pd.DataFrame(vals_a, columns=date_cols)], axis=1),
@@ -859,17 +927,31 @@ def _selftest() -> None:
     long_e, status = egms_points_to_long(pts, date_cols, "synthetic", "EGMS_L2b_2020_2024", 100.0, 3, expected)
     assert set(zip(long_e["site"], long_e["track"])) == {("A", "37")}, long_e[["site", "track"]].drop_duplicates()
     assert np.allclose(long_e["disp_mm"].to_numpy(), truth - truth[0]) and (long_e["ref_date"] == dates[0]).all()
-    assert np.isclose(long_e["los_east"].iat[0], -0.60) and np.isclose(long_e["los_up"].iat[0], 0.78)
+    assert np.isclose(long_e["los_east"].iat[0], -0.58) and np.isclose(long_e["los_up"].iat[0], 0.80), long_e.iloc[0]
     assert (long_e["n_points"] == 5).all() and (long_e["component"] == "LOS").all() and len(long_e) == len(dates)
     stt = status.set_index(["site", "track"])
-    assert len(status) == 4 and stt.loc[("A", "37"), "status"] == "ok"
+    assert len(status) == 4 and stt.loc[("A", "37"), "status"] == "ok" and stt.loc[("A", "37"), "ref_date"] == dates[0]
     assert stt.loc[("A", "88"), "n_points"] == 2 and stt.loc[("A", "88"), "status"].startswith("za mało")
     assert stt.loc[("B", "37"), "n_points"] == 0 and stt.loc[("B", "37"), "status"].startswith("brak punktów")
     assert stt.loc[("C", "37"), "n_points"] == 0 and stt.loc[("C", "37"), "status"].startswith("brak punktów")
+    # Granica min_points: 2 punkty przy min_points = 2 dają szereg.
+    st2 = egms_points_to_long(pts, date_cols, "synthetic", "EGMS_L2b_2020_2024", 100.0, 2, expected)[1]
+    assert st2.set_index(["site", "track"]).loc[("A", "88"), "status"] == "ok", st2
     _expect(ValueError, egms_points_to_long, pts, date_cols, "synthetic", "EGMS_L2b_2020_2024", 100.0, 3,
             expected[expected["site"] != "B"])                                          # para B/37 spoza listy
     _expect(KeyError, egms_points_to_long, pts.drop(columns="direction"), date_cols, "synthetic", "EGMS_L2b_2020_2024",
             100.0, 3, expected)
+    _expect(ValueError, egms_points_to_long, pts, date_cols, "synthetic", "EGMS_L2a_2020_2024", 100.0, 3, expected)  # względny
+    _expect(ValueError, egms_points_to_long, pts, date_cols, "synthetic", "EGMS_L3U_2020_2024", 100.0, 3, expected)  # LOS != U
+    _expect(ValueError, egms_points_to_long, pts, date_cols, "synthetic", "EGMS_L2b_2020_2024", 100.0, 3, expected.iloc[:0])
+    _expect(ValueError, egms_points_to_long, pts.assign(distance_m=np.where(np.arange(len(pts)) == 2, np.nan, pts["distance_m"])),
+            date_cols, "synthetic", "EGMS_L2b_2020_2024", 100.0, 3, expected)
+    # Brak wartości w pierwszej dacie (kafel L3 bez pierwszej daty sumy kafli): odniesienie = druga data, pierwsza NaN.
+    long_r, st_r = egms_points_to_long(pts.assign(**{date_cols[0]: np.nan}), date_cols, "synthetic", "EGMS_L2b_2020_2024",
+                                       100.0, 3, expected)
+    lr = long_r.set_index("date")["disp_mm"]
+    assert (long_r["ref_date"] == dates[1]).all() and np.isnan(lr.iat[0]) and lr.iat[1] == 0.0, long_r.head(3)
+    assert np.allclose(lr.iloc[1:].to_numpy(), truth[1:] - truth[1]) and st_r["ref_date"].iat[0] == dates[1]
     # Pusty wycinek (step_02.extract_points -> pd.DataFrame()): brak szeregów, ale status dla każdej pary.
     long_none, status_none = egms_points_to_long(pd.DataFrame(), date_cols, "synthetic", "EGMS_L2b_2020_2024", 100.0, 3,
                                                  expected)
@@ -909,6 +991,8 @@ def _selftest() -> None:
     _expect(TypeError, validate_long, long_e.assign(track=37))
     _expect(ValueError, validate_long, long_u.assign(los_up=0.9))
     _expect(ValueError, validate_long, long_e.assign(direction="vertical"))                       # LOS bez asc/desc
+    _expect(ValueError, validate_long, long_e.assign(direction=np.where(np.arange(len(long_e)) < 5, "descending",
+                                                                        "ascending")))         # dwa kierunki w szeregu
     with tempfile.TemporaryDirectory(prefix="egmscheck_monitoring_") as tmp:
         tmp = Path(tmp)
         p = write_long(pd.concat([long_all, long_e.assign(site="0042")], ignore_index=True), tmp / "x" / "timeseries_long.csv.gz")
@@ -935,6 +1019,14 @@ def _selftest() -> None:
             assert out.stat().st_size > 1000, name
         _expect(ValueError, plot_series_long, long_all, "Z", "none", s1b_end)
         _expect(ValueError, plot_l3_map, cells, sites, "x", 0.0)
+        _expect(ValueError, plot_sampling, {"37": table}, "x", None)                     # data końca 1B nieustalona
+        # Szum zmiennoprzecinkowy współrzędnych nie zmienia rozmiaru komórek na mapie.
+        size_clean = plot_l3_map(cells, sites, "x", 98.0)
+        noisy = plot_l3_map(cells.assign(easting=cells["easting"] + np.where(np.arange(len(cells)) % 7 == 0, 1e-6, 0.0)),
+                            sites, "x", 98.0)
+        s_c, s_n = (f.axes[0].collections[0].get_sizes()[0] for f in (size_clean, noisy))
+        assert np.isclose(s_c, s_n) and s_c > 10, (s_c, s_n)
+        plt.close("all")
 
     print({"sampling_before": sb[["n_dates", "n_gap_6_days", "n_gap_12_days", "n_gap_other"]].to_dict(),
            "sampling_after": sa[["n_dates", "n_gap_6_days", "n_gap_12_days", "n_gap_other"]].to_dict(),
