@@ -15,22 +15,25 @@ BRANCH = "claude/dreamy-dirac-jd4vue"
 def _region_cells(region: str, title: str, levelling: bool) -> list:
     """Komórki jednego regionu: GNSS, (niwelacja), wyszukanie EGMS, potwierdzenie, pobranie, wycinki, kontrole, porównania."""
     var = f"CONFIRM_MB_{region.upper()}"
+    name = title.split(" ", 1)[1].split(" (")[0]          # "2. Groningen (wydobycie gazu)" -> "Groningen"
     lev_task = (f"\nrun_task(rt, 'levelling_{region}', task_levelling, rt, cfg, '{region}')" if levelling else "")
     cells = [
         ("md", f"""## {title}
 Kolejność: wyszukanie plików EGMS L2b i L3 (bez pobierania) z planem miejsca na Dysku → potwierdzenie rozmiaru →
 pobranie → stacje GNSS według reguły z konfiguracji → dobowe szeregi GNSS{' → niwelacja (repery w obszarze)' if levelling else ''} →
-wycinki i kontrole. Pobranie EGMS wymaga tylko zatwierdzonego wydania i obszaru, więc może ruszyć przed decyzjami
-o GNSS{', niwelacji' if levelling else ''} i progach. Pobranie wymaga wpisania liczby MB z planu w następnej komórce
-(ochrona przed przypadkowym pobraniem wielu GB)."""),
+ponowne wyszukanie i pobranie plików dla punktów spoza obszaru → wycinki i kontrole. Pobranie EGMS wymaga tylko
+zatwierdzonego wydania i obszaru, więc może ruszyć przed decyzjami o GNSS{', niwelacji' if levelling else ''} i progach.
+Pobranie wymaga wpisania liczby MB z planu w komórce poniżej (ochrona przed przypadkowym pobraniem wielu GB)."""),
         ("code", f"""P_{region.upper()} = region_paths(rt, cfg, '{region}')
 run_task(rt, 'egms_search_{region}', task_egms_search, rt, cfg, '{region}')
 if P_{region.upper()}['plan'].exists():
     plan = pd.read_csv(P_{region.upper()}['plan'])
     display(plan.groupby(['query_key', 'status']).agg(files=('filename', 'size'), MB=('filesize', lambda s: round(s.sum() / 1e6, 1))))"""),
-        ("md", f"""### Potwierdzenie rozmiaru pobrania ({title.split(' ', 1)[1]})
+        ("md", f"""### Potwierdzenie rozmiaru pobrania: {name}
 Wpisz liczbę MB z komunikatu `egms_search_{region}` (suma plików brakujących, zaokrąglona). Inna liczba albo `None`
-zatrzymuje notatnik z komunikatem, jaką wartość wpisać. Bez tokenu CLMS notatnik czyta istniejące wycinki z `data/03_Extracts/`."""),
+zatrzymuje notatnik z komunikatem, jaką wartość wpisać. Gdy po wyborze stacji ponowne wyszukanie znajdzie pliki dla
+punktów spoza obszaru, notatnik zatrzyma się z nową liczbą MB do wpisania tutaj; pobrane pliki zostają na Dysku.
+Bez tokenu CLMS notatnik czyta istniejące wycinki z `data/03_Extracts/`."""),
         ("code", f"""{var} = None   # np. 4321 - liczba MB z planu"""),
         ("code", f"""run_task(rt, 'egms_download_{region}', task_egms_download, rt, cfg, '{region}', {var})
 run_task(rt, 'select_gnss_{region}', task_select_gnss, rt, cfg, '{region}')
@@ -48,7 +51,7 @@ Każda para stacja × ścieżka L2b (LOS, bufory 100 i 200 m) i stacja × komór
 ze statusem — nie znika z tabeli. Werdykt L2b według kryteriów K1–K4 (jak E1); dla L3 zdefiniowany jest tylko próg K1."""),
         ("code", f"""run_task(rt, 'compare_gnss_{region}', task_compare_gnss, rt, cfg, '{region}')
 if P_{region.upper()}['gnss_compare'].exists():
-    res = pd.read_csv(P_{region.upper()}['gnss_compare'])
+    res = pd.read_csv(P_{region.upper()}['gnss_compare'], dtype={{'site': str}})
     cols = ['product', 'site', 'group', 'track', 'radius_m', 'n_points', 'v_gnss_los', 'v_egms', 'dv', 'series_diff_std', 'meets_A6', 'status']
     display(res[[c for c in cols if c in res]].round(2))
     for key in ('verdict_l2b', 'verdict_l3u'):
@@ -83,19 +86,27 @@ Pomiar naziemny potwierdza tempo osiadania widoczne w EGMS — EGMS jest produkt
 
 Uruchom: `Środowisko wykonawcze → Uruchom wszystko`. Pobranie EGMS i zlecenia HyP3 wymagają potwierdzenia (sekcje 2, 3, 5)."""),
     ("md", "## 0. Środowisko\nMontowanie Dysku, klon lub aktualizacja repozytorium na Dysku, świeży import modułów, pakiety etapu A."),
-    ("code", f"""import os, sys
+    ("code", f"""import os, subprocess, sys
 from google.colab import drive
 drive.mount('/content/drive')
 REPO_URL, BRANCH = '{REPO_URL}', '{BRANCH}'
 PROJECT_DIR = '/content/drive/MyDrive/GeoWorldLook/egmscheck'
+
+def git(*args):
+    # Błąd gita zatrzymuje notatnik (polecenie '!git' nie zatrzymuje: po nieudanym pull liczyłby stary kod).
+    r = subprocess.run(['git', *args], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"git {{' '.join(args)}} -> kod {{r.returncode}}: {{(r.stderr or r.stdout).strip()}}")
+    return r.stdout.strip()
+
 if not os.path.exists(os.path.join(PROJECT_DIR, '.git')):
     os.makedirs(os.path.dirname(PROJECT_DIR), exist_ok=True)
-    !git clone -q -b "{{BRANCH}}" "{{REPO_URL}}" "{{PROJECT_DIR}}"
+    git('clone', '-q', '-b', BRANCH, REPO_URL, PROJECT_DIR)
 else:
-    !git -C "{{PROJECT_DIR}}" fetch -q origin "{{BRANCH}}"
-    !git -C "{{PROJECT_DIR}}" checkout -q "{{BRANCH}}"
-    !git -C "{{PROJECT_DIR}}" pull -q --ff-only origin "{{BRANCH}}"
-!git -C "{{PROJECT_DIR}}" log -1 --format="Kod: %h %ci %s"
+    git('-C', PROJECT_DIR, 'fetch', '-q', 'origin', BRANCH)
+    git('-C', PROJECT_DIR, 'checkout', '-q', BRANCH)
+    git('-C', PROJECT_DIR, 'pull', '-q', '--ff-only', 'origin', BRANCH)
+print(git('-C', PROJECT_DIR, 'log', '-1', '--format=Kod: %h %ci %s'))
 os.chdir(PROJECT_DIR)
 sys.path.insert(0, PROJECT_DIR)
 for m in [m for m in sys.modules if m.startswith('step_0')]:
@@ -130,7 +141,7 @@ prędkość z rosnącego okna z niepewnością poprawioną na autokorelację (AR
     run_task(rt, f'monitoring_archive_{region}', task_monitoring_archive, rt, cfg, region)
     run_task(rt, f'figures_{region}', task_figures, rt, cfg, region)
     P = region_paths(rt, cfg, region)
-    display(pd.read_csv(P['ttd']).pivot_table(index=['site', 'track'], columns=['source', 'start'], values='ttd_months', aggfunc='first'))
+    display(pd.read_csv(P['ttd'], dtype={'site': str, 'track': str}).pivot_table(index=['site', 'track'], columns=['source', 'start'], values='ttd_months', aggfunc='first'))
     for png in sorted(P['figures'].glob(f'{region}_*.png'))[:12]:
         print(png.name); display(Image(filename=str(png), width=800))"""),
     ("md", """## 5. Etap B: własne przetworzenie Sentinel-1 (ASF HyP3 + MintPy)

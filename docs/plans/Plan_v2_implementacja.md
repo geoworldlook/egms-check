@@ -1,6 +1,8 @@
 # Plan v2 — implementacja: EGMS 2020–2024 (Groningen, zachodnia NRW) + monitoring HyP3/MintPy
 
-> **Status:** IN PROGRESS, 2026-10-11. Specyfikacja interfejsów dla modułów `step_04`–`step_08`.
+> **Status:** ZAIMPLEMENTOWANE I PRZETESTOWANE OFFLINE, 2026-10-11 (commity `8ad90c9`…). Specyfikacja interfejsów dla modułów `step_04`–`step_08`.
+> Stan: każdy moduł po niezależnej recenzji; `step_0N --selftest` (N = 1, 4–8) przechodzi; `tests/monitoring_harness/run_harness.sh`
+> — 3 przebiegi zgodne z oczekiwaniem. **Na prawdziwych danych nieuruchomione** (serwery niedostępne ze środowiska Claude). Sekcja 6: decyzje.
 > Decyzje autora z 2026-10-11: wydanie **2020–2024**; produkty **L2b i L3 pion**; NRW **bez Epe**;
 > pomiar naziemny: **niwelacja, GNSS (jeśli są) i EGMS**; etap B: **ASF HyP3 + MintPy**, skrypt modułowy i automatyczny;
 > wszystkie dane na Dysku Google konta GeoWorldLook, w projekcie `MyDrive/GeoWorldLook/egmscheck`.
@@ -210,3 +212,21 @@ kontraktu `run_task` (`registry`, `message`, `skipped`). Pobranie wymaga podania
 
 Każdy moduł: `python step_0N_*.py --selftest` bez sieci. Notatnik: `tests/monitoring_harness/` (atrapy EGMS
 bbox L2B/L3, NGL, NRW, asf_search, HyP3; atrapa `smallbaselineApp.py` na PATH). Wartości testowe nie są wynikiem.
+
+## 6. Stan po implementacji: decyzje autora i znane luki (2026-10-11)
+
+Zatwierdzone w `CHECK_CONFIG`: `egms` (wydanie 2020–2024, L2b + L3 pion, `search_area` = obszar + punkty naziemne) i
+`regions.groningen` (obszar E1). Pozostałe sekcje mają `approved = None` — notatnik zatrzymuje się na pierwszej z nich.
+
+Do decyzji autora:
+1. `regions.nrw_west`: prostokąt obszaru (ryc. 14–15 Even 2024), adresy plików niwelacji, kodowanie, EPSG, odniesienie.
+2. `gnss`: reguła E1 z oknem 2020.0–2024.25; `method`: parametry E1.
+3. `thresholds`: w tym `gnss_l2b.k3_definition` (`abs_v_egms` jak E1 albo `abs_dv`; oba z progiem 1,5 mm/rok).
+4. `monitoring`: okna, próg 2σ (bez znaku: istotne wypiętrzenie też liczy się jako „wykrycie”), AR(1).
+5. `hyp3`: data końca, limit kredytów i koszt zlecenia, tolerancja kontroli LOS, deramp, pływy skorupy, troposfera.
+6. Sformułowanie wniosku, gdy K1 niepoliczalne: „NIEROZSTRZYGNIĘTE” (E1 bez zmian).
+7. `data/00_Metadata/MANIFEST.csv` jest w gicie i rośnie na klonie na Dysku: który manifest jest źródłem prawdy.
+8. Migawka MIDAS: notatnik używa najnowszej migawki z Dysku; nowsza = świadoma decyzja (może zmienić wybór stacji).
+
+Znane luki: porównanie niwelacji z L2b (rozkład asc/desc, `step_06.vertical_from_asc_desc`) nie jest podpięte do zadania;
+w trybie bez tokenu trzeba skopiować `egms_plan_<region>.csv` razem z wycinkami; rejestr `gwl_*` tylko dopisuje.

@@ -44,6 +44,10 @@ Decyzje integracji (do akceptacji autora; wartości nowych kluczy CHECK_CONFIG o
     informacyjne (bez progu, 'spełnione' = None), wniosek tylko z K1;
   - K3 'abs_dv' (thresholds.gnss_l2b.k3_definition) = max |dv| na stacjach stabilnych (step_03.verdict liczy
     wariant E1 'abs_v_egms'); None = decyzja nieustalona = wyjątek;
+  - werdykt L2b bez wiersza K1 (brak par stacja osiadająca x ścieżka 'ok' z A6) = 'NIEROZSTRZYGNIĘTE' zamiast
+    step_03.overall (które bez K1 zwraca 'NIE POTWIERDZONE ... różni się ponad progi');
+  - MIDAS: najnowsza migawka midas_*.IGS.txt z Dysku zamiast pobierania przy każdym uruchomieniu (wybór stacji
+    nie zmienia się między przebiegami); nowszy stan MIDAS = decyzja autora;
   - niwelacja: okno epok = rzeczywisty zakres dat szeregów EGMS L3 (pierwsza i ostatnia data), nie daty z nazwy
     wydania; format długi niwelacji (LEVELLING_NRW) budowany tutaj (step_06 go nie tworzy);
   - GNSS w formacie długim: poziom odniesienia = mediana dób +-gnss_half_window_days wokół daty odniesienia szeregu
@@ -243,12 +247,16 @@ def _registry_path(rt: Dict[str, Any], table: str) -> str:
 
 
 def registry_read(rt: Dict[str, Any], table: str) -> pd.DataFrame:
-    """Czyta tabelę rejestru; brak pliku = pusta tabela z kolumnami ze schematu."""
+    """
+    Czyta tabelę rejestru; brak pliku = pusta tabela z kolumnami ze schematu. Identyfikatory punktów i ścieżek
+    (site, track) jako tekst: numery reperów z zerem wiodącym (np. 0450600001) przeczytane jako liczby traciłyby zero,
+    a klucz nie zgadzałby się z nowym wierszem (duplikaty przy każdym uruchomieniu).
+    """
     path = _registry_path(rt, table)
     cols = REGISTRY_SCHEMA[table]["columns"]
     if not os.path.exists(path):
         return pd.DataFrame(columns=cols)
-    df = pd.read_csv(path, low_memory=False)
+    df = pd.read_csv(path, low_memory=False, dtype={c: str for c in ("site", "track") if c in cols})
     return df.reindex(columns=cols)
 
 
@@ -701,7 +709,9 @@ def _read_sites(P: Dict[str, Path]) -> pd.DataFrame:
 def _write_sites(P: Dict[str, Path], rows: pd.DataFrame, site_type: str) -> pd.DataFrame:
     """
     Zastępuje w sites.csv wiersze danego typu (gnss / benchmark); identyfikator w dwóch typach = ValueError.
-    Plik o tej samej treści nie jest zapisywany ponownie (czas modyfikacji steruje aktualnością wycinków).
+    Plik o tej samej treści nie jest zapisywany ponownie (czas modyfikacji steruje aktualnością wycinków);
+    porównanie niezależne od kolejności wierszy (wiersze zapisywanego typu trafiają na koniec, więc przy dwóch
+    typach kolejność w pliku zmienia się co uruchomienie - bez tego ponowny przebieg wycinałby EGMS od nowa).
     """
     rows = rows.reindex(columns=SITES_COLUMNS).assign(site_type=site_type)
     rows["site"] = rows["site"].astype(str)
@@ -711,7 +721,10 @@ def _write_sites(P: Dict[str, Path], rows: pd.DataFrame, site_type: str) -> pd.D
     dup = out.loc[out["site"].duplicated(), "site"].tolist()
     if dup:
         raise ValueError(f"Te same identyfikatory punktów w różnych typach: {dup[:10]}")
-    if old is not None and len(old) == len(out) and _canon(old.reset_index(drop=True)).equals(_canon(out)):
+
+    def by_site(df: pd.DataFrame) -> pd.DataFrame:
+        return _canon(df.sort_values("site", kind="stable").reset_index(drop=True))
+    if old is not None and len(old) == len(out) and by_site(old).equals(by_site(out)):
         return out
     P["sites"].parent.mkdir(parents=True, exist_ok=True)
     out.to_csv(P["sites"], index=False)
@@ -801,7 +814,10 @@ def _gnss_path(rt: Dict[str, Any], cfg: Dict[str, Any], site: str) -> Path:
 
 
 def _read_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], sites: List[str]) -> Dict[str, pd.DataFrame]:
+    """Szeregi tenv3 stacji (układ z gnss.frame: bramka sekcji gnss, gdy są stacje do wczytania)."""
     from step_01_ingest import read_ngl_tenv3
+    if sites:
+        require_approved(cfg, "gnss")
     out = {}
     for s in sites:
         p = _gnss_path(rt, cfg, s)
@@ -812,7 +828,14 @@ def _read_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], sites: List[str]) -> Dic
 
 
 def _metric_rows(df: pd.DataFrame, region: str, metrics: List[str], n_col: str, reference: str) -> pd.DataFrame:
-    """Wyniki (kolumny product, site, track, radius_m, status + metryki) -> wiersze gwl_validation_metrics."""
+    """
+    Wyniki (kolumny product, site, track, radius_m, status + metryki) -> wiersze gwl_validation_metrics.
+    Metryka bez kolumny przy wierszu 'ok' = KeyError (literówka nie może dać cichego NaN); przy wierszach z powodem
+    NaN brak kolumny jest dozwolony (np. żadna para nie doszła do policzenia prędkości).
+    """
+    absent = [c for c in metrics + [n_col] if c not in df.columns]
+    if absent and (df["status"] == "ok").any():
+        raise KeyError(f"Brak kolumn metryk {absent} w wynikach ze statusem 'ok'; dostępne: {list(df.columns)}")
     rows = []
     for r in df.itertuples(index=False):
         d = r._asdict()
@@ -830,7 +853,9 @@ def task_select_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Di
     """
     Stacje GNSS regionu z pliku prędkości MIDAS (NGL): reguła E1 'subsiding_and_stable' (step_01.select_stations,
     okna z sekcji gnss) albo 'all_quality' (step_06.select_stations_aoi; zero stacji = pusta lista, nie błąd).
-    Plik MIDAS zapisany z datą pobrania w data/02_Raw_Ground/3_gnss_ngl/ i w manifeście. Wynik: sites.csv
+    Plik MIDAS zapisany z datą pobrania w data/02_Raw_Ground/3_gnss_ngl/ i w manifeście; gdy na Dysku jest już
+    migawka midas_*.IGS.txt, używana jest najnowsza z nich bez ponownego pobrania (MIDAS zmienia się co tydzień:
+    nowy plik przy każdym uruchomieniu zmieniałby wybór stacji między przebiegami). Wynik: sites.csv
     (wiersze GNSS zastąpione, repery zostają) i gwl_sites.
     """
     import step_01_ingest as s1
@@ -839,8 +864,14 @@ def task_select_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Di
     reg = _region(cfg, region)
     g = require_approved(cfg, "gnss")
     P = region_paths(rt, cfg, region)
-    today = datetime.now(timezone.utc).strftime("%Y%m%d")
-    midas_path = _abs(rt, cfg["project"]["gnss_dir"]) / f"midas_{today}.IGS.txt"
+    gdir = _abs(rt, cfg["project"]["gnss_dir"])
+    snapshots = sorted(gdir.glob("midas_*.IGS.txt"))      # midas_RRRRMMDD: porządek tekstowy = chronologiczny
+    if snapshots:
+        midas_path = snapshots[-1]
+        print(f"MIDAS: migawka z Dysku {midas_path.name} (dostępne: {[p.name for p in snapshots]}); bez ponownego "
+              f"pobrania - nowszy stan MIDAS zmienia wybór stacji (decyzja autora)")
+    else:
+        midas_path = gdir / f"midas_{datetime.now(timezone.utc):%Y%m%d}.IGS.txt"
     s1.download_file(g["midas_url"], midas_path, _manifest(rt, cfg), Path(rt["PROJECT_DIR"]),
                      "NGL MIDAS velocities (IGS20)", s1.NGL_LICENCE, cfg["project"]["downloaded_by"])
     midas = s1.read_ngl_midas(midas_path.read_text(encoding="utf-8"))
@@ -1030,6 +1061,9 @@ def task_egms_download(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, con
                            f"brakujące {sorted(set(b.index) - set(a.index))[:5]}): uruchom ponownie task_egms_search "
                            f"i potwierdź nowy rozmiar")
     fresh = s4.plan_download(table, raw, s4.drive_free_bytes(raw), int(round(float(e["drive_margin_gb"]) * 1e9)))
+    if _need_mb(fresh) > need:                 # potwierdzenie dotyczy planu z pliku; pobieramy według świeżego stanu Dysku
+        raise RuntimeError(f"Do pobrania jest teraz {_need_mb(fresh)} MB, potwierdzono {need} MB (pliki zniknęły z Dysku "
+                           f"po wyszukaniu?): uruchom ponownie task_egms_search i potwierdź nowy rozmiar")
     reg_now = _in_manifest(man, [s1.manifest_path_of(raw / f, proj) for f in fresh["filename"]])
     todo = fresh[(fresh["status"] != "existing") | ~np.array(reg_now)]
     logs = []
@@ -1047,7 +1081,8 @@ def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
     Wycinki z plików planu: L2b - step_02.extract_points wokół wszystkich punktów naziemnych (GNSS i repery)
     w promieniu extract_radius_m, plik po pliku (ścieżka i kierunek z planu); L3 U - step_04.l3_cells_at_sites
     (komórka przy punkcie, z datami) i step_04.read_l3_aoi (mapa obszaru, bez dat); opcjonalnie mapa L2b.
-    Wycinki aktualne (nowsze niż pliki i sites.csv) = pominięte. Bez planu lub plików surowych: pominięte, gdy
+    Wycinki aktualne (nowsze niż pliki i sites.csv, te same parametry co w extract_params.json) = pominięte.
+    Bez planu lub plików surowych: pominięte, gdy
     wycinki istnieją (tryb bez tokenu), inaczej FileNotFoundError. Zero punktów L2b / komórek L3 = RuntimeError.
     """
     import step_02_checks_extract as s2
@@ -1076,8 +1111,17 @@ def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
               ([P["l2b_map"]] if e["l2b_aoi_map"] and len(l2) else [])
     if not outputs:
         raise ValueError(f"Plan bez plików L2B i L3 ORTHO-UP: nie ma czego wycinać ({plan['query_key'].unique()})")
-    if _up_to_date(outputs, [raw / f for f in plan["filename"]] + [P["sites"]]):
-        return {"skipped": True, "message": "wycinki aktualne (nowsze niż pliki EGMS i sites.csv)"}
+    # Parametry wycinków zapisane obok nich: zmiana promienia, komórki L3, obszaru albo listy plików unieważnia wycinki
+    # (sam czas modyfikacji tego nie wykrywa - stary wycinek byłby po cichu użyty z nową konfiguracją).
+    params = {"extract_radius_m": m["extract_radius_m"], "l3_cell_m": m["l3_cell_m"],
+              "aoi_lonlat": [float(v) for v in reg["aoi_lonlat"]], "l2b_aoi_map": bool(e["l2b_aoi_map"]),
+              "files": sorted(str(f) for f in plan["filename"])}
+    pfile = P["extracts"] / "extract_params.json"
+    same = pfile.exists() and json.loads(pfile.read_text(encoding="utf-8")) == params
+    if same and _up_to_date(outputs, [raw / f for f in plan["filename"]] + [P["sites"]]):
+        return {"skipped": True, "message": "wycinki aktualne (nowsze niż pliki EGMS i sites.csv, te same parametry)"}
+    if pfile.exists() and not same:
+        print(f"Parametry wycinków różne od zapisanych w {pfile.name}: wycinam od nowa")
     msg = []
     aoi3035 = s4.aoi_lonlat_to_3035(reg["aoi_lonlat"])
     if len(l2):
@@ -1114,6 +1158,7 @@ def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
             raise RuntimeError(f"Mapa L3: brak komórek w obszarze {reg['aoi_lonlat']} we wszystkich kaflach")
         mp.to_csv(P["l3_map"], index=False)
         msg.append(f"L3: komórki przy {cells['site'].nunique()} z {len(sites)} punktów, mapa {len(mp)} komórek")
+    pfile.write_text(json.dumps(params, indent=1), encoding="utf-8")
     return {"message": "; ".join(msg)}
 
 
@@ -1125,11 +1170,12 @@ def task_checks(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[st
     """
     import step_02_checks_extract as s2
     import step_04_egms_aoi as s4
+    e = require_approved(cfg, "egms")
     _region(cfg, region)
     m = require_approved(cfg, "method")
     P = region_paths(rt, cfg, region)
     rows = []
-    if "L2B" in cfg["egms"]["levels"]:
+    if "L2B" in e["levels"]:
         points = _read_points(P["l2b_points"], "wycinek L2b: task_extract")
         checks = s2.check_conventions(points, m["conv_tol"])
         d = s2.nearest_cross_file_distance(points)
@@ -1142,7 +1188,7 @@ def task_checks(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[st
         dedup.to_csv(P["l2b_dedup"], index=False)
         if "A3 znak los_east: wstępująca = -zstępująca" not in set(checks["check"]):
             print("UWAGA: A3 nie sprawdzone - w wycinku jest tylko jeden kierunek orbity.")
-    if "L3" in cfg["egms"]["levels"]:
+    if "L3" in e["levels"]:
         mp = _read_points(P["l3_map"], "mapa L3: task_extract")
         off = s4.l3_grid_offsets(mp, m["l3_cell_m"])
         off.to_csv(P["l3_grid"], index=False)
@@ -1166,6 +1212,18 @@ def task_checks(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[st
 # ------------------------------------------------------------------------------
 # Porównania: GNSS, niwelacja
 # ------------------------------------------------------------------------------
+def _check_radii(m: Dict[str, Any]) -> None:
+    """
+    Spójność promieni sekcji method: radius_main_m w radii_m (inaczej step_03.verdict nie ma par) i każdy promień
+    <= extract_radius_m (wycinek L2b nie zawiera punktów dalszych - liczba punktów byłaby po cichu zaniżona).
+    """
+    if m["radius_main_m"] not in m["radii_m"]:
+        raise ValueError(f"method.radius_main_m {m['radius_main_m']} spoza method.radii_m {m['radii_m']}")
+    too_far = [r for r in m["radii_m"] if r > m["extract_radius_m"]]
+    if too_far:
+        raise ValueError(f"method.radii_m {too_far} > extract_radius_m {m['extract_radius_m']} (zasięg wycinka L2b)")
+
+
 def _l3_radius(m: Dict[str, Any]) -> float:
     """Komórka L3 zawierająca punkt: odległość do środka <= cell_m * sqrt(2) / 2."""
     return float(m["l3_cell_m"]) * np.sqrt(2.0) / 2.0
@@ -1222,7 +1280,8 @@ def task_compare_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> D
     Wymaga zatwierdzenia sekcji thresholds.
     """
     import step_03_compare_gnss as s3
-    reg = _region(cfg, region)
+    e = require_approved(cfg, "egms")
+    _region(cfg, region)
     m = require_approved(cfg, "method")
     th = require_approved(cfg, "thresholds")
     P = region_paths(rt, cfg, region)
@@ -1233,6 +1292,7 @@ def task_compare_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> D
     k3 = _decided(th["gnss_l2b"], "k3_definition", "thresholds.gnss_l2b")
     if k3 not in ("abs_v_egms", "abs_dv"):
         raise ValueError(f"thresholds.gnss_l2b.k3_definition {k3!r}: dozwolone 'abs_v_egms', 'abs_dv'")
+    _check_radii(m)
     gnss = _read_gnss(rt, cfg, list(gn["site"]))
     src = _sources(cfg)
     grp = dict(zip(gn["site"], gn["group"]))
@@ -1241,7 +1301,7 @@ def task_compare_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> D
             "thresholds": {k: th["gnss_l2b"][k] for k in ("abs_dv_mm_yr", "share_within", "series_std_mm",
                                                           "stable_abs_v_mm_yr")}}
     rows = []
-    if "L2B" in cfg["egms"]["levels"]:
+    if "L2B" in e["levels"]:
         tracks = _l2b_tracks(_read_plan(P))
         points = _read_points(P["l2b_dedup"], "wycinek L2b bez duplikatów: task_checks")
         for site in gn["site"]:
@@ -1256,7 +1316,7 @@ def task_compare_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> D
                     rows.append({"product": src["L2B"], "site": site, "group": grp[site], "track": track,
                                  "direction": direction, **res})
     view_l3 = {**view, "min_points": m["l3_min_points"], "radius_main_m": _l3_radius(m)}
-    if "L3" in cfg["egms"]["levels"]:
+    if "L3" in e["levels"]:
         cells = _read_points(P["l3_cells"], "komórki L3: task_extract")
         dc = _date_cols(cells)
         for site in gn["site"]:
@@ -1278,7 +1338,13 @@ def task_compare_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> D
         v2 = s3.verdict(r2, view)
         if k3 == "abs_dv":
             v2 = _k3_abs_dv(v2, r2, view)
-        concl2 = s3.overall(v2)
+        # Bez wiersza K1 step_03.overall zwraca "NIE POTWIERDZONE: ... różni się ponad progi" - fałszywy wniosek, gdy
+        # K1 nie da się policzyć (np. reguła 'all_quality' bez stacji osiadających albo żadna para bez A6).
+        if (v2["kryterium"].str[:2] == "K1").any():
+            concl2 = s3.overall(v2)
+        else:
+            concl2 = ("NIEROZSTRZYGNIĘTE: brak par stacja osiadająca x ścieżka L2b ze statusem 'ok' i A6 na promieniu "
+                      f"{m['radius_main_m']} m - K1 niepoliczalne, wniosek o tempie osiadania nie jest możliwy.")
         v2.to_csv(P["verdict_l2b"], index=False)
         print(v2.to_string(index=False))
         msg.append(f"L2b: {concl2}")
@@ -1320,6 +1386,7 @@ def task_compare_levelling(rt: Dict[str, Any], cfg: Dict[str, Any], region: str)
     Δh i prędkości (step_06.compare_levelling, odniesienie z konfiguracji), kryteria N1-N4 (summarize_levelling).
     """
     import step_06_ground as s6
+    require_approved(cfg, "egms")
     reg = _region(cfg, region)
     lv = reg.get("levelling")
     if lv is None:
@@ -1396,16 +1463,18 @@ def task_monitoring_archive(rt: Dict[str, Any], cfg: Dict[str, Any], region: str
     """
     import step_03_compare_gnss as s3
     import step_07_monitoring as s7
+    e = require_approved(cfg, "egms")
     _region(cfg, region)
     m = require_approved(cfg, "method")
     mo = require_approved(cfg, "monitoring")
+    _check_radii(m)
     P = region_paths(rt, cfg, region)
     src = _sources(cfg)
     sites = _read_sites(P)
     gn = sites[sites["site_type"] == "gnss"]
     gnss = _read_gnss(rt, cfg, list(gn["site"]))
     longs, statuses = [], []
-    if "L2B" in cfg["egms"]["levels"]:
+    if "L2B" in e["levels"]:
         tracks = _l2b_tracks(_read_plan(P))
         points = _read_points(P["l2b_dedup"], "wycinek L2b bez duplikatów: task_checks")
         union = _date_cols(points)
@@ -1416,7 +1485,7 @@ def task_monitoring_archive(rt: Dict[str, Any], cfg: Dict[str, Any], region: str
                                             region, src["L2B"], m["radius_main_m"], m["min_points"], exp)
             longs.append(lg)
             statuses.append(st)
-    if "L3" in cfg["egms"]["levels"]:
+    if "L3" in e["levels"]:
         cells = _read_points(P["l3_cells"], "komórki L3: task_extract")
         exp = pd.DataFrame({"site": sites["site"], "track": "L3", "direction": "vertical"})
         lg, st = s7.egms_points_to_long(cells, _date_cols(cells), region, src["L3"], _l3_radius(m), m["l3_min_points"], exp)
@@ -1550,6 +1619,7 @@ def task_figures(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
     import matplotlib.pyplot as plt
     import step_03_compare_gnss as s3
     import step_07_monitoring as s7
+    e = require_approved(cfg, "egms")
     _region(cfg, region)
     m = require_approved(cfg, "method")
     mo = require_approved(cfg, "monitoring")
@@ -1572,7 +1642,7 @@ def task_figures(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
     if P["l3_map"].exists():
         mp = _read_points(P["l3_map"], "mapa L3")
         shown = sites[(sites["site_type"] == "gnss") | sites["site"].isin(examples)]
-        save(s7.plot_l3_map(mp, shown, f"EGMS L3 vertical velocity {cfg['egms']['release']}, {region}",
+        save(s7.plot_l3_map(mp, shown, f"EGMS L3 vertical velocity {e['release']}, {region}",
                             mo["map_vlim_percentile"]), f"{region}_l3_velocity_map.png")
     samp = _read_csv(P["sampling"], "próbkowanie: task_monitoring_archive", dtype={"track": str}, parse_dates=["date"])
     tables = {f"{t}" if s == src["L2B"] else "L3": g for (s, t), g in samp.groupby(["source", "track"])}
@@ -1649,13 +1719,13 @@ def task_hyp3_plan(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict
     komunikat z liczbą zleceń do potwierdzenia (CONFIRM_JOBS). Kierunek orbity burstów = kierunek ścieżki EGMS.
     """
     import step_08_hyp3_mintpy as s8
+    e = require_approved(cfg, "egms")
     reg = _region(cfg, region)
-    m = require_approved(cfg, "method")
     h = require_approved(cfg, "hyp3")
     end = _decided(h, "end", "hyp3")
     P = region_paths(rt, cfg, region)
     sites = _read_sites(P)
-    wkt = _aoi_wkt(_search_lonlat(reg, sites, cfg["egms"]["search_area"]))
+    wkt = _aoi_wkt(_search_lonlat(reg, sites, e["search_area"]))
     rows = []
     for track, direction in _hyp3_tracks(rt, cfg, region).items():
         b = s8.search_bursts(wkt, int(track), h["start"], end, h["polarization"])
@@ -1713,6 +1783,8 @@ def task_hyp3_submit(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, track
     h = require_approved(cfg, "hyp3")
     plan = _hyp3_plan_json(rt, cfg, region, track)
     n = _check_confirm_jobs(plan, confirm_jobs, track)
+    for key in ("max_credits", "cost_per_job"):          # decyzje autora przed logowaniem Earthdata i wysłaniem
+        _decided(h, key, "hyp3")
     hy = s8.hyp3_client(s8.load_earthdata_credentials(cfg["project"]["earthdata_path"]))
     tab = s8.submit_missing(hy, plan["jobs"], plan["name"], h["max_credits"], h["cost_per_job"])
     hp = hyp3_paths(rt, cfg, region, track)
@@ -1770,6 +1842,7 @@ def task_hyp3_compare(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, trac
     import matplotlib.pyplot as plt
     import step_07_monitoring as s7
     import step_08_hyp3_mintpy as s8
+    require_approved(cfg, "egms")
     _region(cfg, region)
     m = require_approved(cfg, "method")
     mo = require_approved(cfg, "monitoring")
@@ -1861,7 +1934,7 @@ def task_summary(rt: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
         r = {}
         for key in ("checks", "verdict_l2b", "verdict_l3u", "levelling_summary", "ttd"):
             if P[key].exists():
-                r[key] = pd.read_csv(P[key])
+                r[key] = pd.read_csv(P[key], dtype={"site": str, "track": str})   # numery reperów z zerem wiodącym
         for key in ("verdict_l2b", "verdict_l3u"):
             txt = P[key].with_suffix(".txt")
             if txt.exists():
@@ -1871,7 +1944,7 @@ def task_summary(rt: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
             r["egms_files"] = {"n": len(plan), "MB": round(plan["filesize"].sum() / 1e6, 1),
                                "by_query": plan["query_key"].value_counts().to_dict()}
         for f in sorted(P["outputs"].glob(f"hyp3_align_{region}_*.csv")) if P["outputs"].exists() else []:
-            r[f.stem] = pd.read_csv(f)
+            r[f.stem] = pd.read_csv(f, dtype={"site": str, "track": str})
         regions[region] = r
     runs = run_history(rt, 25)
     summary = {
@@ -1957,6 +2030,15 @@ def _selftest() -> None:
         assert len(reg) == 4 and float(reg.loc[reg["site"] == "S2", "value"].iat[0]) == 1.25
         assert reg.loc[reg["site"] == "S2", "run_id"].iat[0] == "r3"
         _expect(ValueError, registry_upsert, rt, "gwl_validation_metrics", base.drop(columns="metric"), match="metric")
+        # Numery reperów z zerem wiodącym (kolumna site tylko z cyfr): ten sam klucz przy ponownym zapisie, zero zostaje.
+        rt_b = {"REGISTRY_DIR": str(tmp / "reg_bench")}
+        bench = pd.DataFrame({"region": "nrw_west", "product": "EGMS_L3U_2020_2024", "reference": "LEVELLING_NRW",
+                              "site": ["0450600001", "0450600002"], "track": "L3", "radius_m": 70.71067811865476,
+                              "metric": "diff_mm", "value": [1.0, 2.0], "n": 1.0, "status": "ok", "run_id": "b1"})
+        assert registry_upsert(rt_b, "gwl_validation_metrics", bench) == {"new": 2, "changed": 0, "unchanged": 0}
+        assert registry_upsert(rt_b, "gwl_validation_metrics", bench.assign(run_id="b2")) == {"new": 0, "changed": 0,
+                                                                                               "unchanged": 2}
+        assert sorted(registry_read(rt_b, "gwl_validation_metrics")["site"]) == ["0450600001", "0450600002"]
         _expect(KeyError, registry_read, rt, "gwl_nie_ma", match="Nieznana tabela")
 
         # 2. run_task: wynik z rejestrem, pominięcie, błąd zapisany w gwl_runs i zgłoszony dalej, zły kontrakt.
@@ -2037,7 +2119,31 @@ def _selftest() -> None:
         cfg_t["project"]["earthdata_path"] = str(tmp / "brak_earthdata.json")
         _expect(RuntimeError, task_hyp3_submit, rt, cfg_t, "groningen", "37", None, match="CONFIRM_JOBS['37'] = 5")
         _expect(RuntimeError, task_hyp3_submit, rt, cfg_t, "groningen", "37", 4, match="plan ma 5")
+        # Limit kredytów i koszt zlecenia: decyzje sprawdzane przed logowaniem Earthdata (i przed wysłaniem).
+        _expect(RuntimeError, task_hyp3_submit, rt, cfg_t, "groningen", "37", 5, match="max_credits")
+        cfg_t["hyp3"]["max_credits"] = 10
+        _expect(RuntimeError, task_hyp3_submit, rt, cfg_t, "groningen", "37", 5, match="cost_per_job")
+        cfg_t["hyp3"]["cost_per_job"] = 1
         _expect(FileNotFoundError, task_hyp3_submit, rt, cfg_t, "groningen", "37", 5, match="Earthdata")
+
+        # 5a. Bramki sekcji, których parametrów zadanie używa: egms (poziomy, wydanie), gnss (układ szeregów tenv3).
+        cfg_e = copy.deepcopy(cfg_t)
+        cfg_e["egms"]["approved"] = None
+        for fn in (task_checks, task_compare_gnss, task_compare_levelling, task_monitoring_archive, task_figures,
+                   task_hyp3_plan):
+            _expect(RuntimeError, fn, rt, cfg_e, "groningen", match="CHECK_CONFIG['egms']")
+        _expect(RuntimeError, task_hyp3_compare, rt, cfg_e, "groningen", "37", match="CHECK_CONFIG['egms']")
+        _expect(RuntimeError, _read_gnss, rt, copy.deepcopy(CHECK_CONFIG), ["A"], match="CHECK_CONFIG['gnss']")
+        assert _read_gnss(rt, copy.deepcopy(CHECK_CONFIG), []) == {}
+        # Metryka bez kolumny: błąd przy wierszu 'ok', jawny NaN przy wierszu z powodem.
+        mr = pd.DataFrame({"product": ["p"], "site": ["s"], "track": ["t"], "radius_m": [1.0], "status": ["ok"], "n": [1.0]})
+        _expect(KeyError, _metric_rows, mr, "r", ["v_egms"], "n", "REF", match="v_egms")
+        nan_row = _metric_rows(mr.assign(status="za mało punktów"), "r", ["v_egms"], "n", "REF")
+        assert len(nan_row) == 1 and np.isnan(nan_row["value"].iat[0]) and nan_row["status"].iat[0] == "za mało punktów"
+        mcfg = {"radius_main_m": 100, "radii_m": [100, 200], "extract_radius_m": 200}
+        _check_radii(mcfg)
+        _expect(ValueError, _check_radii, {**mcfg, "radius_main_m": 150}, match="radius_main_m")
+        _expect(ValueError, _check_radii, {**mcfg, "radii_m": [100, 300]}, match="extract_radius_m")
 
         # 6. Pomocnicze: obszar wyszukania, przykłady, punkty naziemne w dwóch typach.
         reg = cfg_t["regions"]["groningen"]
@@ -2052,6 +2158,19 @@ def _selftest() -> None:
         assert _example_sites(ex_sites, lev_res, "max_subsidence_median_stable") == ["B", "C", "E", "b2", "b1", "b3"]
         _expect(ValueError, _write_sites, P, pd.DataFrame({"site": ["A"], "group": ["benchmark"]}), "benchmark",
                 match="różnych typach")
+        # Dwa typy punktów: ponowny zapis tej samej treści (kolejność typów w pliku inna niż w nowym zapisie) nie zmienia
+        # pliku - czas modyfikacji sites.csv steruje aktualnością wycinków (task_extract).
+        g_rows = pd.DataFrame({"site": ["A"], "group": ["stabilna"], "lat_deg": [53.0], "lon_deg": [6.0],
+                               "x_3035": [1.0], "y_3035": [2.0]})
+        b_rows = pd.DataFrame({"site": ["0450600001"], "group": ["benchmark"], "lat_deg": [51.0], "lon_deg": [6.5],
+                               "x_3035": [3.0], "y_3035": [4.0]})
+        _write_sites(P, g_rows, "gnss")
+        _write_sites(P, b_rows, "benchmark")
+        before, t_before = P["sites"].read_bytes(), P["sites"].stat().st_mtime_ns
+        _write_sites(P, g_rows, "gnss")
+        _write_sites(P, b_rows, "benchmark")
+        assert P["sites"].read_bytes() == before and P["sites"].stat().st_mtime_ns == t_before, "sites.csv zapisany ponownie"
+        assert set(_read_sites(P)["site"]) == {"A", "0450600001"}
         print(approvals_table(CHECK_CONFIG).to_string(index=False))
     print("SELFTEST step_05_colab_run OK")
 

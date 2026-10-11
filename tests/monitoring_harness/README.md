@@ -12,7 +12,8 @@ tests/monitoring_harness/run_harness.sh <ścieżka do colab313/bin/python> <kata
 
 Trzy przebiegi:
 1. pełny notatnik od zera na kopii z zatwierdzeniami `TEST` i wartościami `CONFIRM_*` → `HARNESS: znana odpowiedź OK`;
-2. ponowne uruchomienie na tym samym Dysku → nic nie jest pobierane ani zlecane drugi raz;
+2. ponowne uruchomienie na tym samym Dysku → nic nie jest pobierane ani zlecane drugi raz (MIDAS z migawki na Dysku),
+   wycinki obu regionów nie są liczone od nowa;
 3. notatnik z repozytorium (bez zatwierdzeń) → głośny stop na pierwszej niezatwierdzonej sekcji.
 
 Uwaga: skrypt usuwa i tworzy od nowa `/content/drive/MyDrive/GeoWorldLook/egmscheck` (atrapa Dysku).
