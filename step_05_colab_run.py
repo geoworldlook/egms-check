@@ -966,6 +966,7 @@ def _read_levelling(P: Dict[str, Path]) -> pd.DataFrame:
 # Ponawiamy WYŁĄCZNIE odpowiedzi 502/503/504, z jawnymi przerwami i komunikatem; po ostatniej próbie błąd idzie dalej
 # (błąd głośny). Inne błędy HTTP (np. 401 przy złym kluczu) i wszystkie pozostałe wyjątki nie są ponawiane.
 TRANSIENT_HTTP = (502, 503, 504)
+L2B_SITE_TYPES = ("gnss",)                       # typy punktów, wokół których wycina się L2b (task_extract)
 TRANSIENT_WAITS_S = (30, 90, 300)
 
 
@@ -1130,6 +1131,10 @@ def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
         raise FileNotFoundError(f"{len(absent)} plików z planu brak w {raw} (np. {absent[:3]}): uruchom task_egms_download")
     sites = _read_sites(P)
     pts_xy = sites[["site", "x_3035", "y_3035"]]
+    # L2b przy punkcie czyta tylko porównanie z GNSS (task_compare_gnss); repery porównuje się z L3 (komórka przy
+    # reperze). Wycinek L2b wokół wszystkich reperów NRW (13 476 x promień 200 m = ok. 1 mln punktów z pełnymi
+    # szeregami na plik) przepełniał pamięć Colab (2026-10-12), dlatego L2b tylko wokół site_type z L2B_SITE_TYPES.
+    pts_l2b = sites.loc[sites["site_type"].isin(L2B_SITE_TYPES), ["site", "x_3035", "y_3035"]]
     l2 = plan[plan["level"] == "L2B"]
     l3 = plan[(plan["level"] == "L3") & (plan["product_type"] == "ORTHO-UP")]
     outputs = ([P["l2b_points"]] if len(l2) else []) + ([P["l3_cells"], P["l3_map"]] if len(l3) else []) + \
@@ -1140,6 +1145,7 @@ def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
     # (sam czas modyfikacji tego nie wykrywa - stary wycinek byłby po cichu użyty z nową konfiguracją).
     params = {"extract_radius_m": m["extract_radius_m"], "l3_cell_m": m["l3_cell_m"],
               "aoi_lonlat": [float(v) for v in reg["aoi_lonlat"]], "l2b_aoi_map": bool(e["l2b_aoi_map"]),
+              "l2b_site_types": list(L2B_SITE_TYPES),
               "files": sorted(str(f) for f in plan["filename"])}
     pfile = P["extracts"] / "extract_params.json"
     same = pfile.exists() and json.loads(pfile.read_text(encoding="utf-8")) == params
@@ -1150,9 +1156,13 @@ def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
     msg = []
     aoi3035 = s4.aoi_lonlat_to_3035(reg["aoi_lonlat"])
     if len(l2):
+        if pts_l2b.empty:
+            raise RuntimeError(f"Plan zawiera pliki L2B, ale w sites.csv nie ma punktów typu {list(L2B_SITE_TYPES)} "
+                               f"(L2b porównuje się tylko z GNSS): uruchom task_select_gnss albo usuń L2B z egms.levels")
+        print(f"L2b: wycinek wokół {len(pts_l2b)} punktów typu {list(L2B_SITE_TYPES)} (z {len(sites)} w sites.csv)")
         parts, maps = [], []
         for r in l2.itertuples(index=False):
-            p = s4.extract_points_l2b(raw / r.filename, pts_xy, m["extract_radius_m"], e["chunksize"], s4.L2B_USED)
+            p = s4.extract_points_l2b(raw / r.filename, pts_l2b, m["extract_radius_m"], e["chunksize"], s4.L2B_USED)
             print(f"{r.filename}: {len(p)} punktów w promieniu {m['extract_radius_m']} m")
             if len(p):
                 parts.append(p.assign(track=int(r.relativeOrbit), direction=r.direction))
