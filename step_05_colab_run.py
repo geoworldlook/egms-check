@@ -464,7 +464,7 @@ CHECK_CONFIG: Dict[str, Any] = {
                 "crs_epsg": 25832,                       # [p] prawdopodobnie ETRS89/UTM32 (do potwierdzenia w opisie formatu)
                 "epoch_rule": "first_last_in_release",   # [p]
                 "min_epoch_span_yr": 1.0,                # [p]
-                "reference": None,                       # [p] decyzja: {"type": "absolute"} albo {"type": "stable_group", "ids": [...]}
+                "reference": {"type": "absolute"},       # autor 2026-10-12: wariant główny bez wspólnego reperu (jak Even i in. 2024)
                 "read_method": "linear_interpolation",   # dodane [p] (prototyp read_at_epochs; bez ekstrapolacji)
             },
             "approved": "2026-10-12",                # autor 2026-10-12: regions.nrw_west: obszar 5,9-7,0 E, 50,7-51,3 N
@@ -503,7 +503,7 @@ CHECK_CONFIG: Dict[str, Any] = {
                      "share_within": 0.80,       # jak E1
                      "series_std_mm": 5.0,       # Crosetto i in. 2025 (E1)
                      "stable_abs_v_mm_yr": 1.5,  # jak E1
-                     "k3_definition": None},     # [p] decyzja: 'abs_v_egms' (jak E1) albo 'abs_dv'
+                     "k3_definition": "abs_dv"},  # autor 2026-10-12: max |dv| na stacjach stabilnych (wybór po wnioskach E1, przed obliczeniami)
         "gnss_l3u": {"abs_dv_mm_yr": 1.5,        # [p]
                      "share_within": 0.80},      # [p]
         "levelling_l3u": {"median_abs_dh_mm": 5.0,      # [p] Koudogbo i in. 2025 (MAE < 5 mm)
@@ -2075,7 +2075,7 @@ def _selftest() -> None:
                                                    "thresholds")]
         assert set(others) == {"monitoring", "hyp3"}
         assert ap.loc[others, "approved"].isna().all() and (ap.loc[others, "status"] == "czeka na decyzję autora").all()
-        assert "gnss_l2b.k3_definition" in ap.at["thresholds", "open_decisions"]
+        assert ap.at["thresholds", "open_decisions"] == "-"
         assert "levelling.urls" in ap.at["regions.nrw_west", "open_decisions"]
         assert ap.at["regions.groningen", "open_decisions"] == "-", "levelling = None to 'nie dotyczy', nie decyzja"
         assert "max_credits" in ap.at["hyp3", "open_decisions"] and "mintpy.deramp" in ap.at["hyp3", "open_decisions"]
@@ -2085,8 +2085,8 @@ def _selftest() -> None:
         assert "max_credits" in str(e)
         _expect(RuntimeError, require_approved, cfg, "monitoring", match="nie jest zatwierdzona")
         # sekcja zatwierdzona, ale parametr nadal None (decyzja autora) -> głośny stop przy użyciu
-        _expect(RuntimeError, _decided, require_approved(cfg, "thresholds")["gnss_l2b"], "k3_definition",
-                "thresholds.gnss_l2b", match="k3_definition")
+        _expect(RuntimeError, _decided, require_approved(cfg, "regions.nrw_west")["levelling"], "urls",
+                "regions.nrw_west.levelling", match="urls")
         _expect(KeyError, require_approved, cfg, "regions.berlin", match="berlin")
         _expect(KeyError, require_approved, cfg, "project", match="approved")
         _expect(RuntimeError, _decided, cfg["hyp3"], "end", "hyp3", match="hyp3")
