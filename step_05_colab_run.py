@@ -962,11 +962,32 @@ def _read_levelling(P: Dict[str, Path]) -> pd.DataFrame:
 # ------------------------------------------------------------------------------
 # EGMS: wyszukanie, plan, potwierdzenie, pobranie
 # ------------------------------------------------------------------------------
+# Serwery CLMS/EGMS bywają chwilowo niedostępne (503 z land.copernicus.eu/@@oauth2-token, Colab 2026-10-12).
+# Ponawiamy WYŁĄCZNIE odpowiedzi 502/503/504, z jawnymi przerwami i komunikatem; po ostatniej próbie błąd idzie dalej
+# (błąd głośny). Inne błędy HTTP (np. 401 przy złym kluczu) i wszystkie pozostałe wyjątki nie są ponawiane.
+TRANSIENT_HTTP = (502, 503, 504)
+TRANSIENT_WAITS_S = (30, 90, 300)
+
+
+def _retry_transient(fn: Callable[[], Any], what: str) -> Any:
+    import requests
+    for k, wait in enumerate(TRANSIENT_WAITS_S + (None,)):
+        try:
+            return fn()
+        except requests.HTTPError as e:
+            code = e.response.status_code if e.response is not None else None
+            if code not in TRANSIENT_HTTP or wait is None:
+                raise
+            print(f"{what}: serwer odpowiedział {code} (chwilowa niedostępność); próba {k + 2} za {wait} s")
+            time.sleep(wait)
+
+
 def _clms_session(cfg: Dict[str, Any]):
     import requests
     import step_01_ingest as s1
     session = requests.Session()
-    return session, s1.api_headers(s1.get_access_token(cfg["project"]["token_path"], session))
+    token = _retry_transient(lambda: s1.get_access_token(cfg["project"]["token_path"], session), "token CLMS")
+    return session, s1.api_headers(token)
 
 
 def _need_mb(plan: pd.DataFrame) -> int:
@@ -1015,7 +1036,8 @@ def task_egms_search(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Di
         raise FileNotFoundError(f"Brak tokenu CLMS {token} i brak wycinków w {P['extracts']}")
     area = _search_lonlat(reg, _sites_for_search(P), e["search_area"])
     session, headers = _clms_session(cfg)
-    table, _ = s4.search_plan(session, headers, s1.API_ENDPOINT, area, e["release"], e["levels"], e["l3_product_types"])
+    table, _ = _retry_transient(lambda: s4.search_plan(session, headers, s1.API_ENDPOINT, area, e["release"], e["levels"],
+                                                       e["l3_product_types"]), "wyszukanie EGMS")
     raw = _abs(rt, e["raw_dir"])
     raw.mkdir(parents=True, exist_ok=True)
     plan = s4.plan_download(table, raw, s4.drive_free_bytes(raw), int(round(float(e["drive_margin_gb"]) * 1e9)))
@@ -1055,8 +1077,8 @@ def task_egms_download(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, con
         raise FileNotFoundError(f"Brak tokenu CLMS {token}: pobranie niemożliwe")
     session, headers = _clms_session(cfg)
     area = _search_lonlat(reg, _sites_for_search(P), e["search_area"])
-    table, results = s4.search_plan(session, headers, s1.API_ENDPOINT, area, e["release"], e["levels"],
-                                    e["l3_product_types"])
+    table, results = _retry_transient(lambda: s4.search_plan(session, headers, s1.API_ENDPOINT, area, e["release"], e["levels"],
+                                    e["l3_product_types"]), "wyszukanie EGMS")
     a = table.set_index("filename")["filesize"].astype("int64").sort_index()
     b = plan.set_index("filename")["filesize"].astype("int64").sort_index()
     if not a.equals(b):
@@ -2181,6 +2203,33 @@ def _selftest() -> None:
         assert P["sites"].read_bytes() == before and P["sites"].stat().st_mtime_ns == t_before, "sites.csv zapisany ponownie"
         assert set(_read_sites(P)["site"]) == {"A", "0450600001"}
         print(approvals_table(CHECK_CONFIG).to_string(index=False))
+    # Ponawianie chwilowych błędów serwera (503 z land.copernicus.eu, Colab 2026-10-12): 503 x2 -> sukces;
+    # 401 i ostatnie 503 idą dalej bez zmian (błąd głośny). time.sleep podmieniony na czas testu.
+    import requests
+    def _http(code):
+        r = requests.models.Response(); r.status_code = code
+        return requests.HTTPError(f"{code} test", response=r)
+    calls, real_sleep = [], time.sleep
+    time.sleep = lambda s: calls.append(s)
+    try:
+        seq = iter([_http(503), _http(503), "TOKEN"])
+        def flaky():
+            v = next(seq)
+            if isinstance(v, Exception):
+                raise v
+            return v
+        assert _retry_transient(flaky, "test") == "TOKEN" and calls == list(TRANSIENT_WAITS_S[:2])
+        calls.clear()
+        def denied():
+            raise _http(401)
+        _expect(requests.HTTPError, _retry_transient, denied, "test", match="401")
+        assert calls == [], "401 nie jest ponawiany"
+        def down():
+            raise _http(503)
+        _expect(requests.HTTPError, _retry_transient, down, "test", match="503")
+        assert calls == list(TRANSIENT_WAITS_S)
+    finally:
+        time.sleep = real_sleep
     print("SELFTEST step_05_colab_run OK")
 
 
