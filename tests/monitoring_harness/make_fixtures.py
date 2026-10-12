@@ -150,19 +150,18 @@ for region, R in L.REGIONS.items():
                  "burstId": None}
 (FX / "egms" / "index.json").write_text(json.dumps(index, indent=1))
 
-# 4. Geobasis NRW: Punktliste (cp1252, przecinek dziesiętny, EPSG:25832) i Punktliste mit Zeitfolge.
+# 4. Geobasis NRW jak w Datenformatbeschreibung (07/2023): bez nagłówka, UTF-8, ';', przecinek dziesiętny,
+#    Ostwert z przedrostkiem strefy 32 (EPSG:4647); Punktliste i Punktliste mit Zeitfolge.
 pt_rows, ser_rows = [], []
 for k, (b, (lon, lat, rate)) in enumerate(L.BENCH.items()):
     e, n = TO25832.transform(lon, lat)
     bid = L.bench_id(b)
-    pt_rows.append(f'"{bid}";"Höhenfestpunkt {b}; Kirche";{e:.3f};{n:.3f};{100.0:.4f};"981123,4"'.replace(".", ","))
+    pt_rows.append(f'{bid};"Höhenfestpunkt {b}; Kirche";{32_000_000 + e:.3f};{n:.3f};{100.0:.4f};981123,4'.replace(".", ","))
     ep = pd.DatetimeIndex(L.BENCH_EPOCHS_B013 if b == "B013" else L.BENCH_EPOCHS) + pd.Timedelta(days=k)
     h = 100.0 + (L.bench_truth(b, ep) + rng.normal(0, 0.5, len(ep))) / 1000.0
     ser_rows += [f"{bid};{d:%d.%m.%Y};" + f"{v:.5f}".replace(".", ",") for d, v in zip(ep, h)]
-(FX / "nrw" / "hfp_pl.csv").write_text("Punktkennzeichen;Name des Punktes;Ostwert;Nordwert;Höhe;Schwerewert\n"
-                                       + "\n".join(pt_rows) + "\n", encoding="cp1252")
-(FX / "nrw" / "hfp_plzf.csv").write_text("Punktkennzeichen;Messungsdatum;Höhe\n" + "\n".join(ser_rows) + "\n",
-                                         encoding="cp1252")
+(FX / "nrw" / "hfp_pl.csv").write_text("\n".join(pt_rows) + "\n", encoding="utf-8")
+(FX / "nrw" / "hfp_plzf.csv").write_text("\n".join(ser_rows) + "\n", encoding="utf-8")
 
 # 5. Przykładowy produkt HyP3 (atrapa serwera tworzy takie zipy dla każdego zlecenia).
 example = "S1_088_088000s1n03-000000s2n00-000000s3n00_IW_20240107_20240119_VV_INT80_0000"

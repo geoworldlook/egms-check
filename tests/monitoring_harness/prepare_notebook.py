@@ -37,11 +37,7 @@ def _approve(node):
             else:
                 _approve(v)
 _approve(cfg)
-cfg['thresholds']['gnss_l2b']['k3_definition'] = 'abs_v_egms'
 _lv = cfg['regions']['nrw_west']['levelling']
-_lv['urls'] = {{'points': 'https://www.opengeodata.nrw.de/produkte/geobasis/rb/fd/hfp_pl_csv/hfp_pl.csv',
-               'series': 'https://www.opengeodata.nrw.de/produkte/geobasis/rb/fd/hfp_plzf_csv/hfp_plzf.csv'}}
-_lv['encoding'] = 'cp1252'
 _lv['reference'] = {{'type': 'absolute'}}
 cfg['hyp3'].update(end='{L.HYP3_END_TEST}', max_credits=10000, cost_per_job=1, los_check_tol=0.05)
 cfg['hyp3']['mintpy'].update(deramp='no', solid_earth_tides=False)

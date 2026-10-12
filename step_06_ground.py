@@ -38,6 +38,7 @@ odniesienie, sposób odczytu, progi) pochodzą z CHECK_CONFIG; sygnatury nie maj
 
 import argparse
 import csv
+import re
 import io
 import json
 import tempfile
@@ -64,7 +65,8 @@ LEVELLING_SOURCE = "LEVELLING_NRW"
 # Format plików Geobasis NRW (F5, sekcja 5; zapas_nrw_niwelacja.md). Kodowanie znaków podaje konfiguracja.
 NRW_SEP = ";"
 NRW_DATE_FORMAT = "%d.%m.%Y"
-NRW_NUMBER = r"[+-]?\d+(?:,\d+)?"       # przecinek dziesiętny, bez separatora tysięcy
+NRW_NUMBER = r"[+-]?\d+(?:,\d*)?"       # przecinek dziesiętny, bez separatora tysięcy; "32428124," (sam przecinek)
+                                         # występuje w przykładzie Datenformatbeschreibung HFP NRW (07/2023)
 NRW_POINT_COLUMNS = ["Punktkennzeichen", "Name des Punktes", "Ostwert", "Nordwert", "Höhe", "Schwerewert"]
 NRW_SERIES_COLUMNS = ["Punktkennzeichen", "Messungsdatum", "Höhe"]
 
@@ -208,22 +210,32 @@ def _read_nrw_csv(path: Path, encoding: str, columns: list, what: str) -> pd.Dat
         raise ValueError(f"{path} ({what}): błędny CSV w linii {reader.line_num}: {e}") from e
     if not rows:
         raise ValueError(f"{path} ({what}): plik pusty")
-    header = [unicodedata.normalize("NFC", c).strip().strip('"').strip() for c in rows[0][1]]
+    # Datenformatbeschreibung HFP NRW (07/2023): pliki BEZ wiersza nagłówka, kolumny opisane kolejnością (= columns).
+    # Rozpoznanie jawne: pierwsze pole "Punktkennzeichen" -> nagłówek; pierwsze pole z samych cyfr i liczba pól równa
+    # len(columns) -> bez nagłówka (nazwy kolumn z kolejności); inaczej ValueError (bez zgadywania).
+    first = [unicodedata.normalize("NFC", c).strip().strip('"').strip() for c in rows[0][1]]
+    if first and first[0] == "Punktkennzeichen":
+        header, data = first, rows[1:]
+    elif first and re.fullmatch(r"\d+", first[0]) and len(first) == len(columns):
+        header, data = list(columns), rows
+    else:
+        raise ValueError(f"{path} ({what}): pierwszy wiersz nie jest ani nagłówkiem, ani rekordem w formacie HFP NRW "
+                         f"({len(columns)} pól, Punktkennzeichen z cyfr): {rows[0][1][:6]}")
     dup = sorted({c for c in header if header.count(c) > 1})
     if dup:
         raise ValueError(f"{path} ({what}): zdublowane nazwy kolumn {dup} w nagłówku {header}")
-    bad = [(ln, len(r)) for ln, r in rows[1:] if len(r) != len(header)]
+    bad = [(ln, len(r)) for ln, r in data if len(r) != len(header)]
     if bad:
         raise ValueError(f"{path} ({what}): {len(bad)} wierszy z liczbą pól różną od nagłówka ({len(header)}), "
                          f"np. (linia, pola) {bad[:5]} - średnik na końcu wiersza albo pole bez cudzysłowu?")
-    df = pd.DataFrame([r for _, r in rows[1:]], columns=header, dtype=object)
+    df = pd.DataFrame([r for _, r in data], columns=header, dtype=object)
     _require_columns(df, columns, f"{path} ({what})")
     if df.empty:
         raise ValueError(f"{path} ({what}): brak wierszy danych")
     df = df[columns].apply(lambda s: s.str.strip())
     empty_id = df["Punktkennzeichen"] == ""
     if empty_id.any():
-        lines = [rows[1 + k][0] for k in np.flatnonzero(empty_id.to_numpy())[:5]]
+        lines = [data[k][0] for k in np.flatnonzero(empty_id.to_numpy())[:5]]
         raise ValueError(f"{path} ({what}): {int(empty_id.sum())} wierszy bez Punktkennzeichen, np. linie {lines}")
     return df
 
@@ -932,6 +944,23 @@ def _selftest() -> None:
                           "stable_group_median_abs_diff_mm": float(ok_g["diff_mm"].abs().median()),
                           "asc_desc_cond": float(vert["cond"].iat[0])}, ensure_ascii=False, indent=1))
         print(sg.to_string(index=False))
+    # Format oficjalny (Datenformatbeschreibung HFP NRW, 07/2023): przykład z dokumentu, bez nagłówka, UTF-8,
+    # średnik w nazwie w cudzysłowie, Ostwert z prefiksem strefy 32 i samym przecinkiem; EPSG:4647 -> okolice Lotte.
+    with tempfile.TemporaryDirectory() as td_doc:
+        pd_ = Path(td_doc) / "hfp_pl.csv"
+        pd_.write_text('3613900015;"Halen,Everskamp 20";32428124,;5799122,;54,542;981290,8\n'
+                       '3613900118;"Westerbeck;Tegelstr.4";32421085,300;5798465,200;57,486;981288,7\n', encoding="utf-8")
+        sd_ = Path(td_doc) / "hfp_plzf.csv"
+        sd_.write_text("3613900015;01.06.1977;54,541\n3613900015;30.08.1983;54,542\n3613900015;19.08.2010;54,542\n"
+                       "3613900118;01.06.1968;57,491\n3613900118;08.09.2015;57,486\n", encoding="utf-8")
+        pts_doc = read_nrw_points(pd_, "utf-8")
+        assert list(pts_doc["Punktkennzeichen"]) == ["3613900015", "3613900118"]
+        assert pts_doc.loc[1, "Name des Punktes"] == "Westerbeck;Tegelstr.4" and pts_doc.loc[0, "Ostwert"] == 32428124.0
+        ser_doc = read_nrw_timeseries(sd_, "utf-8")
+        assert len(ser_doc) == 5 and np.isclose(ser_doc["Höhe"].iloc[0], 54.541)
+        from pyproj import Transformer
+        lon_d, lat_d = Transformer.from_crs(4647, 4326, always_xy=True).transform(32428124.0, 5799122.0)
+        assert abs(lon_d - 7.945) < 0.01 and abs(lat_d - 52.338) < 0.01, (lon_d, lat_d)
     print("SELFTEST step_06_ground OK")
 
 

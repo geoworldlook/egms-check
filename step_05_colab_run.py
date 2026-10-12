@@ -457,11 +457,14 @@ CHECK_CONFIG: Dict[str, Any] = {
             "aoi_lonlat": (5.9, 50.7, 7.0, 51.3),        # [p] do potwierdzenia z ryc. 14-15 Even 2024; Epe poza obszarem
             "gnss_rule": "all_quality",                  # [p] step_06.select_stations_aoi
             "levelling": {
-                # Pliki Geobasis NRW (F5, sekcja 5): katalogi .../rb/fd/hfp_plzf_csv/ (hfp_plzf.csv) i .../rb/fd/hfp_pl_csv/;
-                # adresy plików do potwierdzenia: {"points": <url Punktliste>, "series": <url Punktliste mit Zeitfolge>}.
-                "urls": None,
-                "encoding": None,                        # dodane (step_06): kodowanie znaków plików, Datenformatbeschreibung.pdf
-                "crs_epsg": 25832,                       # [p] prawdopodobnie ETRS89/UTM32 (do potwierdzenia w opisie formatu)
+                # Geobasis NRW, Höhenfestpunkte (adresy od autora 2026-10-12; licencja dl-de/zero-2-0, F5 sekcja 5).
+                "urls": {"points": "https://www.opengeodata.nrw.de/produkte/geobasis/rb/fd/hfp_pl_csv/hfp_pl.csv",
+                         "series": "https://www.opengeodata.nrw.de/produkte/geobasis/rb/fd/hfp_plzf_csv/hfp_plzf.csv"},
+                "encoding": "utf-8",                     # Datenformatbeschreibung HFP NRW (07/2023): UTF-8
+                # Ostwert z przedrostkiem strefy "32" (np. 32428124): EPSG:4647 = ETRS89 / UTM 32N (zE-N). Sprawdzone na
+                # przykładzie z Datenformatbeschreibung: 3613900015 "Halen" -> 7,945 E, 52,338 N (Lotte, NRW).
+                # Opis kolumny podaje "DHDN2016" (najpewniej literówka; 8-cyfrowy Ostwert z prefiksem 32 to UTM 32).
+                "crs_epsg": 4647,
                 "epoch_rule": "first_last_in_release",   # [p]
                 "min_epoch_span_yr": 1.0,                # [p]
                 "reference": {"type": "absolute"},       # autor 2026-10-12: wariant główny bez wspólnego reperu (jak Even i in. 2024)
@@ -2076,7 +2079,7 @@ def _selftest() -> None:
         assert set(others) == {"monitoring", "hyp3"}
         assert ap.loc[others, "approved"].isna().all() and (ap.loc[others, "status"] == "czeka na decyzję autora").all()
         assert ap.at["thresholds", "open_decisions"] == "-"
-        assert "levelling.urls" in ap.at["regions.nrw_west", "open_decisions"]
+        assert ap.at["regions.nrw_west", "open_decisions"] == "-", "niwelacja NRW: wszystkie decyzje ustalone 2026-10-12"
         assert ap.at["regions.groningen", "open_decisions"] == "-", "levelling = None to 'nie dotyczy', nie decyzja"
         assert "max_credits" in ap.at["hyp3", "open_decisions"] and "mintpy.deramp" in ap.at["hyp3", "open_decisions"]
         assert require_approved(cfg, "egms")["release"] == "2020-2024"
@@ -2085,8 +2088,7 @@ def _selftest() -> None:
         assert "max_credits" in str(e)
         _expect(RuntimeError, require_approved, cfg, "monitoring", match="nie jest zatwierdzona")
         # sekcja zatwierdzona, ale parametr nadal None (decyzja autora) -> głośny stop przy użyciu
-        _expect(RuntimeError, _decided, require_approved(cfg, "regions.nrw_west")["levelling"], "urls",
-                "regions.nrw_west.levelling", match="urls")
+        _expect(RuntimeError, _decided, cfg["hyp3"], "max_credits", "hyp3", match="max_credits")
         _expect(KeyError, require_approved, cfg, "regions.berlin", match="berlin")
         _expect(KeyError, require_approved, cfg, "project", match="approved")
         _expect(RuntimeError, _decided, cfg["hyp3"], "end", "hyp3", match="hyp3")

@@ -220,7 +220,8 @@ Zatwierdzone w `CHECK_CONFIG`: `egms` (wydanie 2020–2024, L2b + L3 pion, `sear
 
 Zatwierdzone przez autora 2026-10-12: `regions.nrw_west` (obszar 5,9–7,0° E, 50,7–51,3° N), `gnss` (reguła E1, okno
 2020.0–2024.25), `method` (parametry E1), `thresholds` (progi [p]). W tych sekcjach nadal nieustalone (notatnik zatrzyma się
-przy użyciu): `regions.nrw_west.levelling` — `urls`, `encoding`. Autor 2026-10-12: `k3_definition = 'abs_dv'` (wybór po
+przy użyciu): brak. Niwelacja NRW (autor 2026-10-12): adresy `hfp_pl.csv` i `hfp_plzf.csv`, UTF-8, EPSG:4647 (Ostwert z
+prefiksem strefy 32; Datenformatbeschreibung 07/2023: pliki bez nagłówka — czytnik rozpoznaje to jawnie). Autor 2026-10-12: `k3_definition = 'abs_dv'` (wybór po
 wnioskach E1, przed obliczeniami tego eksperymentu), odniesienie niwelacji `absolute` (wariant główny, jak Even i in. 2024).
 Uwaga: plik `hfp_plzf.csv` w F5 ma datę 21.08.2023 — epoki niwelacji w oknie EGMS 2020–2024 mogą być nieliczne.
 
