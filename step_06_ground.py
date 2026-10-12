@@ -21,6 +21,9 @@ Pomiar naziemny dla pokazu EGMS 2020-2024 (docs/plans/Plan_v2_implementacja.md, 
   V.   EGMS L2b -> pion: rozkład szeregów LOS z orbity wstępującej i zstępującej na (E, U) przy założeniu
        braku ruchu północ-południe (Wright i in. 2004; MintPy asc_desc2horz_vert, horz_az_angle = -90).
   VI.  Kryteria jak T2 (Plan_v1_kryteria_akceptacji.md, sekcja C) + bias prędkości; mediana i MAD x 1,4826.
+       Informacyjnie (bez progów; autor 2026-10-12): podział reperów na niecki (|v_niw| >= próg z konfiguracji)
+       i pozostałe oraz odległość reperu do najbliższej stacji GNSS (sieć NGL z pliku MIDAS) - czy zgodność EGMS
+       z niwelacją zależy od bliskości stacji GNSS, którymi kalibrowany jest L2b/L3.
   VII. --selftest bez sieci, na danych syntetycznych o znanej odpowiedzi; --describe-nrw (opis plików NRW).
 
 Literatura: Even, Westerhaus, Kutterer 2024 (EGMS kontra niwelacja NRW, rozdz. 4.3; mediana, MAD x 1,4826);
@@ -702,6 +705,93 @@ def summarize_levelling(res: pd.DataFrame, th: dict) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=SUMMARY_COLUMNS)
 
 
+STATION_BOX_MARGIN_DEG = 3.0            # stacje dalej niż 3 stopnie od prostokąta punktów nie mogą być najbliższe
+STATION_CHUNK = 500                      # punkty na paczkę przy liczeniu odległości (pamięć: punkty x stacje)
+GROUP_COLUMNS = ["grupa", "n", "median_abs_diff_mm", "sign_agreement", "n_sign", "bias_v_mm_yr", "mad_v_mm_yr",
+                 "slope", "dist_station_km_median", "dist_station_km_min"]
+
+
+def nearest_station_km(points: pd.DataFrame, stations: pd.DataFrame) -> pd.DataFrame:
+    """
+    Najbliższa stacja dla każdego punktu: points (id, x_3035, y_3035), stations (site, lat_deg, lon_deg; np. plik MIDAS
+    NGL). Odległość pozioma w EPSG:3035 [km]. Do obliczeń brane są stacje w prostokącie punktów powiększonym
+    o STATION_BOX_MARGIN_DEG (stacje z drugiej półkuli nie trafiają do odwzorowania LAEA). Brak stacji w tym
+    prostokącie, punkt albo stacja bez współrzędnych, puste tabele = ValueError.
+    Wynik: id, nearest_station, dist_station_km.
+    """
+    _require_columns(points, ["id", "x_3035", "y_3035"], "punkty")
+    _require_columns(stations, ["site", "lat_deg", "lon_deg"], "stacje")
+    if points.empty or stations.empty:
+        raise ValueError(f"Puste tabele: punkty {len(points)}, stacje {len(stations)}")
+    px, py = points["x_3035"].to_numpy(float), points["y_3035"].to_numpy(float)
+    if not (np.isfinite(px).all() and np.isfinite(py).all()):
+        raise ValueError(f"Punkty bez współrzędnych EPSG:3035: {points.loc[~(np.isfinite(px) & np.isfinite(py)), 'id'].tolist()[:5]}")
+    slat, slon = stations["lat_deg"].to_numpy(float), stations["lon_deg"].to_numpy(float)
+    if not (np.isfinite(slat).all() and np.isfinite(slon).all()):
+        raise ValueError(f"Stacje bez współrzędnych: {stations.loc[~(np.isfinite(slat) & np.isfinite(slon)), 'site'].tolist()[:5]}")
+    plon, plat = transform_xy(px, py, 3035, 4326)
+    m = STATION_BOX_MARGIN_DEG
+    box = ((slon >= plon.min() - m) & (slon <= plon.max() + m) & (slat >= plat.min() - m) & (slat <= plat.max() + m))
+    if not box.any():
+        raise ValueError(f"Żadnej stacji w prostokącie punktów +- {m} stopni ({plon.min():.2f}-{plon.max():.2f} E, "
+                         f"{plat.min():.2f}-{plat.max():.2f} N)")
+    near = stations[box]
+    sx, sy = transform_xy(near["lon_deg"].to_numpy(float), near["lat_deg"].to_numpy(float), 4326, 3035)
+    names = near["site"].astype(str).to_numpy()
+    idx, dist = np.empty(len(px), int), np.empty(len(px), float)
+    for a in range(0, len(px), STATION_CHUNK):
+        d = np.hypot(px[a:a + STATION_CHUNK, None] - sx[None, :], py[a:a + STATION_CHUNK, None] - sy[None, :])
+        idx[a:a + STATION_CHUNK] = d.argmin(axis=1)
+        dist[a:a + STATION_CHUNK] = d.min(axis=1)
+    return pd.DataFrame({"id": points["id"].astype(str).to_numpy(), "nearest_station": names[idx],
+                         "dist_station_km": dist / 1000.0})
+
+
+def levelling_groups(res: pd.DataFrame, strong_mm_yr: float, sign_min_mm: float) -> pd.DataFrame:
+    """
+    Podział informacyjny wierszy 'ok' compare_levelling (bez progów i bez werdyktu; autor 2026-10-12): wszystkie,
+    niecki |v_lev| >= strong_mm_yr, pozostałe |v_lev| < strong_mm_yr (podział według NIWELACJI, nie według EGMS -
+    wybór według testowanej wielkości obciążyłby wynik). Na grupę: n, mediana |diff| [mm], zgodność znaku dla
+    |dh_lev| >= sign_min_mm (próg N2) i jej n, mediana i MAD x 1,4826 różnicy prędkości v_egms_dh - v_lev [mm/rok],
+    nachylenie dh_egms względem dh_lev (n >= 3 i zróżnicowane dh_lev, inaczej NaN), mediana i minimum odległości
+    do najbliższej stacji GNSS [km] (gdy jest kolumna dist_station_km, inaczej NaN). Grupa bez reperów = n 0 i NaN.
+    Zero wierszy 'ok' = ValueError.
+    """
+    _require_columns(res, ["dh_lev_mm", "dh_egms_mm", "diff_mm", "v_lev_mm_yr", "v_egms_dh_mm_yr", "status"],
+                     "wynik compare_levelling")
+    strong, sign_min = float(_require("strong_mm_yr", strong_mm_yr)), float(_require("sign_min_mm", sign_min_mm))
+    if not strong > 0:
+        raise ValueError(f"strong_mm_yr musi być dodatnie, jest {strong}")
+    ok = res[res["status"] == "ok"]
+    if ok.empty:
+        raise ValueError(f"Brak reperów ze statusem 'ok' (z {len(res)}): podziału nie da się policzyć")
+    has_dist = "dist_station_km" in ok.columns
+    groups = [("wszystkie", ok), (f"niecki: |v_niw| >= {strong:g} mm/rok", ok[ok["v_lev_mm_yr"].abs() >= strong]),
+              (f"pozostałe: |v_niw| < {strong:g} mm/rok", ok[ok["v_lev_mm_yr"].abs() < strong])]
+    rows = []
+    for name, g in groups:
+        row = dict.fromkeys(GROUP_COLUMNS, np.nan)
+        row.update(grupa=name, n=len(g), n_sign=0)
+        if len(g):
+            row["median_abs_diff_mm"] = float(g["diff_mm"].abs().median())
+            sig = g[g["dh_lev_mm"].abs() >= sign_min]
+            row["n_sign"] = len(sig)
+            if len(sig):
+                row["sign_agreement"] = float((np.sign(sig["dh_egms_mm"]) == np.sign(sig["dh_lev_mm"])).mean())
+            dv = robust_stats((g["v_egms_dh_mm_yr"] - g["v_lev_mm_yr"]).to_numpy())
+            row["bias_v_mm_yr"], row["mad_v_mm_yr"] = dv["median"], dv["mad_sigma"]
+            x, y = g["dh_lev_mm"].to_numpy(float), g["dh_egms_mm"].to_numpy(float)
+            if len(g) >= 3 and float(((x - x.mean()) ** 2).sum()) > 0:
+                row["slope"] = float(np.polyfit(x, y, 1)[0])
+            if has_dist:
+                d = g["dist_station_km"].to_numpy(float)
+                if not np.isfinite(d).all():
+                    raise ValueError(f"Grupa {name!r}: brak odległości do stacji GNSS w {int((~np.isfinite(d)).sum())} wierszach")
+                row["dist_station_km_median"], row["dist_station_km_min"] = float(np.median(d)), float(d.min())
+        rows.append(row)
+    return pd.DataFrame(rows, columns=GROUP_COLUMNS)
+
+
 # ==============================================================================
 # VII. TEST OFFLINE I OPIS PLIKÓW NRW
 # ==============================================================================
@@ -999,6 +1089,32 @@ def _selftest() -> None:
                           "stable_group_median_abs_diff_mm": float(ok_g["diff_mm"].abs().median()),
                           "asc_desc_cond": float(vert["cond"].iat[0])}, ensure_ascii=False, indent=1))
         print(sg.to_string(index=False))
+    # Podział informacyjny i najbliższa stacja (wartości testowe o znanej odpowiedzi).
+    rg = pd.DataFrame({"benchmark_id": ["a", "b", "c", "d", "e"], "status": ["ok", "ok", "ok", "ok", "NaN: x"],
+                       "dh_lev_mm": [-60.0, -40.0, 3.0, -1.0, np.nan], "dh_egms_mm": [-57.0, -42.0, 1.0, 0.5, np.nan],
+                       "dt_yr": [3.0, 2.0, 3.0, 1.0, np.nan]})
+    rg["diff_mm"] = rg["dh_egms_mm"] - rg["dh_lev_mm"]
+    rg["v_lev_mm_yr"], rg["v_egms_dh_mm_yr"] = rg["dh_lev_mm"] / rg["dt_yr"], rg["dh_egms_mm"] / rg["dt_yr"]
+    gr = levelling_groups(rg, 10.0, 6.0).set_index("grupa")
+    assert list(gr["n"]) == [4, 2, 2] and gr["n_sign"].iat[1] == 2 and gr["sign_agreement"].iat[1] == 1.0, gr
+    assert gr["median_abs_diff_mm"].iat[1] == 2.5 and np.isnan(gr["sign_agreement"].iat[2]) and np.isnan(gr["slope"].iat[1]), gr
+    assert abs(gr["slope"].iat[0] - np.polyfit([-60, -40, 3, -1], [-57, -42, 1, 0.5], 1)[0]) < 1e-12
+    assert gr["dist_station_km_min"].isna().all()                    # bez kolumny odległości: NaN, nie zero
+    _expect_raises(ValueError, levelling_groups, rg.assign(status="NaN: x"), 10.0, 6.0, match="Brak reperów")
+    _expect_raises(ValueError, levelling_groups, rg, 0.0, 6.0, match="dodatnie")
+    _expect_raises(ValueError, levelling_groups, rg, None, 6.0, match="strong_mm_yr")
+    x0, y0 = transform_xy(np.array([6.5]), np.array([51.0]), 4326, 3035)
+    pts = pd.DataFrame({"id": ["p1", "p2"], "x_3035": [x0[0], x0[0] + 30000.0], "y_3035": [y0[0], y0[0]]})
+    sx, sy = transform_xy(np.array([x0[0] + 5000.0, x0[0] + 31000.0]), np.array([y0[0], y0[0]]), 3035, 4326)
+    st_ = pd.DataFrame({"site": ["NEAR", "FAR", "SYDN"], "lon_deg": [sx[0], sx[1], 151.2], "lat_deg": [sy[0], sy[1], -33.9]})
+    ns = nearest_station_km(pts, st_)
+    assert list(ns["nearest_station"]) == ["NEAR", "FAR"] and np.allclose(ns["dist_station_km"], [5.0, 1.0], atol=1e-6), ns
+    _expect_raises(ValueError, nearest_station_km, pts, st_.iloc[2:], match="Żadnej stacji")
+    _expect_raises(ValueError, nearest_station_km, pts, st_.assign(lat_deg=np.nan), match="bez współrzędnych")
+    gd = levelling_groups(rg.assign(dist_station_km=[12.0, 8.0, 30.0, 20.0, np.nan]), 10.0, 6.0)
+    assert (gd["dist_station_km_min"] == [8.0, 8.0, 20.0]).all() and gd["dist_station_km_median"].iat[1] == 10.0, gd
+    _expect_raises(ValueError, levelling_groups, rg.assign(dist_station_km=[12.0, np.nan, 30.0, 20.0, 1.0]), 10.0, 6.0,
+                   match="brak odległości")
     # Format oficjalny (Datenformatbeschreibung HFP NRW, 07/2023): przykład z dokumentu, bez nagłówka, UTF-8,
     # średnik w nazwie w cudzysłowie, Ostwert z prefiksem strefy 32 i samym przecinkiem; EPSG:4647 -> okolice Lotte.
     with tempfile.TemporaryDirectory() as td_doc:

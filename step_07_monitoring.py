@@ -44,7 +44,7 @@ wzorzec kolumn dat z step_02_checks_extract.
          okno niepełne, za krótkie albo bez obserwacji = status z powodem i NaN, nie wynik.
          Czas do wykrycia: najkrótsze okno, od którego wszystkie dłuższe okna ze statusem 'ok' wykrywają ruch.
   V.   Wykresy pokazu (osie po angielsku; zwracają Figure, bez plt.show): mapa prędkości L3, szeregi w punkcie,
-       próbkowanie na ścieżkach, krzywa wykrycia. Paleta: kategorie w stałej kolejności (niebieski, pomarańczowy,
+       próbkowanie na ścieżkach, krzywa wykrycia, Δh EGMS względem Δh niwelacji (niecki wyróżnione). Paleta: kategorie w stałej kolejności (niebieski, pomarańczowy,
        turkusowy, żółty), skala rozbieżna czerwony - szary - niebieski z zerem pośrodku.
   VI.  --selftest bez sieci: dane syntetyczne o znanej odpowiedzi (próbkowanie 6 -> 12 dni, prędkość -4 i 0 mm/rok,
        sinusoida roczna, szum AR(1)), zapis tylko do katalogu tymczasowego.
@@ -789,6 +789,47 @@ def plot_detection(curves: dict, title: str):
     return fig
 
 
+def plot_levelling_scatter(res: pd.DataFrame, strong_mm_yr: float, title: str):
+    """
+    Δh EGMS (pion) względem Δh niwelacji między epokami reperu (wynik step_06.compare_levelling, wiersze 'ok'):
+    kolor = grupa według NIWELACJI (|v_lev| >= strong_mm_yr: niecki; pozostałe), linia 1:1, osie w mm, równa skala.
+    W legendzie liczba reperów w grupie; w tytule n i mediana |Δh_EGMS - Δh_niw|. Zero wierszy 'ok' = ValueError.
+    """
+    import matplotlib.pyplot as plt
+    need = ["dh_lev_mm", "dh_egms_mm", "diff_mm", "v_lev_mm_yr", "status"]
+    missing = [c for c in need if c not in res.columns]
+    if missing:
+        raise KeyError(f"plot_levelling_scatter: brak kolumn {missing}")
+    if not (strong_mm_yr is not None and np.isfinite(strong_mm_yr) and strong_mm_yr > 0):
+        raise ValueError(f"strong_mm_yr musi być dodatnie, jest {strong_mm_yr}")
+    ok = res[res["status"] == "ok"]
+    if ok.empty:
+        raise ValueError("plot_levelling_scatter: brak reperów ze statusem 'ok'")
+    strong = ok["v_lev_mm_yr"].abs() >= strong_mm_yr
+    x, y = ok["dh_lev_mm"].to_numpy(float), ok["dh_egms_mm"].to_numpy(float)
+    lo, hi = float(min(x.min(), y.min())), float(max(x.max(), y.max()))
+    pad = 0.05 * max(hi - lo, 1.0)
+    lo, hi = lo - pad, hi + pad
+    fig, ax = plt.subplots(figsize=(6.4, 6.0), facecolor=SURFACE)
+    _style(ax)
+    ax.plot([lo, hi], [lo, hi], color=INK_2, lw=1.0, zorder=1, label="1:1")
+    for mask, color, label in ((~strong, SERIES_COLORS[0], f"|v_levelling| < {strong_mm_yr:g} mm/yr"),
+                               (strong, SERIES_COLORS[1], f"|v_levelling| >= {strong_mm_yr:g} mm/yr (subsidence bowls)")):
+        m = mask.to_numpy()
+        ax.plot(x[m], y[m], "o", ms=4.5, color=color, mec=SURFACE, mew=0.6, alpha=0.85, zorder=2,
+                label=f"{label}, n = {int(m.sum())}")
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(lo, hi)
+    ax.set_aspect("equal")
+    ax.set_xlabel("Levelling height change between epochs [mm]")
+    ax.set_ylabel("EGMS vertical change between the same epochs [mm]")
+    med = float(ok["diff_mm"].abs().median())
+    ax.set_title(f"{title}\nn = {len(ok)} benchmarks; median |EGMS - levelling| = {med:.1f} mm", fontsize=9, color=INK)
+    ax.legend(fontsize=7, loc="upper left", frameon=False, labelcolor=INK_2)
+    fig.tight_layout()
+    return fig
+
+
 # ==============================================================================
 # VI. TEST OFFLINE
 # ==============================================================================
@@ -1007,11 +1048,18 @@ def _selftest() -> None:
         cells.loc[5, "mean_velocity"] = np.nan
         sites = pd.DataFrame({"site": ["A", "B"], "x_3035": [x0, x0 + 1500.0], "y_3035": [y0, y0 - 900.0]})
         table_88, _ = sampling_table(d6.append(d12)[::2], s1b_end)
+        lev_res = pd.DataFrame({"dh_lev_mm": [-60.0, -30.0, 2.0, -1.0], "dh_egms_mm": [-57.0, -33.0, 1.0, 0.0],
+                                "v_lev_mm_yr": [-20.0, -10.0, 0.7, -0.3], "status": ["ok", "ok", "ok", "NaN: x"]})
+        lev_res["diff_mm"] = lev_res["dh_egms_mm"] - lev_res["dh_lev_mm"]
+        _expect(ValueError, plot_levelling_scatter, lev_res.assign(status="NaN: x"), 10.0, "x")
+        _expect(ValueError, plot_levelling_scatter, lev_res, 0.0, "x")
+        _expect(KeyError, plot_levelling_scatter, lev_res.drop(columns="diff_mm"), 10.0, "x")
         figs = {"map": plot_l3_map(cells, sites, "Synthetic L3 velocity", 98.0),
                 "series": plot_series_long(long_all, "A", "Site A (synthetic)", s1b_end),
                 "sampling": plot_sampling({"37": table, "88": table_88}, "Acquisition sampling (synthetic)", s1b_end),
                 "detection": plot_detection({"EGMS synthetic, -4 mm/yr": curve_sub, "Stable synthetic, 0 mm/yr": curve_0},
-                                            "Velocity vs window length (synthetic)")}
+                                            "Velocity vs window length (synthetic)"),
+                "levelling": plot_levelling_scatter(lev_res, 10.0, "Synthetic benchmarks")}
         for name, fig in figs.items():
             out = tmp / f"{name}.png"
             fig.savefig(out, dpi=80, facecolor=fig.get_facecolor())

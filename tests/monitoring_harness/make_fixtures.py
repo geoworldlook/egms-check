@@ -111,12 +111,16 @@ for region, R in L.REGIONS.items():
             content = zip_bytes({fn.replace(".zip", ".csv"): df.to_csv(index=False)})
             (FX / "egms" / fn).write_bytes(content)
             index[fn] = {"size": len(content), "level": "L2B", "region": region, "track": trk, "direction": direction,
-                         "burstId": int(burst)}
+                         "burstId": int(burst), "release": L.RELEASE}
 
 # 3. EGMS L3 (U): blok 3 x 3 komórek 100 m przy każdym punkcie (prędkość punktu, pełny szereg) + tło co ok. 1,5 km
-#    w obszarze (tylko prędkość do mapy; szereg pusty, żeby plik był mały).
-for region, R in L.REGIONS.items():
-    dates = L.acq_dates(L.L3_FIRST, "2024-12-31")
+#    w obszarze (tylko prędkość do mapy; szereg pusty, żeby plik był mały). Dodatkowo kafel drugiego wydania
+#    (L.L3_CHECK, 2019-2023) dla NRW: ten sam układ, daty od 2019 (porównanie z niwelacją, epoki 2019 -> 2022).
+L3_TILES = [(region, R["tile"], L.L3_FIRST, "2024-12-31", L.RELEASE) for region, R in L.REGIONS.items()] + \
+           [(L.L3_CHECK["region"], L.L3_CHECK["tile"], L.L3_CHECK["first"], L.L3_CHECK["end"], L.RELEASE_CHECK)]
+for region, fn, first, end, release in L3_TILES:
+    R = L.REGIONS[region]
+    dates = L.acq_dates(first, end)
     dcols = [d.strftime("%Y%m%d") for d in dates]
     t_rel = (dates - dates[0]).days.to_numpy() / 365.25
     cells = {}
@@ -143,11 +147,10 @@ for region, R in L.REGIONS.items():
         rows.append([f"L3_{ix}_{iy}", ix * 100 + 50.0, iy * 100 + 50.0, 5.0, 1.0, v, 0.2, 0.0, 0.0, 0.0, 0.0] + list(series))
     df = pd.DataFrame(rows, columns=["pid", "easting", "northing", "height", "rmse", "mean_velocity", "mean_velocity_std",
                                      "acceleration", "acceleration_std", "seasonality", "seasonality_std"] + dcols)
-    fn = R["tile"]
     content = zip_bytes({fn[:-4] + ".tif": b"II*\x00fake", fn[:-4] + ".csv": df.to_csv(index=False)})
     (FX / "egms" / fn).write_bytes(content)
     index[fn] = {"size": len(content), "level": "L3", "region": region, "track": None, "direction": None,
-                 "burstId": None}
+                 "burstId": None, "release": release}
 (FX / "egms" / "index.json").write_text(json.dumps(index, indent=1))
 
 # 4. Geobasis NRW jak w Datenformatbeschreibung (07/2023): bez nagłówka, UTF-8, ';', przecinek dziesiętny,
@@ -167,6 +170,6 @@ for k, (b, (lon, lat, rate)) in enumerate(L.BENCH.items()):
 example = "S1_088_088000s1n03-000000s2n00-000000s3n00_IW_20240107_20240119_VV_INT80_0000"
 (FX / "hyp3" / f"{example}.zip").write_bytes(L.hyp3_product_zip(example))
 
-total = {r: sum(v["size"] for v in index.values() if v["region"] == r) for r in L.REGIONS}
+total = {r: sum(v["size"] for v in index.values() if v["region"] == r and v["release"] == L.RELEASE) for r in L.REGIONS}
 print("fixtures:", len(index), "plików EGMS,", {r: f"{b / 1e6:.2f} MB" for r, b in total.items()},
       len(sum(L.SELECTED.values(), [])), "stacji GNSS,", len(L.BENCH), "reperów")

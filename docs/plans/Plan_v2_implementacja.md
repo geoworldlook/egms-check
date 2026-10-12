@@ -230,6 +230,18 @@ okres 2024-01-01 – 2026-09-30, max_credits 10000, cost_per_job 10 (górne osza
 deramp i bez pływów skorupy, troposfera 'no'. Wszystkie sekcje `CHECK_CONFIG` zatwierdzone; notatnik zatrzymuje się już tylko
 na potwierdzeniach rozmiaru pobrania (`CONFIRM_MB_*`) i liczby zleceń HyP3 (`CONFIRM_JOBS`).
 
+Autor 2026-10-12, po pełnym przebiegu i diagnostyce epok niwelacji NRW (13 reperów z parą epok w oknie 2020–2024;
+1491 z parą epok 05.2019 → 05.2022 w oknie 2019–2023, w tym 689 z |Δh| ≥ 6 mm i 370 z |v| ≥ 3 mm/rok):
+1. drugie wydanie EGMS **2019–2023, tylko L3 pion**, wyłącznie do porównania z niwelacją
+   (`regions.nrw_west.levelling.egms_check`); wydanie główne i wynik 2020–2024 bez zmian;
+2. repery: wszystkie z parą epok w oknie wydania (odstęp ≥ 1 rok), bez wyboru według EGMS;
+3. kryteria N1–N4 z obecnymi progami `thresholds.levelling_l3u`, bez nowych progów;
+4. informacyjnie, bez progu: niecki według niwelacji (|v_niw| ≥ 10 mm/rok, `strong_motion_mm_yr`) i odległość reperu do
+   najbliższej stacji GNSS NGL (migawka MIDAS) — pytanie, czy EGMS jest „wiązany tylko na stacjach GNSS”.
+Zadania: `task_levelling_egms_search`, `task_levelling_egms_download` (`CONFIRM_MB_NRW_WEST_LEVELLING`),
+`task_levelling_extract`, `task_compare_levelling_check`; wyniki `levelling_*_nrw_west_2019_2023.csv` i rycina
+`nrw_west_levelling_scatter_2019_2023.png`.
+
 Historia decyzji (wcześniejszy stan listy):
 1. `regions.nrw_west`: prostokąt obszaru (ryc. 14–15 Even 2024), adresy plików niwelacji, kodowanie, EPSG, odniesienie.
 2. `gnss`: reguła E1 z oknem 2020.0–2024.25; `method`: parametry E1.

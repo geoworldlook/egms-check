@@ -25,6 +25,12 @@ Interfejs według docs/plans/Plan_v2_implementacja.md (sekcje 3 i 4.5); cel: doc
          task_checks            kontrole A1-A3, A5 (step_02) i siatka L3 (step_04.l3_grid_offsets); błąd = stop
          task_compare_gnss      EGMS L2b (LOS) i L3 (U) kontra GNSS (step_03), werdykt K1-K4
          task_compare_levelling EGMS L3 (U) kontra niwelacja (step_06), kryteria N1-N4
+         task_levelling_egms_search / task_levelling_egms_download / task_levelling_extract /
+         task_compare_levelling_check
+                                drugie wydanie EGMS tylko do porównania z niwelacją (regions.<r>.levelling.egms_check,
+                                np. 2019-2023, tylko L3 pion): to samo wyszukanie, plan, potwierdzenie i pobranie co dla
+                                wydania głównego, komórki L3 przy reperach, kryteria N1-N4 i podział informacyjny
+                                (niecki według niwelacji, odległość do najbliższej stacji GNSS NGL), rycina Δh
          task_monitoring_archive format długi, próbkowanie 6/12 dni, krzywe wykrycia (step_07)
          task_figures           ryciny pokazu (step_07) i wykres rozrzutu prędkości (step_03)
   IV.  Zadania etapu B (ASF HyP3 + MintPy, step_08): task_hyp3_plan, task_hyp3_submit (po potwierdzeniu liczby
@@ -469,8 +475,18 @@ CHECK_CONFIG: Dict[str, Any] = {
                 "min_epoch_span_yr": 1.0,                # [p]
                 "reference": {"type": "absolute"},       # autor 2026-10-12: wariant główny bez wspólnego reperu (jak Even i in. 2024)
                 "read_method": "linear_interpolation",   # dodane [p] (prototyp read_at_epochs; bez ekstrapolacji)
+                # Autor 2026-10-12, po diagnostyce epok (kampania niwelacji 05.2019 -> 05.2022: 1491 reperów z dwiema
+                # epokami w oknie 2019-2023, 13 w oknie 2020-2024): porównanie z niwelacją DODATKOWO z wydaniem
+                # 2019-2023, tylko L3 pion (4 kafle). Wydanie główne egms.release i wynik 2020-2024 bez zmian.
+                # Repery: wszystkie z parą epok w oknie wydania (bez wyboru według EGMS); kryteria N1-N4 z progami
+                # thresholds.levelling_l3u bez zmian.
+                "egms_check": {"release": "2019-2023", "levels": ["L3"], "l3_product_types": ["ORTHO-UP"],
+                               "raw_dir": "data/01_Raw_EGMS/2019_2023"},
+                # Autor 2026-10-12: podział INFORMACYJNY (bez progu i bez werdyktu) na niecki |v_niw| >= 10 mm/rok
+                # i pozostałe, według niwelacji; z odległością reperu do najbliższej stacji GNSS (NGL, plik MIDAS).
+                "strong_motion_mm_yr": 10.0,
             },
-            "approved": "2026-10-12",                # autor 2026-10-12: regions.nrw_west: obszar 5,9-7,0 E, 50,7-51,3 N
+            "approved": "2026-10-12",                # autor 2026-10-12: obszar 5,9-7,0 E, 50,7-51,3 N; egms_check 2019-2023
         },
     },
     "gnss": {
@@ -660,6 +676,31 @@ def region_paths(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
             "hyp3_plan": ex / f"hyp3_plan_{region}.csv"}
 
 
+def levelling_check_paths(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Path]:
+    """
+    Pliki porównania z niwelacją na drugim wydaniu (regions.<region>.levelling.egms_check.release, np. 2019-2023):
+    plan i dziennik pobrania, komórki L3 przy reperach, parametry wycinka, wyniki N1-N4, podział, rycina.
+    Nazwy z rokiem wydania, więc nie mieszają się z plikami wydania głównego.
+    """
+    lv = _region(cfg, region).get("levelling")
+    if lv is None:
+        raise ValueError(f"Region {region} bez niwelacji (levelling = None): brak porównania z drugim wydaniem")
+    rel = str(_decided(_decided(lv, "egms_check", f"regions.{region}.levelling"), "release",
+                       f"regions.{region}.levelling.egms_check"))
+    tag = rel.replace("-", "_")
+    P = region_paths(rt, cfg, region)
+    ex, out = P["extracts"], P["outputs"]
+    return {"plan": ex / f"egms_plan_{region}_levelling_{tag}.csv",
+            "download_log": out / f"egms_download_{region}_levelling_{tag}.csv",
+            "l3_cells": ex / f"egms_l3u_{tag}_cells_at_benchmarks.csv.gz",
+            "params": ex / f"extract_params_levelling_{tag}.json",
+            "compare": out / f"levelling_compare_{region}_{tag}.csv",
+            "summary": out / f"levelling_summary_{region}_{tag}.csv",
+            "status": out / f"levelling_egms_status_{region}_{tag}.csv",
+            "groups": out / f"levelling_groups_{region}_{tag}.csv",
+            "figure": P["figures"] / f"{region}_levelling_scatter_{tag}.png"}
+
+
 def hyp3_paths(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, track: str) -> Dict[str, Path]:
     """Pliki etapu B jednej ścieżki: plan i zlecenia, produkty (raw_dir), katalog MintPy w wycinkach (poza git)."""
     P = region_paths(rt, cfg, region)
@@ -673,11 +714,15 @@ def hyp3_paths(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, track: str)
             "status": P["outputs"] / f"hyp3_series_status_{region}_{track}.csv"}
 
 
-def _sources(cfg: Dict[str, Any]) -> Dict[str, str]:
-    """Nazwy źródeł formatu długiego (Plan_v2 sekcja 2.2) z wydania: EGMS_L2b_2020_2024, EGMS_L3U_2020_2024."""
-    rel = str(cfg["egms"]["release"])
-    y1, y2 = rel.split("-")
+def _sources_of(release: str) -> Dict[str, str]:
+    """Nazwy źródeł formatu długiego (Plan_v2 sekcja 2.2) z wydania '2020-2024': EGMS_L2b_2020_2024, EGMS_L3U_2020_2024."""
+    y1, y2 = str(release).split("-")
     return {"L2B": f"EGMS_L2b_{y1}_{y2}", "L3": f"EGMS_L3U_{y1}_{y2}"}
+
+
+def _sources(cfg: Dict[str, Any]) -> Dict[str, str]:
+    """Źródła wydania głównego (egms.release)."""
+    return _sources_of(cfg["egms"]["release"])
 
 
 def _manifest(rt: Dict[str, Any], cfg: Dict[str, Any]) -> Path:
@@ -995,16 +1040,15 @@ def _need_mb(plan: pd.DataFrame) -> int:
     return int(round(float(plan["need_bytes"].sum()) / 1e6))
 
 
-def _check_confirm_mb(plan: pd.DataFrame, confirm_mb: Any, region: str) -> int:
+def _check_confirm_mb(plan: pd.DataFrame, confirm_mb: Any, var: str, plan_name: str) -> int:
     """
     Ochrona przed przypadkowym pobraniem: confirm_mb musi być równe sumie need_bytes z planu w MB, zaokrąglonej
-    do całości. None albo inna liczba = RuntimeError z wartością do wpisania.
+    do całości. None albo inna liczba = RuntimeError z wartością do wpisania (var: nazwa zmiennej w notatniku).
     """
     need = _need_mb(plan)
-    var = f"CONFIRM_MB_{region.upper()}"
     if confirm_mb is None:
         raise RuntimeError(f"Pobranie EGMS wstrzymane: po obejrzeniu planu ustaw {var} = {need} (MB do pobrania według "
-                           f"egms_plan_{region}.csv, {int((plan['need_bytes'] > 0).sum())} plików)")
+                           f"{plan_name}, {int((plan['need_bytes'] > 0).sum())} plików)")
     if isinstance(confirm_mb, bool) or not isinstance(confirm_mb, (int, np.integer, float)) or confirm_mb != need:
         raise RuntimeError(f"{var} = {confirm_mb!r}, a plan wymaga {need} MB: plan się zmienił albo wpisano inną liczbę; "
                            f"sprawdź plan i ustaw {var} = {need}")
@@ -1018,6 +1062,71 @@ def _in_manifest(manifest: Path, paths: List[str]) -> List[bool]:
     return [p in known for p in paths]
 
 
+def _query_main(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
+    """Zapytanie EGMS wydania głównego (sekcja egms): wydanie, poziomy, katalog, plan, zmienna potwierdzenia."""
+    e = require_approved(cfg, "egms")
+    _region(cfg, region)
+    P = region_paths(rt, cfg, region)
+    return {"release": e["release"], "levels": e["levels"], "l3_product_types": e["l3_product_types"],
+            "raw": _abs(rt, e["raw_dir"]), "plan": P["plan"], "log": P["download_log"],
+            "confirm_var": f"CONFIRM_MB_{region.upper()}", "ready": _extracts_exist(P, cfg),
+            "ready_what": f"w {P['extracts']}"}
+
+
+def _query_levelling(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
+    """
+    Zapytanie EGMS drugiego wydania do porównania z niwelacją (regions.<region>.levelling.egms_check). Tylko L3
+    (porównanie z reperami czyta komórkę L3); inne poziomy, wydanie równe głównemu albo brak klucza = wyjątek.
+    """
+    require_approved(cfg, "egms")
+    lv = _region(cfg, region).get("levelling")
+    if lv is None:
+        raise ValueError(f"Region {region} bez niwelacji (levelling = None)")
+    path = f"regions.{region}.levelling.egms_check"
+    q = _decided(lv, "egms_check", f"regions.{region}.levelling")
+    rel, levels = _decided(q, "release", path), list(_decided(q, "levels", path))
+    pts, raw_dir = _decided(q, "l3_product_types", path), _decided(q, "raw_dir", path)
+    if levels != ["L3"]:
+        raise ValueError(f"CHECK_CONFIG['{path}']['levels'] = {levels}: porównanie z niwelacją używa tylko ['L3']")
+    if str(rel) == str(cfg["egms"]["release"]):
+        raise ValueError(f"CHECK_CONFIG['{path}']['release'] = {rel} jest wydaniem głównym: to porównanie liczy "
+                         f"task_compare_levelling")
+    C = levelling_check_paths(rt, cfg, region)
+    return {"release": rel, "levels": levels, "l3_product_types": pts, "raw": _abs(rt, raw_dir), "plan": C["plan"],
+            "log": C["download_log"], "confirm_var": f"CONFIRM_MB_{region.upper()}_LEVELLING",
+            "ready": C["l3_cells"].exists(), "ready_what": str(C["l3_cells"])}
+
+
+def _egms_search_impl(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, q: Dict[str, Any]) -> Dict[str, Any]:
+    """Wyszukanie (step_04.search_plan) i plan pobrania (step_04.plan_download) dla zapytania q; zapis planu q['plan']."""
+    import step_01_ingest as s1
+    import step_04_egms_aoi as s4
+    e = require_approved(cfg, "egms")
+    reg = _region(cfg, region)
+    P = region_paths(rt, cfg, region)
+    token = Path(cfg["project"]["token_path"])
+    if not token.is_file():
+        if q["ready"]:
+            return {"skipped": True, "message": f"brak tokenu CLMS ({token}): używam istniejących wycinków {q['ready_what']}"}
+        raise FileNotFoundError(f"Brak tokenu CLMS {token} i brak wycinków {q['ready_what']}")
+    area = _search_lonlat(reg, _sites_for_search(P), e["search_area"])
+    session, headers = _clms_session(cfg)
+    table, _ = _retry_transient(lambda: s4.search_plan(session, headers, s1.API_ENDPOINT, area, q["release"], q["levels"],
+                                                       q["l3_product_types"]), "wyszukanie EGMS")
+    raw = q["raw"]
+    raw.mkdir(parents=True, exist_ok=True)
+    plan = s4.plan_download(table, raw, s4.drive_free_bytes(raw), int(round(float(e["drive_margin_gb"]) * 1e9)))
+    plan = plan.drop(columns=[c for c in ("bbox", "poly") if c in plan.columns]).assign(search_lonlat=str(area))
+    q["plan"].parent.mkdir(parents=True, exist_ok=True)
+    plan.to_csv(q["plan"], index=False)
+    by = plan.groupby("query_key").agg(files=("filename", "size"), MB=("filesize", lambda s: round(s.sum() / 1e6, 1)))
+    print(by.to_string())
+    need = _need_mb(plan)
+    return {"message": f"{len(plan)} plików, łącznie {plan['filesize'].sum() / 1e6:.1f} MB, do pobrania "
+                       f"{plan['need_bytes'].sum() / 1e6:.1f} MB ({plan['status'].value_counts().to_dict()}); "
+                       f"po akceptacji ustaw {q['confirm_var']} = {need}"}
+
+
 def task_egms_search(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
     """
     Wyszukanie L2B i L3 (step_04.search_plan) w prostokącie wyszukania (egms.search_area) i plan pobrania
@@ -1025,66 +1134,48 @@ def task_egms_search(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Di
     egms_plan_<region>.csv; komunikat z liczbą MB do potwierdzenia (CONFIRM_MB_<REGION>).
     Bez tokenu CLMS: gdy wycinki istnieją -> pominięte (notatnik czyta data/03_Extracts/), inaczej FileNotFoundError.
     """
+    return _egms_search_impl(rt, cfg, region, _query_main(rt, cfg, region))
+
+
+def task_levelling_egms_search(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
+    """
+    Jak task_egms_search, dla drugiego wydania do porównania z niwelacją (regions.<region>.levelling.egms_check,
+    tylko L3 pion); plan egms_plan_<region>_levelling_<wydanie>.csv, potwierdzenie CONFIRM_MB_<REGION>_LEVELLING.
+    Region bez niwelacji = pominięte.
+    """
+    if _region(cfg, region).get("levelling") is None:
+        return {"skipped": True, "message": f"region {region} bez niwelacji (levelling = None)"}
+    return _egms_search_impl(rt, cfg, region, _query_levelling(rt, cfg, region))
+
+
+def _egms_download_impl(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, q: Dict[str, Any],
+                        confirm_mb: Any) -> Dict[str, Any]:
+    """Pobranie plików z planu q['plan'] po potwierdzeniu rozmiaru (opis kolejności: task_egms_download)."""
     import step_01_ingest as s1
     import step_04_egms_aoi as s4
     e = require_approved(cfg, "egms")
     reg = _region(cfg, region)
     P = region_paths(rt, cfg, region)
     token = Path(cfg["project"]["token_path"])
-    if not token.is_file():
-        if _extracts_exist(P, cfg):
-            return {"skipped": True, "message": f"brak tokenu CLMS ({token}): używam istniejących wycinków {P['extracts']}"}
-        raise FileNotFoundError(f"Brak tokenu CLMS {token} i brak wycinków w {P['extracts']}")
-    area = _search_lonlat(reg, _sites_for_search(P), e["search_area"])
-    session, headers = _clms_session(cfg)
-    table, _ = _retry_transient(lambda: s4.search_plan(session, headers, s1.API_ENDPOINT, area, e["release"], e["levels"],
-                                                       e["l3_product_types"]), "wyszukanie EGMS")
-    raw = _abs(rt, e["raw_dir"])
-    raw.mkdir(parents=True, exist_ok=True)
-    plan = s4.plan_download(table, raw, s4.drive_free_bytes(raw), int(round(float(e["drive_margin_gb"]) * 1e9)))
-    plan = plan.drop(columns=[c for c in ("bbox", "poly") if c in plan.columns]).assign(search_lonlat=str(area))
-    P["plan"].parent.mkdir(parents=True, exist_ok=True)
-    plan.to_csv(P["plan"], index=False)
-    by = plan.groupby("query_key").agg(files=("filename", "size"), MB=("filesize", lambda s: round(s.sum() / 1e6, 1)))
-    print(by.to_string())
-    need = _need_mb(plan)
-    return {"message": f"{len(plan)} plików, łącznie {plan['filesize'].sum() / 1e6:.1f} MB, do pobrania "
-                       f"{plan['need_bytes'].sum() / 1e6:.1f} MB ({plan['status'].value_counts().to_dict()}); "
-                       f"po akceptacji ustaw CONFIRM_MB_{region.upper()} = {need}"}
-
-
-def task_egms_download(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, confirm_mb: Any) -> Dict[str, Any]:
-    """
-    Pobranie plików z planu po potwierdzeniu rozmiaru (confirm_mb = MB z task_egms_search, zaokrąglone).
-    Kolejność: plan -> (bez tokenu i z wycinkami: pominięte) -> blokada confirm_mb -> token -> świeże wyszukanie
-    (identyfikator zapytania wygasa; wynik musi zgadzać się z planem) -> plan ponownie (miejsce) -> step_04.sync_files
-    dla plików brakujących, niepełnych i istniejących bez wpisu w manifeście.
-    """
-    import step_01_ingest as s1
-    import step_04_egms_aoi as s4
-    e = require_approved(cfg, "egms")
-    reg = _region(cfg, region)
-    P = region_paths(rt, cfg, region)
-    token = Path(cfg["project"]["token_path"])
-    if not token.is_file() and _extracts_exist(P, cfg):
+    if not token.is_file() and q["ready"]:
         return {"skipped": True, "message": f"brak tokenu CLMS ({token}): używam istniejących wycinków"}
-    plan = _read_plan(P)
-    raw, man, proj = _abs(rt, e["raw_dir"]), _manifest(rt, cfg), Path(rt["PROJECT_DIR"])
+    plan = _read_plan({"plan": q["plan"]})
+    raw, man, proj = q["raw"], _manifest(rt, cfg), Path(rt["PROJECT_DIR"])
     registered = _in_manifest(man, [s1.manifest_path_of(raw / f, proj) for f in plan["filename"]])
     if (plan["need_bytes"] == 0).all() and all(registered) and all((raw / f).exists() for f in plan["filename"]):
         return {"skipped": True, "message": f"wszystkie {len(plan)} pliki z planu są na Dysku i w manifeście"}
-    need = _check_confirm_mb(plan, confirm_mb, region)
+    need = _check_confirm_mb(plan, confirm_mb, q["confirm_var"], q["plan"].name)
     if not token.is_file():
         raise FileNotFoundError(f"Brak tokenu CLMS {token}: pobranie niemożliwe")
     session, headers = _clms_session(cfg)
     area = _search_lonlat(reg, _sites_for_search(P), e["search_area"])
-    table, results = _retry_transient(lambda: s4.search_plan(session, headers, s1.API_ENDPOINT, area, e["release"], e["levels"],
-                                    e["l3_product_types"]), "wyszukanie EGMS")
+    table, results = _retry_transient(lambda: s4.search_plan(session, headers, s1.API_ENDPOINT, area, q["release"], q["levels"],
+                                    q["l3_product_types"]), "wyszukanie EGMS")
     a = table.set_index("filename")["filesize"].astype("int64").sort_index()
     b = plan.set_index("filename")["filesize"].astype("int64").sort_index()
     if not a.equals(b):
         raise RuntimeError(f"Świeże wyszukanie różni się od planu (pliki: nowe {sorted(set(a.index) - set(b.index))[:5]}, "
-                           f"brakujące {sorted(set(b.index) - set(a.index))[:5]}): uruchom ponownie task_egms_search "
+                           f"brakujące {sorted(set(b.index) - set(a.index))[:5]}): uruchom ponownie wyszukanie "
                            f"i potwierdź nowy rozmiar")
     fresh = s4.plan_download(table, raw, s4.drive_free_bytes(raw), int(round(float(e["drive_margin_gb"]) * 1e9)))
     if _need_mb(fresh) > need:                 # potwierdzenie dotyczy planu z pliku; pobieramy według świeżego stanu Dysku
@@ -1097,9 +1188,26 @@ def task_egms_download(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, con
         logs.append(s4.sync_files(session, headers, s1.API_ENDPOINT, results[key], list(g["filename"]), raw, man, proj,
                                   e["download_pause_s"], cfg["project"]["downloaded_by"]).assign(query_key=key))
     log = pd.concat(logs, ignore_index=True) if logs else pd.DataFrame(columns=["filename", "status", "bytes", "sha256"])
-    P["download_log"].parent.mkdir(parents=True, exist_ok=True)
-    log.to_csv(P["download_log"], index=False)
+    q["log"].parent.mkdir(parents=True, exist_ok=True)
+    log.to_csv(q["log"], index=False)
     return {"message": f"potwierdzone {need} MB; {log['status'].value_counts().to_dict()}"}
+
+
+def task_egms_download(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, confirm_mb: Any) -> Dict[str, Any]:
+    """
+    Pobranie plików z planu po potwierdzeniu rozmiaru (confirm_mb = MB z task_egms_search, zaokrąglone).
+    Kolejność: plan -> (bez tokenu i z wycinkami: pominięte) -> blokada confirm_mb -> token -> świeże wyszukanie
+    (identyfikator zapytania wygasa; wynik musi zgadzać się z planem) -> plan ponownie (miejsce) -> step_04.sync_files
+    dla plików brakujących, niepełnych i istniejących bez wpisu w manifeście.
+    """
+    return _egms_download_impl(rt, cfg, region, _query_main(rt, cfg, region), confirm_mb)
+
+
+def task_levelling_egms_download(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, confirm_mb: Any) -> Dict[str, Any]:
+    """Jak task_egms_download, dla drugiego wydania do porównania z niwelacją (CONFIRM_MB_<REGION>_LEVELLING)."""
+    if _region(cfg, region).get("levelling") is None:
+        return {"skipped": True, "message": f"region {region} bez niwelacji (levelling = None)"}
+    return _egms_download_impl(rt, cfg, region, _query_levelling(rt, cfg, region), confirm_mb)
 
 
 def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
@@ -1195,6 +1303,55 @@ def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
         msg.append(f"L3: komórki przy {cells['site'].nunique()} z {len(sites)} punktów, mapa {len(mp)} komórek")
     pfile.write_text(json.dumps(params, indent=1), encoding="utf-8")
     return {"message": "; ".join(msg)}
+
+
+def task_levelling_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
+    """
+    Komórki L3 (U) drugiego wydania (regions.<region>.levelling.egms_check) przy wszystkich reperach z sites.csv
+    (step_04.l3_cells_at_sites, jak w task_extract; bez wyboru według EGMS). Wycinek aktualny (nowszy niż pliki
+    i sites.csv, te same parametry) = pominięty. Bez planu: pominięty, gdy wycinek istnieje i nie ma tokenu,
+    inaczej FileNotFoundError. Zero reperów w komórkach = RuntimeError.
+    """
+    import step_04_egms_aoi as s4
+    e = require_approved(cfg, "egms")
+    if _region(cfg, region).get("levelling") is None:
+        return {"skipped": True, "message": f"region {region} bez niwelacji (levelling = None)"}
+    m = require_approved(cfg, "method")
+    q = _query_levelling(rt, cfg, region)
+    C, P = levelling_check_paths(rt, cfg, region), region_paths(rt, cfg, region)
+    no_token = not Path(cfg["project"]["token_path"]).is_file()
+    if not q["plan"].exists():
+        if q["ready"] and no_token:
+            return {"skipped": True, "message": f"brak planu (tryb bez tokenu): używam {C['l3_cells'].name}"}
+        raise FileNotFoundError(f"Brak planu {q['plan']}: uruchom task_levelling_egms_search i task_levelling_egms_download")
+    plan = _read_plan({"plan": q["plan"]})
+    l3 = plan[(plan["level"] == "L3") & (plan["product_type"] == "ORTHO-UP")]
+    if l3.empty:
+        raise ValueError(f"Plan {q['plan'].name} bez plików L3 ORTHO-UP ({plan['query_key'].unique()})")
+    zips = [q["raw"] / f for f in l3["filename"]]
+    absent = [z.name for z, n in zip(zips, l3["filesize"]) if not (z.exists() and z.stat().st_size == int(n))]
+    if absent:
+        if q["ready"] and no_token:
+            return {"skipped": True, "message": f"{len(absent)} plików surowych brak (bez tokenu): używam {C['l3_cells'].name}"}
+        raise FileNotFoundError(f"{len(absent)} plików L3 z planu brak w {q['raw']} (np. {absent[:3]}): "
+                                f"uruchom task_levelling_egms_download")
+    sites = _read_sites(P)
+    bench = sites.loc[sites["site_type"] == "benchmark", ["site", "x_3035", "y_3035"]]
+    if bench.empty:
+        raise RuntimeError(f"{P['sites']}: brak reperów - uruchom task_levelling")
+    params = {"release": str(q["release"]), "l3_cell_m": m["l3_cell_m"], "files": sorted(str(f) for f in l3["filename"])}
+    same = C["params"].exists() and json.loads(C["params"].read_text(encoding="utf-8")) == params
+    if same and _up_to_date([C["l3_cells"]], zips + [P["sites"]]):
+        return {"skipped": True, "message": f"wycinek aktualny ({C['l3_cells'].name}: nowszy niż pliki i sites.csv)"}
+    cells = s4.l3_cells_at_sites(zips, bench, m["l3_cell_m"], e["chunksize"])
+    if cells.empty:
+        raise RuntimeError(f"Żaden z {len(bench)} reperów nie leży w komórce L3 wydania {q['release']}")
+    C["l3_cells"].parent.mkdir(parents=True, exist_ok=True)
+    cells.to_csv(C["l3_cells"], index=False)
+    C["params"].write_text(json.dumps(params, indent=1), encoding="utf-8")
+    d = _date_cols(cells)
+    return {"message": f"L3 {q['release']}: komórki przy {cells['site'].nunique()} z {len(bench)} reperów; "
+                       f"daty {d[0]} - {d[-1]} ({len(d)})"}
 
 
 def task_checks(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
@@ -1400,32 +1557,31 @@ def task_compare_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> D
             "registry": {"gwl_validation_metrics": reg_rows}}
 
 
-def _levelling_l3_long(rt, cfg, region, P, m) -> tuple:
+def _levelling_l3_long(region: str, P: Dict[str, Path], cells_path: Path, source: str, m: Dict[str, Any]) -> tuple:
     """Szeregi EGMS L3 (U) przy reperach w formacie długim (step_07.egms_points_to_long) + statusy par."""
     import step_07_monitoring as s7
     sites = _read_sites(P)
     bench = sites.loc[sites["site_type"] == "benchmark", "site"].tolist()
     if not bench:
         raise RuntimeError(f"{P['sites']}: brak reperów - uruchom task_levelling")
-    cells = _read_points(P["l3_cells"], "komórki L3: task_extract")
+    cells = _read_points(cells_path, f"komórki L3 przy reperach ({source})")
     c = cells[cells["site"].isin(bench)]
     expected = pd.DataFrame({"site": bench, "track": "L3", "direction": "vertical"})
-    return s7.egms_points_to_long(c if len(c) else pd.DataFrame(), _date_cols(cells), region, _sources(cfg)["L3"],
+    return s7.egms_points_to_long(c if len(c) else pd.DataFrame(), _date_cols(cells), region, source,
                                   _l3_radius(m), m["l3_min_points"], expected)
 
 
-def task_compare_levelling(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
+def _compare_levelling_core(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, cells_path: Path, source: str,
+                            out: Dict[str, Path]) -> tuple:
     """
-    EGMS L3 (pion) kontra niwelacja (step_06): szeregi L3 przy reperach (step_07.egms_points_to_long, reper bez
-    komórki = status), epoki w oknie dat EGMS (step_06.epochs_in_release; okno = pierwsza i ostatnia data szeregów L3),
-    Δh i prędkości (step_06.compare_levelling, odniesienie z konfiguracji), kryteria N1-N4 (summarize_levelling).
+    Wspólny rdzeń porównania z niwelacją (task_compare_levelling, task_compare_levelling_check): szeregi L3 przy
+    reperach z cells_path, epoki w oknie dat tych szeregów, Δh (step_06.compare_levelling), N1-N4. Zapis statusów
+    (out['status']) i podsumowania (out['summary']); wynik porównania zwracany (zapis robi wywołujący).
+    Zwraca (lev, res, summ, t0, t1, wiersze rejestru, opis kryteriów).
     """
     import step_06_ground as s6
     require_approved(cfg, "egms")
-    reg = _region(cfg, region)
-    lv = reg.get("levelling")
-    if lv is None:
-        return {"skipped": True, "message": f"region {region} bez niwelacji (levelling = None)"}
+    lv = _region(cfg, region)["levelling"]
     path = f"regions.{region}.levelling"
     m = require_approved(cfg, "method")
     th = require_approved(cfg, "thresholds")
@@ -1434,24 +1590,97 @@ def task_compare_levelling(rt: Dict[str, Any], cfg: Dict[str, Any], region: str)
     span = _decided(lv, "min_epoch_span_yr", path)
     P = region_paths(rt, cfg, region)
     lev = _read_levelling(P)
-    long_u, st_u = _levelling_l3_long(rt, cfg, region, P, m)
-    st_u.to_csv(P["levelling_status"], index=False)
+    long_u, st_u = _levelling_l3_long(region, P, cells_path, source, m)
+    out["status"].parent.mkdir(parents=True, exist_ok=True)
+    st_u.to_csv(out["status"], index=False)
     if long_u.empty:
-        raise RuntimeError(f"Żaden reper nie ma szeregu EGMS L3 (statusy: {P['levelling_status']})")
+        raise RuntimeError(f"Żaden reper nie ma szeregu EGMS L3 {source} (statusy: {out['status']})")
     t0, t1 = long_u["date"].min(), long_u["date"].max()
     ep = s6.epochs_in_release(lev, t0, t1, rule, span)
     res = s6.compare_levelling(lev, ep, long_u, ref, method)
     summ = s6.summarize_levelling(res, th["levelling_l3u"])
-    P["levelling_compare"].parent.mkdir(parents=True, exist_ok=True)
-    res.to_csv(P["levelling_compare"], index=False, date_format="%Y-%m-%d")
-    summ.to_csv(P["levelling_summary"], index=False)
+    summ.to_csv(out["summary"], index=False)
     print(summ.to_string(index=False))
-    reg_rows = _metric_rows(res.assign(product=_sources(cfg)["L3"], site=res["benchmark_id"], track="L3",
+    reg_rows = _metric_rows(res.assign(product=source, site=res["benchmark_id"], track="L3",
                                        radius_m=_l3_radius(m), n=1.0), region, LEVELLING_METRICS, "n", LEVELLING_REFERENCE)
     crit = "; ".join(f"{k[:2]}: {v}" for k, v in zip(summ["kryterium"], summ["spełnione"])
                      if str(k)[:1] == "N" and str(k)[1:2].isdigit())
+    return lev, res, summ, t0, t1, reg_rows, crit
+
+
+def task_compare_levelling(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
+    """
+    EGMS L3 (pion) kontra niwelacja (step_06): szeregi L3 przy reperach (step_07.egms_points_to_long, reper bez
+    komórki = status), epoki w oknie dat EGMS (step_06.epochs_in_release; okno = pierwsza i ostatnia data szeregów L3),
+    Δh i prędkości (step_06.compare_levelling, odniesienie z konfiguracji), kryteria N1-N4 (summarize_levelling).
+    """
+    require_approved(cfg, "egms")
+    if _region(cfg, region).get("levelling") is None:
+        return {"skipped": True, "message": f"region {region} bez niwelacji (levelling = None)"}
+    P = region_paths(rt, cfg, region)
+    _, res, _, t0, t1, reg_rows, crit = _compare_levelling_core(
+        rt, cfg, region, P["l3_cells"], _sources(cfg)["L3"],
+        {"status": P["levelling_status"], "summary": P["levelling_summary"]})
+    res.to_csv(P["levelling_compare"], index=False, date_format="%Y-%m-%d")
     return {"message": f"{int((res['status'] == 'ok').sum())} z {len(res)} reperów 'ok' (okno {t0.date()} - "
                        f"{t1.date()}); {crit}", "registry": {"gwl_validation_metrics": reg_rows}}
+
+
+def _latest_midas(rt: Dict[str, Any], cfg: Dict[str, Any]) -> pd.DataFrame:
+    """Najnowsza migawka MIDAS z Dysku (task_select_gnss); brak migawki = FileNotFoundError."""
+    import step_01_ingest as s1
+    gdir = _abs(rt, cfg["project"]["gnss_dir"])
+    snapshots = sorted(gdir.glob("midas_*.IGS.txt"))
+    if not snapshots:
+        raise FileNotFoundError(f"Brak migawki midas_*.IGS.txt w {gdir}: uruchom task_select_gnss")
+    return s1.read_ngl_midas(snapshots[-1].read_text(encoding="utf-8"))
+
+
+def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
+    """
+    EGMS L3 (pion) drugiego wydania (regions.<region>.levelling.egms_check) kontra niwelacja: ten sam rdzeń co
+    task_compare_levelling (wszystkie repery z parą epok w oknie dat szeregów; N1-N4 z thresholds.levelling_l3u bez
+    zmian), osobne pliki wyników z rokiem wydania. Dodatkowo, informacyjnie (bez progów; autor 2026-10-12):
+    odległość reperu do najbliższej stacji GNSS NGL (wszystkie stacje z migawki MIDAS - przybliżenie sieci, którą
+    kalibrowany jest EGMS; sama sieć kalibracji nie jest publikowana przy plikach), podział niecki / pozostałe według
+    niwelacji (strong_motion_mm_yr) i rycina Δh EGMS względem Δh niwelacji.
+    """
+    import matplotlib.pyplot as plt
+    import step_06_ground as s6
+    import step_07_monitoring as s7
+    require_approved(cfg, "egms")
+    reg = _region(cfg, region)
+    if reg.get("levelling") is None:
+        return {"skipped": True, "message": f"region {region} bez niwelacji (levelling = None)"}
+    path = f"regions.{region}.levelling"
+    strong = _decided(reg["levelling"], "strong_motion_mm_yr", path)
+    th = require_approved(cfg, "thresholds")["levelling_l3u"]
+    q = _query_levelling(rt, cfg, region)
+    C = levelling_check_paths(rt, cfg, region)
+    source = _sources_of(q["release"])["L3"]
+    lev, res, _, t0, t1, reg_rows, crit = _compare_levelling_core(rt, cfg, region, C["l3_cells"], source,
+                                                                  {"status": C["status"], "summary": C["summary"]})
+    xy = lev.drop_duplicates("benchmark_id").rename(columns={"benchmark_id": "id"})[["id", "x_3035", "y_3035"]]
+    xy["id"] = xy["id"].astype(str)
+    ok_ids = set(res.loc[res["status"] == "ok", "benchmark_id"].astype(str))
+    near = s6.nearest_station_km(xy[xy["id"].isin(ok_ids)], _latest_midas(rt, cfg))
+    res = res.assign(benchmark_id=res["benchmark_id"].astype(str)).merge(
+        near.rename(columns={"id": "benchmark_id"}), on="benchmark_id", how="left")
+    res.to_csv(C["compare"], index=False, date_format="%Y-%m-%d")
+    groups = s6.levelling_groups(res, strong, th["sign_min_signal_mm"])
+    groups.to_csv(C["groups"], index=False)
+    print("Podział informacyjny (bez progów; niecki według niwelacji):")
+    print(groups.to_string(index=False))
+    fig = s7.plot_levelling_scatter(res, float(strong), f"EGMS L3 vertical {q['release']} vs levelling, {region}")
+    C["figure"].parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(C["figure"], dpi=150, facecolor=fig.get_facecolor())
+    plt.close(fig)
+    bowls = groups.iloc[1]
+    btxt = (f"niecki: n {int(bowls['n'])}, mediana |diff| {bowls['median_abs_diff_mm']:.1f} mm, najbliższa stacja GNSS "
+            f"(mediana) {bowls['dist_station_km_median']:.1f} km" if bowls["n"] else "niecki: brak reperów")
+    return {"message": f"{source}: {int((res['status'] == 'ok').sum())} z {len(res)} reperów 'ok' (okno {t0.date()} - "
+                       f"{t1.date()}); {crit}; {btxt}; rycina {C['figure'].name}",
+            "registry": {"gwl_validation_metrics": reg_rows}}
 
 
 # ------------------------------------------------------------------------------
@@ -1980,6 +2209,14 @@ def task_summary(rt: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
                                "by_query": plan["query_key"].value_counts().to_dict()}
         for f in sorted(P["outputs"].glob(f"hyp3_align_{region}_*.csv")) if P["outputs"].exists() else []:
             r[f.stem] = pd.read_csv(f, dtype={"site": str, "track": str})
+        if cfg["regions"][region].get("levelling") is not None:
+            C = levelling_check_paths(rt, cfg, region)
+            rel = cfg["regions"][region]["levelling"]["egms_check"]["release"]
+            for key in ("summary", "groups"):
+                if C[key].exists():
+                    r[f"levelling_check_{key}"] = pd.read_csv(C[key])
+            if "levelling_check_summary" in r:
+                r["levelling_check_release"] = rel
         regions[region] = r
     runs = run_history(rt, 25)
     summary = {
@@ -2008,6 +2245,13 @@ def task_summary(rt: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
                 if key + "_conclusion" in r:
                     parts += ["", f"**Wniosek:** {r[key + '_conclusion']}"]
                 parts.append("")
+        if "levelling_check_summary" in r:
+            rel = r["levelling_check_release"]
+            parts += [f"### EGMS L3 {rel} kontra niwelacja: kryteria (drugie wydanie, tylko do porównania z niwelacją)",
+                      _md_table(r["levelling_check_summary"]), ""]
+            if "levelling_check_groups" in r:
+                parts += [f"### EGMS L3 {rel} kontra niwelacja: podział informacyjny (bez progów)",
+                          _md_table(r["levelling_check_groups"]), ""]
         for k, v in r.items():
             if k.startswith("hyp3_align_"):
                 parts += [f"### Etap B: dowiązanie do EGMS ({k})", _md_table(v), ""]
@@ -2146,12 +2390,34 @@ def _selftest() -> None:
         _expect(RuntimeError, task_egms_download, rt, cfg_t, "groningen", 3, match="plan wymaga 4 MB")
         _expect(RuntimeError, task_egms_download, rt, cfg_t, "groningen", True, match="plan wymaga 4 MB")
         _expect(FileNotFoundError, task_egms_download, rt, cfg_t, "groningen", 4, match="tokenu")   # blokada przepuszcza
-        assert _check_confirm_mb(plan, 4.0, "groningen") == 4
+        assert _check_confirm_mb(plan, 4.0, "CONFIRM_MB_GRONINGEN", "egms_plan_groningen.csv") == 4
         assert _l2b_tracks(plan) == {37: "ascending"}
         # Bez tokenu, z wycinkami: wyszukanie i pobranie pominięte (notatnik czyta data/03_Extracts/).
         for k in ("l2b_points", "l3_cells", "l3_map"):
             P[k].write_text("x\n")
         assert task_egms_search(rt, cfg_t, "groningen")["skipped"] and task_egms_download(rt, cfg_t, "groningen", None)["skipped"]
+        # Drugie wydanie do porównania z niwelacją: osobne pliki, osobna zmienna potwierdzenia, tylko L3, inne wydanie.
+        C = levelling_check_paths(rt, cfg_t, "nrw_west")
+        assert C["plan"].name == "egms_plan_nrw_west_levelling_2019_2023.csv"
+        assert C["l3_cells"].name == "egms_l3u_2019_2023_cells_at_benchmarks.csv.gz" and _sources_of("2019-2023")["L3"] == "EGMS_L3U_2019_2023"
+        _expect(ValueError, levelling_check_paths, rt, cfg_t, "groningen", match="bez niwelacji")
+        assert task_levelling_egms_search(rt, cfg_t, "groningen")["skipped"]          # region bez niwelacji
+        _expect(FileNotFoundError, task_levelling_egms_search, rt, cfg_t, "nrw_west", match="brak wycinków")
+        C["plan"].parent.mkdir(parents=True, exist_ok=True)
+        plan.iloc[[1]].to_csv(C["plan"], index=False)
+        _expect(RuntimeError, task_levelling_egms_download, rt, cfg_t, "nrw_west", None, match="CONFIRM_MB_NRW_WEST_LEVELLING = 1")
+        _expect(RuntimeError, task_levelling_egms_download, rt, cfg_t, "nrw_west", 4, match="plan wymaga 1 MB")
+        _expect(FileNotFoundError, task_levelling_extract, rt, cfg_t, "nrw_west", match="plików L3 z planu brak")
+        for k, v, exc, msg in (("levels", ["L2B", "L3"], ValueError, "tylko ['L3']"),
+                               ("release", "2020-2024", ValueError, "wydaniem głównym"),
+                               ("raw_dir", None, RuntimeError, "raw_dir")):
+            cfg_b = copy.deepcopy(cfg_t)
+            cfg_b["regions"]["nrw_west"]["levelling"]["egms_check"][k] = v
+            _expect(exc, task_levelling_egms_search, rt, cfg_b, "nrw_west", match=msg)
+        cfg_b = copy.deepcopy(cfg_t)
+        cfg_b["regions"]["nrw_west"]["levelling"]["strong_motion_mm_yr"] = None
+        _expect(RuntimeError, task_compare_levelling_check, rt, cfg_b, "nrw_west", match="strong_motion_mm_yr")
+        assert CHECK_CONFIG["regions"]["nrw_west"]["levelling"]["egms_check"]["release"] == "2019-2023"
 
         # 5. Blokada confirm_jobs: liczba zleceń z planu ścieżki, przed danymi logowania Earthdata.
         hp = hyp3_paths(rt, cfg_t, "groningen", "37")

@@ -66,6 +66,25 @@ if P_{region.upper()}['gnss_compare'].exists():
 (mediana |różnicy|, zgodność znaku, kontrola negatywna na reperach stabilnych, bias prędkości)."""),
             ("code", f"""run_task(rt, 'compare_levelling_{region}', task_compare_levelling, rt, cfg, '{region}')
 display(pd.read_csv(P_{region.upper()}['levelling_summary']))"""),
+            ("md", f"""### Niwelacja na wydaniu 2019–2023 (tylko L3 pion)
+Kampania niwelacji NRW ma epoki 05.2019 i 05.2022, więc w oknie wydania 2020–2024 mieści się tylko kilkanaście reperów.
+Drugie wydanie EGMS (`regions.{region}.levelling.egms_check`, decyzja autora 2026-10-12) służy wyłącznie temu porównaniu:
+te same repery (wszystkie z parą epok w oknie wydania, bez wyboru według EGMS), te same kryteria N1–N4 i progi.
+Informacyjnie (bez progów): niecki według niwelacji (|v_niw| ≥ `strong_motion_mm_yr`) i odległość reperu do najbliższej
+stacji GNSS. Niecki odkrywek są dużo mniejsze niż siatka kalibracji EGMS do GNSS (ok. 50 km), więc zgodność w niecce
+pokazuje, że EGMS mierzy ruch, a nie tylko powtarza model GNSS. Pobranie wymaga wpisania liczby MB z planu."""),
+            ("code", f"""C_{region.upper()} = levelling_check_paths(rt, cfg, '{region}')
+run_task(rt, 'levelling_egms_search_{region}', task_levelling_egms_search, rt, cfg, '{region}')
+if C_{region.upper()}['plan'].exists():
+    plan = pd.read_csv(C_{region.upper()}['plan'])
+    display(plan.groupby(['query_key', 'status']).agg(files=('filename', 'size'), MB=('filesize', lambda s: round(s.sum() / 1e6, 1))))"""),
+            ("code", f"""{var}_LEVELLING = None   # np. 377 - liczba MB z planu drugiego wydania"""),
+            ("code", f"""run_task(rt, 'levelling_egms_download_{region}', task_levelling_egms_download, rt, cfg, '{region}', {var}_LEVELLING)
+run_task(rt, 'levelling_extract_{region}', task_levelling_extract, rt, cfg, '{region}')
+run_task(rt, 'compare_levelling_check_{region}', task_compare_levelling_check, rt, cfg, '{region}')
+display(pd.read_csv(C_{region.upper()}['summary']))
+display(pd.read_csv(C_{region.upper()}['groups']).round(2))
+display(Image(str(C_{region.upper()}['figure'])))"""),
         ]
     return cells
 
@@ -117,9 +136,11 @@ from pathlib import Path
 from IPython.display import display, Image, Markdown
 pd.set_option('display.width', 200); pd.set_option('display.max_columns', 30)
 from step_05_colab_run import (setup_runtime, ensure_packages, run_task, run_history, registry_summary, region_paths,
-                               hyp3_planned_tracks, STAGE_A_PACKAGES, STAGE_B_PACKAGES,
+                               levelling_check_paths, hyp3_planned_tracks, STAGE_A_PACKAGES, STAGE_B_PACKAGES,
                                task_select_gnss, task_gnss_download, task_levelling, task_egms_search, task_egms_download,
                                task_extract, task_checks, task_compare_gnss, task_compare_levelling,
+                               task_levelling_egms_search, task_levelling_egms_download, task_levelling_extract,
+                               task_compare_levelling_check,
                                task_monitoring_archive, task_figures, task_hyp3_plan, task_hyp3_submit,
                                task_hyp3_download, task_mintpy, task_hyp3_compare, task_summary)
 rt = setup_runtime(PROJECT_DIR, STAGE_A_PACKAGES)

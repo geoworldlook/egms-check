@@ -1,7 +1,8 @@
 # TEST: kopia testowa notebooks/EGMS_Monitoring.ipynb dla atrap (nie zmienia notatnika ani CHECK_CONFIG w repozytorium).
 #  1. po komórce konfiguracji: komórka, która w KOPII cfg ustawia approved = "TEST" w każdej sekcji i wartości testowe
 #     decyzji None (adresy NRW atrapy, kodowanie, odniesienie, koniec etapu B, kredyty, tolerancja LOS, opcje MintPy);
-#  2. CONFIRM_MB_<REGION> = suma rozmiarów plików EGMS atrapy dla regionu (MB, zaokrąglone) - niezależnie od kodu planu;
+#  2. CONFIRM_MB_<REGION> = suma rozmiarów plików EGMS atrapy wydania głównego dla regionu (MB, zaokrąglone) - niezależnie
+#     od kodu planu; CONFIRM_MB_<REGION>_LEVELLING = to samo dla drugiego wydania (porównanie z niwelacją);
 #  3. CONFIRM_JOBS = {ścieżka: 3 n - 6} (n dat burstów w [hyp3.start, koniec testu], sąsiedzi 3, odstęp 12 dni <= 48);
 #  4. na końcu komórka kontroli znanej odpowiedzi (asserty).
 # Użycie: python prepare_notebook.py <notatnik wejściowy> <notatnik wyjściowy> <katalog_fx>
@@ -20,7 +21,9 @@ from step_05_colab_run import CHECK_CONFIG  # noqa: E402
 src, dst, fx = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
 nb = nbformat.read(src, as_version=4)
 index = json.loads((fx / "egms" / "index.json").read_text())
-mb = {r: int(round(sum(v["size"] for v in index.values() if v["region"] == r) / 1e6)) for r in L.REGIONS}
+mb = {r: int(round(sum(v["size"] for v in index.values() if v["region"] == r and v["release"] == L.RELEASE) / 1e6))
+      for r in L.REGIONS}
+mb_lev = {L.L3_CHECK["region"]: int(round(sum(v["size"] for v in index.values() if v["release"] == L.RELEASE_CHECK) / 1e6))}
 start = CHECK_CONFIG["hyp3"]["start"]
 jobs = {}
 for track in L.REGIONS[CHECK_CONFIG["hyp3"]["region"]]["tracks"]:
@@ -39,6 +42,7 @@ def _approve(node):
 _approve(cfg)
 _lv = cfg['regions']['nrw_west']['levelling']
 _lv['reference'] = {{'type': 'absolute'}}
+_lv['strong_motion_mm_yr'] = 7.0          # test: repery B001 (-10) i B002 (-8 mm/rok) w grupie niecek
 cfg['hyp3'].update(tracks='from_egms_l2b', end='{L.HYP3_END_TEST}', max_credits=10000, cost_per_job=1, los_check_tol=0.05)
 cfg['hyp3']['mintpy'].update(deramp='no', solid_earth_tides=False)
 assert CHECK_CONFIG['hyp3']['tracks'] == ['37', '88'], 'kopia testowa nie może zmieniać CHECK_CONFIG'
@@ -76,6 +80,20 @@ assert nk.sum() == 4 and summ.loc[nk, 'spełnione'].astype(bool).all(), summ
 lc = pd.read_csv(N['levelling_compare'], dtype={{'benchmark_id': str}}).set_index('benchmark_id')
 assert lc.at[Lh.bench_id('B013'), 'status'].startswith('NaN: 1 epok') and (lc['status'] == 'ok').sum() == 12, lc['status']
 assert (lc.loc[lc['status'] == 'ok', 'diff_mm'].abs() < 3.0).all(), lc['diff_mm']
+# Drugie wydanie (2019-2023, tylko L3): epoki 2019 -> 2022 mieszczą się dla wszystkich 13 reperów w obszarze (także B013).
+from step_05_colab_run import levelling_check_paths
+Cn = levelling_check_paths(rt, cfg, 'nrw_west')
+sc = pd.read_csv(Cn['summary'])
+sk = sc['kryterium'].str.match(r'N\d')
+assert sk.sum() == 4 and sc.loc[sk, 'spełnione'].astype(bool).all(), sc
+cc = pd.read_csv(Cn['compare'], dtype={{'benchmark_id': str}}).set_index('benchmark_id')
+assert (cc['status'] == 'ok').sum() == 13 and cc.at[Lh.bench_id('B013'), 'status'] == 'ok', cc['status']
+assert (cc['diff_mm'].abs() < 3.0).all() and cc['dist_station_km'].between(0, 100).all(), cc[['diff_mm', 'dist_station_km']]
+assert cc.at[Lh.bench_id('B001'), 'nearest_station'] == 'N001', cc['nearest_station']
+gp = pd.read_csv(Cn['groups'])
+assert list(gp['n']) == [13, 2, 11] and gp['median_abs_diff_mm'].iat[1] < 3.0 and gp['sign_agreement'].iat[1] == 1.0, gp
+assert Cn['figure'].stat().st_size > 10000 and Path(Cn['l3_cells']).exists()
+assert 'EGMS_L3U_2019_2023' in set(registry_read(rt, 'gwl_validation_metrics')['product'])
 lg, ln_ = read_long(G['long']), read_long(N['long'])
 assert {{'EGMS_L2b_2020_2024', 'EGMS_L3U_2020_2024', 'GNSS_NGL_LOS', 'GNSS_NGL_U', 'S1_HYP3_MINTPY'}} <= set(lg['source']), set(lg['source'])
 assert 'LEVELLING_NRW' in set(ln_['source']), set(ln_['source'])
@@ -90,9 +108,14 @@ assert len(list(G['figures'].glob('*.png'))) >= 6 and len(list(N['figures'].glob
 assert Path(PROJECT_DIR, cfg['project']['outputs_dir'], 'run_summary.md').stat().st_size > 2000
 print('HARNESS: znana odpowiedź OK')'''
 
-cells, done = [], {"cfg": False, "mb": set(), "jobs": False}
+cells, done = [], {"cfg": False, "mb": set(), "mb_lev": set(), "jobs": False}
 for c in nb.cells:
     if c.cell_type == "code":
+        for region, v in mb_lev.items():
+            line = f"CONFIRM_MB_{region.upper()}_LEVELLING = None"
+            if line in c.source:
+                c.source = c.source.replace(line, f"CONFIRM_MB_{region.upper()}_LEVELLING = {v}  # HARNESS: kafel 2019-2023")
+                done["mb_lev"].add(region)
         for region, v in mb.items():
             line = f"CONFIRM_MB_{region.upper()} = None"
             if line in c.source:
@@ -106,7 +129,7 @@ for c in nb.cells:
         cells.append(nbformat.v4.new_code_cell(APPROVE))
         done["cfg"] = True
 cells.append(nbformat.v4.new_code_cell(CHECK))
-assert done["cfg"] and done["mb"] == set(mb) and done["jobs"], done
+assert done["cfg"] and done["mb"] == set(mb) and done["mb_lev"] == set(mb_lev) and done["jobs"], done
 nb.cells = cells
 nb.metadata["kernelspec"] = {"display_name": "colab313", "language": "python", "name": "colab313"}
 nbformat.write(nb, dst)

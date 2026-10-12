@@ -9,6 +9,9 @@ import numpy as np
 import pandas as pd
 
 RELEASE = "2020-2024"
+RELEASE_CHECK = "2019-2023"                     # drugie wydanie (tylko L3 NRW) do porównania z niwelacją
+L3_CHECK = {"region": "nrw_west", "tile": "EGMS_L3_E41N31_100km_U_2019_2023_1.zip", "first": "2019-01-05",
+            "end": "2023-12-31"}
 S1B_END = pd.Timestamp("2021-12-23")
 T_ORIGIN = pd.Timestamp("2016-01-01")          # początek prawdy ruchu (t = 0) dla GNSS, EGMS i MintPy
 VE, VN = 0.3, 0.2                               # ruch poziomy stacji [mm/rok] (płyta odjęta, mały resztkowy)

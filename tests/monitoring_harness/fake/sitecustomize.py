@@ -34,16 +34,18 @@ if os.environ.get("NBTEST_FX"):
         assert kw["headers"]["Authorization"] == "Bearer TEST", "brak tokenu w nagłówku"
         if url.endswith("/search"):
             q = json.loads(kw["data"])
-            assert q["releases"] == [L.RELEASE], q
+            assert len(q["releases"]) == 1 and q["releases"][0] in (L.RELEASE, L.RELEASE_CHECK), q
+            rel = q["releases"][0]
             (lo0, la0), (lo1, la1) = q["bbox"]
             level = q["levels"][0]
             if level == "L3":
                 assert q.get("productType") == "ORTHO-UP", q
             hits = []
             for f, v in IDX.items():
-                if v["level"] != level or not _intersects((lo0, la0, lo1, la1), L.REGIONS[v["region"]]["aoi"]):
+                if (v["level"] != level or v["release"] != rel
+                        or not _intersects((lo0, la0, lo1, la1), L.REGIONS[v["region"]]["aoi"])):
                     continue
-                h = {"filename": f, "filesize": v["size"], "release": L.RELEASE, "productLevel": level}
+                h = {"filename": f, "filesize": v["size"], "release": rel, "productLevel": level}
                 if level == "L2B":
                     h.update(relativeOrbit=v["track"], direction=v["direction"], burstId=v["burstId"])
                 else:
