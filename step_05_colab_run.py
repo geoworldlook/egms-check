@@ -467,7 +467,7 @@ CHECK_CONFIG: Dict[str, Any] = {
                 "reference": None,                       # [p] decyzja: {"type": "absolute"} albo {"type": "stable_group", "ids": [...]}
                 "read_method": "linear_interpolation",   # dodane [p] (prototyp read_at_epochs; bez ekstrapolacji)
             },
-            "approved": None,
+            "approved": "2026-10-12",                # autor 2026-10-12: regions.nrw_west: obszar 5,9-7,0 E, 50,7-51,3 N
         },
     },
     "gnss": {
@@ -481,7 +481,7 @@ CHECK_CONFIG: Dict[str, Any] = {
         "vu_stable_abs_max": 1.0,                # [p] jak E1
         "n_stable": 8,                           # [p] jak E1
         "n_stable_min": 3,                       # [p] jak E1
-        "approved": None,
+        "approved": "2026-10-12",                # autor 2026-10-12: reguła E1, okno 2020.0-2024.25
     },
     "method": {
         # Jak E1 (Koudogbo i in. 2025: 100 m, min. 3 punkty, okno 12 dni; model EGMS: trend + sinusoida roczna)
@@ -496,7 +496,7 @@ CHECK_CONFIG: Dict[str, Any] = {
         "duplicate_dist_m": 1.0,                 # [p]
         "l3_cell_m": 100,                        # [p] siatka L3 (F5)
         "l3_min_points": 1,                      # [p] jedna komórka
-        "approved": None,
+        "approved": "2026-10-12",                # autor 2026-10-12: parametry E1
     },
     "thresholds": {
         "gnss_l2b": {"abs_dv_mm_yr": 1.5,        # Fabris i Nazari 2026 za Fiaschi i in. 2018 (E1)
@@ -512,7 +512,7 @@ CHECK_CONFIG: Dict[str, Any] = {
                           "stable_max_lev_mm": 2.0,     # [p]
                           "stable_abs_dh_mm": 5.0,      # [p]
                           "velocity_bias_mm_yr": 1.5},  # [p]
-        "approved": None,
+        "approved": "2026-10-12",                # autor 2026-10-12: progi [p] jak wyżej; k3_definition nadal do decyzji
     },
     "monitoring": {
         "window_starts": ["2020-01-01", "2022-01-01"],          # [p]
@@ -2070,22 +2070,29 @@ def _selftest() -> None:
         cfg = copy.deepcopy(CHECK_CONFIG)
         ap = approvals_table(cfg).set_index("section")
         assert ap.at["egms", "approved"] == "2026-10-11" and ap.at["regions.groningen", "approved"] == "2026-10-10"
-        others = [s for s in ap.index if s not in ("egms", "regions.groningen")]
-        assert set(others) == {"regions.nrw_west", "gnss", "method", "thresholds", "monitoring", "hyp3"}
+        assert (ap.loc[["regions.nrw_west", "gnss", "method", "thresholds"], "approved"] == "2026-10-12").all()
+        others = [s for s in ap.index if s not in ("egms", "regions.groningen", "regions.nrw_west", "gnss", "method",
+                                                   "thresholds")]
+        assert set(others) == {"monitoring", "hyp3"}
         assert ap.loc[others, "approved"].isna().all() and (ap.loc[others, "status"] == "czeka na decyzję autora").all()
+        assert "gnss_l2b.k3_definition" in ap.at["thresholds", "open_decisions"]
         assert "levelling.urls" in ap.at["regions.nrw_west", "open_decisions"]
         assert ap.at["regions.groningen", "open_decisions"] == "-", "levelling = None to 'nie dotyczy', nie decyzja"
         assert "max_credits" in ap.at["hyp3", "open_decisions"] and "mintpy.deramp" in ap.at["hyp3", "open_decisions"]
         assert require_approved(cfg, "egms")["release"] == "2020-2024"
         assert require_approved(cfg, "regions.groningen")["aoi_lonlat"] == (5.8, 52.9, 7.3, 53.6)
-        e = _expect(RuntimeError, require_approved, cfg, "thresholds", match="CHECK_CONFIG['thresholds']")
-        assert "k3_definition" in str(e)
-        _expect(RuntimeError, require_approved, cfg, "regions.nrw_west", match="nie jest zatwierdzona")
+        e = _expect(RuntimeError, require_approved, cfg, "hyp3", match="CHECK_CONFIG['hyp3']")
+        assert "max_credits" in str(e)
+        _expect(RuntimeError, require_approved, cfg, "monitoring", match="nie jest zatwierdzona")
+        # sekcja zatwierdzona, ale parametr nadal None (decyzja autora) -> głośny stop przy użyciu
+        _expect(RuntimeError, _decided, require_approved(cfg, "thresholds")["gnss_l2b"], "k3_definition",
+                "thresholds.gnss_l2b", match="k3_definition")
         _expect(KeyError, require_approved, cfg, "regions.berlin", match="berlin")
         _expect(KeyError, require_approved, cfg, "project", match="approved")
         _expect(RuntimeError, _decided, cfg["hyp3"], "end", "hyp3", match="hyp3")
-        _expect(RuntimeError, task_compare_gnss, rt, cfg, "groningen", match="method")      # zadanie zatrzymane
-        assert CHECK_CONFIG["thresholds"]["approved"] is None, "test nie może zmieniać konfiguracji repozytorium"
+        cfg_u = copy.deepcopy(cfg); cfg_u["method"]["approved"] = None
+        _expect(RuntimeError, task_compare_gnss, rt, cfg_u, "groningen", match="method")    # zadanie zatrzymane
+        assert CHECK_CONFIG["monitoring"]["approved"] is None, "test nie może zmieniać konfiguracji repozytorium"
 
         # 4. Blokada confirm_mb: przed tokenem i siecią; None / inna liczba = RuntimeError z wartością do wpisania.
         cfg_t = copy.deepcopy(CHECK_CONFIG)
@@ -2133,8 +2140,9 @@ def _selftest() -> None:
                    task_hyp3_plan):
             _expect(RuntimeError, fn, rt, cfg_e, "groningen", match="CHECK_CONFIG['egms']")
         _expect(RuntimeError, task_hyp3_compare, rt, cfg_e, "groningen", "37", match="CHECK_CONFIG['egms']")
-        _expect(RuntimeError, _read_gnss, rt, copy.deepcopy(CHECK_CONFIG), ["A"], match="CHECK_CONFIG['gnss']")
-        assert _read_gnss(rt, copy.deepcopy(CHECK_CONFIG), []) == {}
+        cfg_g = copy.deepcopy(CHECK_CONFIG); cfg_g["gnss"]["approved"] = None
+        _expect(RuntimeError, _read_gnss, rt, cfg_g, ["A"], match="CHECK_CONFIG['gnss']")
+        assert _read_gnss(rt, cfg_g, []) == {}
         # Metryka bez kolumny: błąd przy wierszu 'ok', jawny NaN przy wierszu z powodem.
         mr = pd.DataFrame({"product": ["p"], "site": ["s"], "track": ["t"], "radius_m": [1.0], "status": ["ok"], "n": [1.0]})
         _expect(KeyError, _metric_rows, mr, "r", ["v_egms"], "n", "REF", match="v_egms")

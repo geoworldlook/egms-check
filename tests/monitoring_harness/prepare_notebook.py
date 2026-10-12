@@ -45,7 +45,7 @@ _lv['encoding'] = 'cp1252'
 _lv['reference'] = {{'type': 'absolute'}}
 cfg['hyp3'].update(end='{L.HYP3_END_TEST}', max_credits=10000, cost_per_job=1, los_check_tol=0.05)
 cfg['hyp3']['mintpy'].update(deramp='no', solid_earth_tides=False)
-assert CHECK_CONFIG['thresholds']['approved'] is None, 'kopia testowa nie może zmieniać CHECK_CONFIG'
+assert CHECK_CONFIG['monitoring']['approved'] is None, 'kopia testowa nie może zmieniać CHECK_CONFIG'
 display(approvals_table(cfg))'''
 
 CHECK = f'''# HARNESS (test): kontrola znanej odpowiedzi na danych syntetycznych (egms_harness_lib); wartości testowe, nie wynik.

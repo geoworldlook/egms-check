@@ -43,10 +43,10 @@ grep -q "\[SKIPPED\] extract_groningen" "$WORK/out2.ipynb.txt"
 grep -q "\[SKIPPED\] extract_nrw_west" "$WORK/out2.ipynb.txt" || { echo "PRZEBIEG 2: sites.csv zapisany ponownie (GNSS + repery) i wycinki NRW liczone od nowa?"; exit 1; }
 grep -q "MIDAS: migawka z Dysku" "$WORK/out2.ipynb.txt" || { echo "PRZEBIEG 2: MIDAS bez migawki z Dysku?"; exit 1; }
 grep -q "wysłane 0, istniejące 93" "$WORK/out2.ipynb.txt" || { echo "PRZEBIEG 2: zlecenia HyP3 wysłane ponownie?"; exit 1; }
-echo "=== PRZEBIEG 3: notatnik z repozytorium bez zatwierdzeń: pobranie EGMS już jest na Dysku (przebiegi 1-2), oczekiwany głośny stop na pierwszej niezatwierdzonej sekcji (gnss) ==="
+echo "=== PRZEBIEG 3: notatnik z repozytorium bez zatwierdzeń: pobranie EGMS już jest na Dysku (przebiegi 1-2), oczekiwany głośny stop na pierwszej nieustalonej decyzji (thresholds.gnss_l2b.k3_definition) ==="
 if run_nb "$REPO/notebooks/EGMS_Monitoring.ipynb" "$WORK/out3.ipynb" > "$WORK/pass3.log"; then
   echo "PRZEBIEG 3: notatnik bez zatwierdzeń nie może przejść"; exit 1
 fi
-grep -q "Sekcja CHECK_CONFIG\['gnss'\] nie jest zatwierdzona" "$WORK/out3.ipynb.txt"
+grep -q "\['k3_definition'\] = None: decyzja autora nieustalona" "$WORK/out3.ipynb.txt"
 tail -3 "$WORK/pass3.log"
 echo "HARNESS: 3 przebiegi zgodne z oczekiwaniem"
