@@ -14,6 +14,6 @@ Trzy przebiegi:
 1. pełny notatnik od zera na kopii z zatwierdzeniami `TEST` i wartościami `CONFIRM_*` → `HARNESS: znana odpowiedź OK`;
 2. ponowne uruchomienie na tym samym Dysku → nic nie jest pobierane ani zlecane drugi raz (MIDAS z migawki na Dysku),
    wycinki obu regionów nie są liczone od nowa;
-3. notatnik z repozytorium (bez zatwierdzeń) → głośny stop na pierwszej niezatwierdzonej sekcji.
+3. notatnik z repozytorium (konfiguracja autora, bez `CONFIRM_JOBS`) → etap A przechodzi, stop na potwierdzeniu zleceń HyP3.
 
 Uwaga: skrypt usuwa i tworzy od nowa `/content/drive/MyDrive/GeoWorldLook/egmscheck` (atrapa Dysku).

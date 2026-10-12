@@ -528,7 +528,7 @@ CHECK_CONFIG: Dict[str, Any] = {
         "min_obs": 10,                           # dodane [p] (step_07; próg step_03.fit_velocity)
         "map_vlim_percentile": 98.0,             # dodane [p] (step_07.plot_l3_map: granice skali kolorów)
         "example_rule": "max_subsidence_median_stable",   # dodane [p] (Plan_v2 sekcja 7 pkt 5; reguła E1)
-        "approved": None,
+        "approved": "2026-10-12",                # autor 2026-10-12: wszystkie wartości [p] tej sekcji
     },
     "hyp3": {
         "region": "groningen",                   # dodane [p]: region etapu B (Plan_v2 sekcja 4.2: ścieżki Groningen)
@@ -538,22 +538,22 @@ CHECK_CONFIG: Dict[str, Any] = {
         "polarization": "VV",
         "start": "2024-01-01",                   # [p] zakładka z EGMS (Plan_v2 sekcja 4.1)
         "overlap_end": "2024-12-31",             # koniec wydania EGMS 2020-2024
-        "end": None,                             # podać jawnie (decyzja)
+        "end": "2026-09-30",                     # autor 2026-10-12: ostatni pełny miesiąc przed uruchomieniem
         "n_neighbors": 3,                        # [p]
         "max_dt_days": 48,                       # [p]
-        "tracks": "from_egms_l2b",               # ścieżki z planu EGMS L2b (albo lista)
-        "max_credits": None,                     # [p] decyzja: limit kredytów HyP3
-        "cost_per_job": None,                    # dodane (step_08.submit_missing): koszt zlecenia w kredytach HyP3
-        "los_check_tol": None,                   # dodane (step_08.check_los_vs_egms): tolerancja |los_up własny - EGMS|
+        "tracks": ["37", "88"],                  # autor 2026-10-12: 2 ścieżki (zst. 37, wst. 88; najwięcej stacji GNSS w E1)
+        "max_credits": 10000,                    # autor 2026-10-12: miesięczny przydział kredytów ASF HyP3 (do sprawdzenia w check_credits)
+        "cost_per_job": 10,                      # autor 2026-10-12: górne oszacowanie kosztu zlecenia; ASF i tak odrzuca przekroczenie
+        "los_check_tol": 0.05,                   # autor 2026-10-12: |los_up własny - EGMS| (ok. 3 stopnie kąta padania)
         "raw_dir": "data/01_Raw_InSAR/hyp3",
         "mintpy": {"troposphere": "no",          # [p]
                    "min_temp_coh": 0.7,          # [p]
                    "topographic_residual": True,  # [p]
                    "reference_rule": "stable_gnss_min_abs_vu",  # [p]
                    "window_px": 3,               # [p]
-                   "deramp": None,               # dodane (step_08): 'no' albo typ rampy MintPy
-                   "solid_earth_tides": None},   # dodane (step_08): True / False
-        "approved": None,
+                   "deramp": "no",               # autor 2026-10-12: bez usuwania rampy (nie tłumić sygnału niecki)
+                   "solid_earth_tides": False},  # autor 2026-10-12: pomijalne dla trendu na małym obszarze
+        "approved": "2026-10-12",                # autor 2026-10-12: region Groningen, 2 ścieżki, wartości [p] i powyższe
     },
 }
 
@@ -2069,37 +2069,36 @@ def _selftest() -> None:
         rs = registry_summary(rt).set_index("table")
         assert rs.at["gwl_runs", "rows"] == 4 and rs.at["gwl_validation_metrics", "rows"] == 4
 
-        # 3. Zatwierdzenia: stan z CHECK_CONFIG repozytorium, wyjątek z nazwą decyzji, kopia zatwierdzona.
+        # 3. Zatwierdzenia: stan z CHECK_CONFIG repozytorium (wszystkie sekcje zatwierdzone przez autora), wyjątek z
+        #    nazwą decyzji na kopii z cofniętym zatwierdzeniem albo parametrem None.
         cfg = copy.deepcopy(CHECK_CONFIG)
         ap = approvals_table(cfg).set_index("section")
         assert ap.at["egms", "approved"] == "2026-10-11" and ap.at["regions.groningen", "approved"] == "2026-10-10"
-        assert (ap.loc[["regions.nrw_west", "gnss", "method", "thresholds"], "approved"] == "2026-10-12").all()
-        others = [s for s in ap.index if s not in ("egms", "regions.groningen", "regions.nrw_west", "gnss", "method",
-                                                   "thresholds")]
-        assert set(others) == {"monitoring", "hyp3"}
-        assert ap.loc[others, "approved"].isna().all() and (ap.loc[others, "status"] == "czeka na decyzję autora").all()
-        assert ap.at["thresholds", "open_decisions"] == "-"
-        assert ap.at["regions.nrw_west", "open_decisions"] == "-", "niwelacja NRW: wszystkie decyzje ustalone 2026-10-12"
-        assert ap.at["regions.groningen", "open_decisions"] == "-", "levelling = None to 'nie dotyczy', nie decyzja"
-        assert "max_credits" in ap.at["hyp3", "open_decisions"] and "mintpy.deramp" in ap.at["hyp3", "open_decisions"]
+        assert (ap.loc[["regions.nrw_west", "gnss", "method", "thresholds", "monitoring", "hyp3"], "approved"]
+                == "2026-10-12").all()
+        assert (ap["open_decisions"] == "-").all(), ap[ap["open_decisions"] != "-"]
         assert require_approved(cfg, "egms")["release"] == "2020-2024"
         assert require_approved(cfg, "regions.groningen")["aoi_lonlat"] == (5.8, 52.9, 7.3, 53.6)
-        e = _expect(RuntimeError, require_approved, cfg, "hyp3", match="CHECK_CONFIG['hyp3']")
+        cfg_u = copy.deepcopy(cfg)
+        cfg_u["hyp3"]["approved"] = None
+        cfg_u["hyp3"]["max_credits"] = None
+        e = _expect(RuntimeError, require_approved, cfg_u, "hyp3", match="CHECK_CONFIG['hyp3']")
         assert "max_credits" in str(e)
-        _expect(RuntimeError, require_approved, cfg, "monitoring", match="nie jest zatwierdzona")
+        cfg_u["monitoring"]["approved"] = None
+        _expect(RuntimeError, require_approved, cfg_u, "monitoring", match="nie jest zatwierdzona")
         # sekcja zatwierdzona, ale parametr nadal None (decyzja autora) -> głośny stop przy użyciu
-        _expect(RuntimeError, _decided, cfg["hyp3"], "max_credits", "hyp3", match="max_credits")
+        _expect(RuntimeError, _decided, cfg_u["hyp3"], "max_credits", "hyp3", match="max_credits")
         _expect(KeyError, require_approved, cfg, "regions.berlin", match="berlin")
         _expect(KeyError, require_approved, cfg, "project", match="approved")
-        _expect(RuntimeError, _decided, cfg["hyp3"], "end", "hyp3", match="hyp3")
-        cfg_u = copy.deepcopy(cfg); cfg_u["method"]["approved"] = None
+        cfg_u["method"]["approved"] = None
         _expect(RuntimeError, task_compare_gnss, rt, cfg_u, "groningen", match="method")    # zadanie zatrzymane
-        assert CHECK_CONFIG["monitoring"]["approved"] is None, "test nie może zmieniać konfiguracji repozytorium"
+        assert CHECK_CONFIG["hyp3"]["approved"] == "2026-10-12", "test nie może zmieniać konfiguracji repozytorium"
 
         # 4. Blokada confirm_mb: przed tokenem i siecią; None / inna liczba = RuntimeError z wartością do wpisania.
         cfg_t = copy.deepcopy(CHECK_CONFIG)
         for sec in ("method", "gnss", "thresholds", "monitoring", "hyp3"):
             cfg_t[sec]["approved"] = "SELFTEST"
+        cfg_t["hyp3"].update(max_credits=None, cost_per_job=None)    # blokady decyzji sprawdzane niżej
         cfg_t["project"]["token_path"] = str(tmp / "brak_tokenu.json")
         P = region_paths(rt, cfg_t, "groningen")
         P["plan"].parent.mkdir(parents=True)

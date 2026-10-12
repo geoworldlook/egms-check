@@ -225,7 +225,12 @@ prefiksem strefy 32; Datenformatbeschreibung 07/2023: pliki bez nagłówka — c
 wnioskach E1, przed obliczeniami tego eksperymentu), odniesienie niwelacji `absolute` (wariant główny, jak Even i in. 2024).
 Uwaga: plik `hfp_plzf.csv` w F5 ma datę 21.08.2023 — epoki niwelacji w oknie EGMS 2020–2024 mogą być nieliczne.
 
-Do decyzji autora:
+Zatwierdzone przez autora 2026-10-12 (komplet): `monitoring` (wartości [p]) i `hyp3`: region Groningen, ścieżki 37 i 88,
+okres 2024-01-01 – 2026-09-30, max_credits 10000, cost_per_job 10 (górne oszacowanie), los_check_tol 0,05, MintPy bez
+deramp i bez pływów skorupy, troposfera 'no'. Wszystkie sekcje `CHECK_CONFIG` zatwierdzone; notatnik zatrzymuje się już tylko
+na potwierdzeniach rozmiaru pobrania (`CONFIRM_MB_*`) i liczby zleceń HyP3 (`CONFIRM_JOBS`).
+
+Historia decyzji (wcześniejszy stan listy):
 1. `regions.nrw_west`: prostokąt obszaru (ryc. 14–15 Even 2024), adresy plików niwelacji, kodowanie, EPSG, odniesienie.
 2. `gnss`: reguła E1 z oknem 2020.0–2024.25; `method`: parametry E1.
 3. `thresholds`: w tym `gnss_l2b.k3_definition` (`abs_v_egms` jak E1 albo `abs_dv`; oba z progiem 1,5 mm/rok).
