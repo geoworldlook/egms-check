@@ -190,7 +190,7 @@ def select_stations_aoi(midas: pd.DataFrame, aoi_lonlat: tuple, t_first_max: flo
 # ==============================================================================
 # II. NIWELACJA NRW: CZYTNIKI
 # ==============================================================================
-def _read_nrw_csv(path: Path, encoding: str, columns: list, what: str) -> pd.DataFrame:
+def _read_nrw_csv(path: Path, encoding: str, columns: list, what: str, free_text: str | None) -> pd.DataFrame:
     """
     CSV Geobasis NRW jako tekst (moduł csv, bez konwersji i bez zgadywania przez pandas). Zwraca tylko kolumny
     `columns` (inne kolumny pliku są pomijane), wartości bez spacji na brzegach.
@@ -199,15 +199,33 @@ def _read_nrw_csv(path: Path, encoding: str, columns: list, what: str) -> pd.Dat
     liczbą pól niż nagłówek (np. średnik na końcu wierszy danych - pandas przesunąłby wtedy po cichu kolumny
     o jedną), błędne cudzysłowy, zdublowana nazwa kolumny, brak kolumny (KeyError z listą dostępnych), brak
     wierszy danych, pusty Punktkennzeichen. Puste linie są pomijane.
+    `free_text`: nazwa jedynej kolumny tekstowej w cudzysłowach (Punktliste: "Name des Punktes"; Zeitfolge: None).
+    Rekord, którego moduł csv nie przyjmie (cudzysłów wewnątrz nazwy, np. "Kirche "St. Marien"" - w pliku bez
+    podwojenia), jest rozbierany wg Datenformatbeschreibung: pola przed i po `free_text` nie zawierają średnika,
+    więc dzieli się je od lewej i od prawej, a środek (otoczony cudzysłowami) to nazwa z cudzysłowami w środku
+    bez zmian. Każdy taki rekord jest wypisany (linia, nazwa); rekord, który nie pasuje do tej struktury = ValueError.
     """
     with open(path, newline="", encoding=_require("encoding", encoding)) as f:
         text = f.read().removeprefix("\ufeff")
-    reader = csv.reader(io.StringIO(text, newline=""), delimiter=NRW_SEP, quotechar='"', skipinitialspace=True,
-                        strict=True)
-    try:
-        rows = [(reader.line_num, r) for r in reader if r and not (len(r) == 1 and not r[0].strip())]
-    except csv.Error as e:                     # błędne cudzysłowy: zgłoszone z numerem linii, nie naprawiane
-        raise ValueError(f"{path} ({what}): błędny CSV w linii {reader.line_num}: {e}") from e
+    k_text = None if free_text is None else columns.index(free_text)
+    rows, rebuilt = [], []
+    for ln, line in enumerate(text.splitlines(), start=1):   # rekord = linia (format HFP nie ma pól wieloliniowych)
+        if not line.strip():
+            continue
+        try:
+            r = next(csv.reader([line], delimiter=NRW_SEP, quotechar='"', skipinitialspace=True, strict=True))
+        except csv.Error as e:
+            if k_text is None:
+                raise ValueError(f"{path} ({what}): błędny CSV w linii {ln}: {e}: {line[:120]!r}") from e
+            r = _split_around_text(line, k_text, len(columns))
+            if r is None:
+                raise ValueError(f"{path} ({what}): błędny CSV w linii {ln} ({e}) i rekord nie pasuje do struktury "
+                                 f"{columns} z polem tekstowym '{free_text}': {line[:120]!r}") from e
+            rebuilt.append((ln, r[k_text]))
+        rows.append((ln, r))
+    if rebuilt:
+        print(f"{path.name} ({what}): {len(rebuilt)} rekordów z cudzysłowem wewnątrz pola '{free_text}' rozebranych "
+              f"wg struktury formatu (nazwa bez zmian; kolumna nieużywana w obliczeniach), np. {rebuilt[:5]}")
     if not rows:
         raise ValueError(f"{path} ({what}): plik pusty")
     # Datenformatbeschreibung HFP NRW (07/2023): pliki BEZ wiersza nagłówka, kolumny opisane kolejnością (= columns).
@@ -240,6 +258,31 @@ def _read_nrw_csv(path: Path, encoding: str, columns: list, what: str) -> pd.Dat
     return df
 
 
+def _split_around_text(line: str, k_text: int, n_fields: int) -> list | None:
+    """
+    Rekord HFP z jednym polem tekstowym na pozycji `k_text`: k_text pól przed nim i n_fields-k_text-1 po nim
+    (liczby, daty, Punktkennzeichen - bez średnika; bez cudzysłowu albo całe w cudzysłowach). Zwraca listę pól albo None, gdy linia nie ma
+    tej struktury (za mało średników, cudzysłów poza polem tekstowym, pole tekstowe bez cudzysłowów na brzegach).
+    """
+    n_after = n_fields - k_text - 1
+    head = line.split(NRW_SEP, k_text) if k_text else [line]
+    if len(head) != k_text + 1:
+        return None
+    tail = head[-1].rsplit(NRW_SEP, n_after) if n_after else [head[-1]]
+    if len(tail) != n_after + 1:
+        return None
+    def plain(f: str) -> str | None:                 # pole bez cudzysłowu albo całe w cudzysłowach, bez nich w środku
+        f = f.strip()
+        if len(f) >= 2 and f[0] == f[-1] == '"':
+            f = f[1:-1]
+        return None if '"' in f else f
+    before, mid = [plain(f) for f in head[:-1]], tail[0].strip()
+    after = [plain(f) for f in tail[1:]]
+    if None in before + after or len(mid) < 2 or not (mid.startswith('"') and mid.endswith('"')):
+        return None
+    return before + [mid[1:-1]] + after
+
+
 def _parse_decimal_comma(s: pd.Series, what: str) -> pd.Series:
     """Liczba z przecinkiem dziesiętnym; pusta lub inna wartość = ValueError z przykładami (bez zamiany na NaN)."""
     bad = ~s.str.fullmatch(NRW_NUMBER)
@@ -266,7 +309,7 @@ def read_nrw_points(path: Path, encoding: str) -> pd.DataFrame:
     i Höhe [m, DHHN2016] jako liczby. Name des Punktes i Schwerewert zostają tekstem (nieużywane w obliczeniach).
     Brak kolumny = KeyError z listą dostępnych; zła liczba = ValueError; zdublowany reper = ValueError.
     """
-    df = _read_nrw_csv(path, encoding, NRW_POINT_COLUMNS, "Punktliste")
+    df = _read_nrw_csv(path, encoding, NRW_POINT_COLUMNS, "Punktliste", "Name des Punktes")
     for c in ("Ostwert", "Nordwert", "Höhe"):
         df[c] = _parse_decimal_comma(df[c], f"{path}: kolumna {c}")
     _no_duplicates(df, ["Punktkennzeichen"], f"{path} (Punktliste)")
@@ -278,7 +321,7 @@ def read_nrw_timeseries(path: Path, encoding: str) -> pd.DataFrame:
     Höhenfestpunkt - Punktliste mit Zeitfolge: Punktkennzeichen; Messungsdatum (dd.mm.rrrr); Höhe [m, DHHN2016].
     Jeden wiersz na reper i datę; zdublowana para (reper, data) = ValueError; zła data lub liczba = ValueError.
     """
-    df = _read_nrw_csv(path, encoding, NRW_SERIES_COLUMNS, "Punktliste mit Zeitfolge")
+    df = _read_nrw_csv(path, encoding, NRW_SERIES_COLUMNS, "Punktliste mit Zeitfolge", None)
     df["Messungsdatum"] = _parse_dates(df["Messungsdatum"], f"{path}: kolumna Messungsdatum")
     df["Höhe"] = _parse_decimal_comma(df["Höhe"], f"{path}: kolumna Höhe")
     _no_duplicates(df, ["Punktkennzeichen", "Messungsdatum"], f"{path} (Zeitfolge)")
@@ -778,6 +821,18 @@ def _selftest() -> None:
             _expect_raises(ValueError, read_nrw_points, bad, "utf-8", match="liczbą pól")
         bad.write_text(head + row.replace('"a"', '"a"x') + "\n", encoding="utf-8")
         _expect_raises(ValueError, read_nrw_points, bad, "utf-8", match="błędny CSV w linii 2")
+        # Cudzysłów wewnątrz nazwy bez podwojenia (Colab, hfp_pl.csv linia 2944): rozbiór wg struktury formatu,
+        # nazwa bez zmian, liczby jak zwykle; średnik w takiej nazwie też; Zeitfolge (bez pola tekstowego) głośno.
+        bad.write_text(head + row.replace('"a"', '"Kirche "St. Marien""') + "\n"
+                       + row.replace("B01", "B02").replace('"a"', '"Haus "Alt;Neu" 3"') + "\n", encoding="utf-8")
+        p_q = read_nrw_points(bad, "utf-8")
+        assert list(p_q["Name des Punktes"]) == ['Kirche "St. Marien"', 'Haus "Alt;Neu" 3'], p_q
+        assert list(p_q["Punktkennzeichen"]) == ["B01", "B02"] and p_q["Ostwert"].tolist() == [350000.5, 350000.5]
+        bad.write_text(head + row.replace('"a"', '"Kirche "St. Marien""').replace("350000,5", '"350"000,5"') + "\n",
+                       encoding="utf-8")
+        _expect_raises(ValueError, read_nrw_points, bad, "utf-8", match="nie pasuje do struktury")
+        bad.write_text('B01;01.06.1977;"54,5"x\n', encoding="utf-8")
+        _expect_raises(ValueError, read_nrw_timeseries, bad, "utf-8", match="błędny CSV w linii 1")
         bad.write_text(head.replace("Schwerewert", "Höhe") + row + "\n", encoding="utf-8")
         _expect_raises(ValueError, read_nrw_points, bad, "utf-8", match="zdublowane nazwy")
         bad.write_text("\ufeff" + head.replace("Punktkennzeichen", '"Punktkennzeichen"').replace("Höhe", "Ho\u0308he")
