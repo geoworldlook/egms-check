@@ -21,7 +21,7 @@ Interfejs według docs/plans/Plan_v2_implementacja.md (sekcje 3 i 4.5); cel: doc
          task_levelling         niwelacja NRW: pobranie (step_01.download_file) i czytniki step_06
          task_egms_search       wyszukanie L2B + L3 (step_04.search_plan) i plan pobrania z kontrolą miejsca
          task_egms_download     pobranie po potwierdzeniu rozmiaru (confirm_mb) przez step_04.sync_files
-         task_extract           wycinki L2b (step_02.extract_points), komórki L3 przy punktach i mapa L3 (step_04)
+         task_extract           wycinki L2b (step_04.extract_points_l2b), komórki L3 przy punktach i mapa L3 (step_04)
          task_checks            kontrole A1-A3, A5 (step_02) i siatka L3 (step_04.l3_grid_offsets); błąd = stop
          task_compare_gnss      EGMS L2b (LOS) i L3 (U) kontra GNSS (step_03), werdykt K1-K4
          task_compare_levelling EGMS L3 (U) kontra niwelacja (step_06), kryteria N1-N4
@@ -1130,7 +1130,7 @@ def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
     if len(l2):
         parts, maps = [], []
         for r in l2.itertuples(index=False):
-            p = s2.extract_points(raw / r.filename, pts_xy, m["extract_radius_m"], e["chunksize"])
+            p = s4.extract_points_l2b(raw / r.filename, pts_xy, m["extract_radius_m"], e["chunksize"], s4.L2B_USED)
             print(f"{r.filename}: {len(p)} punktów w promieniu {m['extract_radius_m']} m")
             if len(p):
                 parts.append(p.assign(track=int(r.relativeOrbit), direction=r.direction))

@@ -577,11 +577,48 @@ def l3_grid_offsets(cells: pd.DataFrame, cell_m: float) -> pd.DataFrame:
 def extract_l2b_velocity_map(zip_path: Path, aoi_3035: tuple, chunksize: int) -> pd.DataFrame:
     """
     Punkty pliku L2b w prostokącie EPSG:3035: pid, easting, northing, mean_velocity (prędkość LOS [mm/rok],
-    ujemna = oddalanie od satelity). Sprawdzane są wszystkie kolumny L2 z step_02 (plik L3 podany omyłkowo = KeyError).
+    ujemna = oddalanie od satelity). Sprawdzane są kolumny L2B_USED (plik L3 podany omyłkowo = KeyError).
     """
     header = _csv_header(zip_path, l3_csv_name(zip_path))
-    _require(header.columns, L2_REQUIRED, str(zip_path))
+    _require_l2b(header.columns, L2B_USED, zip_path)
     return _read_rect(zip_path, L2B_MAP_COLUMNS, aoi_3035, chunksize)
+
+
+# Wydanie 2020-2024 (pierwszy prawdziwy przebieg w Colab, 2026-10-12): pliki L2b NIE mają kolumny 'height',
+# którą wymaga step_02.L2_REQUIRED (spisane z Product Description dla wcześniejszych wydań, F5). 'height' nie jest
+# używana w żadnych obliczeniach, więc wymagamy tylko kolumn używanych: geometria punktu, wektor LOS i kąt padania
+# (kontrole A1-A3), prędkość (mapa). step_02 zostaje bez zmian (E1, wydanie 2019-2023).
+L2B_USED = ["pid", "easting", "northing", "mean_velocity", "los_east", "los_north", "los_up", "incidence_angle"]
+
+
+def _require_l2b(columns, required: list, zip_path) -> None:
+    missing = [c for c in required if c not in columns]
+    if missing:
+        raise KeyError(f"{zip_path}: brak kolumn {missing}; kolumny w pliku: {list(columns)}")
+
+
+def extract_points_l2b(zip_path: Path, stations: pd.DataFrame, radius_m: float, chunksize: int,
+                       required: list) -> pd.DataFrame:
+    """
+    Jak step_02.extract_points (ta sama logika i ten sam wynik), ale z listą wymaganych kolumn jako parametrem
+    (L2B_USED dla wydania 2020-2024) i z listą kolumn pliku w komunikacie błędu. Punkty w promieniu radius_m od
+    stacji (site, x_3035, y_3035); punkt blisko dwóch stacji pojawia się dwa razy.
+    """
+    csv_name = l3_csv_name(zip_path)            # jedyny CSV w zipie (ValueError przy innym stanie)
+    parts = []
+    with zipfile.ZipFile(zip_path) as zf, zf.open(csv_name) as f:
+        for chunk in pd.read_csv(f, chunksize=chunksize):
+            _require_l2b(chunk.columns, required, zip_path)
+            for st in stations.itertuples():
+                d = np.hypot(chunk["easting"].to_numpy() - st.x_3035, chunk["northing"].to_numpy() - st.y_3035)
+                near = d <= radius_m
+                if near.any():
+                    parts.append(chunk[near].assign(site=st.site, distance_m=d[near]))
+    if not parts:
+        return pd.DataFrame()
+    out = pd.concat(parts, ignore_index=True)
+    out["source_file"] = Path(zip_path).name
+    return out
 
 
 # ==============================================================================
@@ -870,6 +907,21 @@ def _selftest() -> None:
         assert "los_east" in _expect(KeyError, extract_l2b_velocity_map, z1, rect, 4)
         ex = extract_points(zb, pd.DataFrame({"site": ["S"], "x_3035": [4_150_100.0], "y_3035": [3_350_100.0]}), 50.0, 7)
         assert len(ex) == 5
+        # 10. Wydanie 2020-2024: L2b bez kolumny 'height' (prawdziwy plik, Colab 2026-10-12). extract_points_l2b daje
+        #     ten sam wynik co step_02.extract_points na pliku z 'height'; brak używanej kolumny = KeyError z listą kolumn.
+        st1 = pd.DataFrame({"site": ["S"], "x_3035": [4_150_100.0], "y_3035": [3_350_100.0]})
+        with zipfile.ZipFile(zb) as zf:
+            full = pd.read_csv(io.BytesIO(zf.read(l3_csv_name(zb))))
+        zn = Path(tmp) / "EGMS_L2b_015_0123_IW2_VV_2020_2024_noheight.zip"
+        zn.write_bytes(_zip_bytes({"p.csv": full.drop(columns=["height"]).to_csv(index=False).encode()}))
+        e_new = extract_points_l2b(zn, st1, 50.0, 7, L2B_USED)
+        e_old = extract_points(zb, st1, 50.0, 7).drop(columns=["height", "source_file"])
+        pd.testing.assert_frame_equal(e_new.drop(columns=["source_file"]), e_old)   # jak step_02
+        _expect(KeyError, extract_points, zn, st1, 50.0, 7)            # E1 (step_02) wymaga 'height' - bez zmian
+        zl = Path(tmp) / "EGMS_L2b_015_0123_IW2_VV_2020_2024_nolos.zip"
+        zl.write_bytes(_zip_bytes({"p.csv": full.drop(columns=["height", "los_up"]).to_csv(index=False).encode()}))
+        msg = _expect(KeyError, extract_points_l2b, zl, st1, 50.0, 7, L2B_USED)
+        assert "los_up" in msg and "kolumny w pliku" in msg and "incidence_angle" in msg
     print("SELFTEST step_04_egms_aoi OK")
 
 
