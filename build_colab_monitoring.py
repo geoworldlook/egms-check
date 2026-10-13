@@ -72,7 +72,10 @@ Drugie wydanie EGMS (`regions.{region}.levelling.egms_check`, decyzja autora 202
 te same repery (wszystkie z parą epok w oknie wydania, bez wyboru według EGMS), te same kryteria N1–N4 i progi.
 Informacyjnie (bez progów): niecki według niwelacji (|v_niw| ≥ `strong_motion_mm_yr`) i odległość reperu do najbliższej
 stacji GNSS. Niecki odkrywek są dużo mniejsze niż siatka kalibracji EGMS do GNSS (ok. 50 km), więc zgodność w niecce
-pokazuje, że EGMS mierzy ruch, a nie tylko powtarza model GNSS. Pobranie wymaga wpisania liczby MB z planu."""),
+pokazuje, że EGMS mierzy ruch, a nie tylko powtarza model GNSS. Pobranie wymaga wpisania liczby MB z planu.
+Wariant dodatkowy (decyzja autora 2026-10-13, metodyka F4 sekcja 10): oba zbiory względem reperów stabilnych według
+niwelacji (|Δh| ≤ 2 mm); usuwa wspólne przesunięcie układów odniesienia. Policzony po obejrzeniu wariantu głównego,
+więc raportowany obok niego, bez zmiany werdyktu."""),
             ("code", f"""C_{region.upper()} = levelling_check_paths(rt, cfg, '{region}')
 run_task(rt, 'levelling_egms_search_{region}', task_levelling_egms_search, rt, cfg, '{region}')
 if C_{region.upper()}['plan'].exists():
@@ -82,9 +85,15 @@ if C_{region.upper()}['plan'].exists():
             ("code", f"""run_task(rt, 'levelling_egms_download_{region}', task_levelling_egms_download, rt, cfg, '{region}', {var}_LEVELLING)
 run_task(rt, 'levelling_extract_{region}', task_levelling_extract, rt, cfg, '{region}')
 run_task(rt, 'compare_levelling_check_{region}', task_compare_levelling_check, rt, cfg, '{region}')
+print('Wariant główny (absolute): kryteria N1-N4 i podział informacyjny')
 display(pd.read_csv(C_{region.upper()}['summary']))
 display(pd.read_csv(C_{region.upper()}['groups']).round(2))
-display(Image(str(C_{region.upper()}['figure'])))"""),
+display(Image(str(C_{region.upper()}['figure'])))
+print('Wariant dodatkowy (względem reperów stabilnych według niwelacji; policzony po wyniku absolute, werdykt główny bez zmian)')
+print(C_{region.upper()}['offset_rel'].read_text())
+display(pd.read_csv(C_{region.upper()}['summary_rel']))
+display(pd.read_csv(C_{region.upper()}['groups_rel']).round(2))
+display(Image(str(C_{region.upper()}['figure_rel'])))"""),
         ]
     return cells
 

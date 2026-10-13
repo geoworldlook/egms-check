@@ -24,6 +24,9 @@ Pomiar naziemny dla pokazu EGMS 2020-2024 (docs/plans/Plan_v2_implementacja.md, 
        Informacyjnie (bez progów; autor 2026-10-12): podział reperów na niecki (|v_niw| >= próg z konfiguracji)
        i pozostałe oraz odległość reperu do najbliższej stacji GNSS (sieć NGL z pliku MIDAS) - czy zgodność EGMS
        z niwelacją zależy od bliskości stacji GNSS, którymi kalibrowany jest L2b/L3.
+       Wariant względny (dodatkowy; autor 2026-10-13, metodyka F4 sekcja 10): oba zbiory względem grupy reperów
+       stabilnych według niwelacji (mediana prędkości grupy odjęta osobno od niwelacji i od EGMS); usuwa wspólne
+       przesunięcie układów odniesienia, werdyktu wariantu głównego nie zmienia.
   VII. --selftest bez sieci, na danych syntetycznych o znanej odpowiedzi; --describe-nrw (opis plików NRW).
 
 Literatura: Even, Westerhaus, Kutterer 2024 (EGMS kontra niwelacja NRW, rozdz. 4.3; mediana, MAD x 1,4826);
@@ -792,6 +795,58 @@ def levelling_groups(res: pd.DataFrame, strong_mm_yr: float, sign_min_mm: float)
     return pd.DataFrame(rows, columns=GROUP_COLUMNS)
 
 
+RELATIVE_VARIANTS = ("stable_group_median",)
+MEDIAN_SE_FACTOR = 1.2533                 # błąd standardowy mediany ~ 1,2533 sigma / sqrt(n) (rozkład normalny)
+
+
+def relative_to_stable_group(res: pd.DataFrame, stable_max_lev_mm: float) -> tuple:
+    """
+    Wariant względny porównania z niwelacją (dodatkowy; metodyka F4 sekcja 10: d_rel = d_P - d_ref, odniesienie
+    wspólne dla obu zbiorów). Grupa odniesienia = wiersze 'ok' z |dh_lev| <= stable_max_lev_mm (wybór według
+    NIWELACJI, próg N3 z konfiguracji; nie według EGMS). Odniesienie grupy = mediana prędkości w grupie, osobno dla
+    niwelacji (v_lev) i dla EGMS (v_egms_dh); każdy reper spoza grupy: dh_* - mediana * dt_yr (epoki reperów różnią
+    się o dni, więc grupa jest opisana prędkością, a nie wspólnymi epokami; mediana odporna na pojedyncze repery).
+    Repery grupy dostają status z powodem (nie biorą udziału w ocenie). Kolumny ref_dh_* = odjęta poprawka [mm].
+    Zwraca (wynik w układzie COMPARE_COLUMNS, opis: n grupy, mediany grupy, przesunięcie EGMS - niwelacja z błędem
+    standardowym mediany i MAD x 1,4826 różnicy prędkości w grupie). Grupa pusta albo < 3 repery = ValueError.
+    """
+    _require_columns(res, COMPARE_COLUMNS, "wynik compare_levelling")
+    thr = float(_require("stable_max_lev_mm", stable_max_lev_mm))
+    if not thr > 0:
+        raise ValueError(f"stable_max_lev_mm musi być dodatnie, jest {thr}")
+    out = res.copy()
+    ok = out["status"] == "ok"
+    vals = ["dt_yr", "dh_lev_mm", "dh_egms_mm", "v_lev_mm_yr", "v_egms_dh_mm_yr"]
+    if not np.isfinite(out.loc[ok, vals].to_numpy(float)).all():
+        raise ValueError(f"Wiersze 'ok' z NaN w {vals}: wynik compare_levelling niespójny")
+    grp = ok & (out["dh_lev_mm"].abs() <= thr)
+    n = int(grp.sum())
+    if n < 3:
+        raise ValueError(f"Grupa odniesienia (|Δh_niw| <= {thr} mm) ma {n} reperów; potrzebne co najmniej 3")
+    g = out[grp]
+    m_lev, m_egms = float(g["v_lev_mm_yr"].median()), float(g["v_egms_dh_mm_yr"].median())
+    d = robust_stats((g["v_egms_dh_mm_yr"] - g["v_lev_mm_yr"]).to_numpy())
+    info = {"n_group": n, "group_rule": f"|Δh_niw| <= {thr:g} mm (status 'ok')",
+            "median_v_lev_group_mm_yr": m_lev, "median_v_egms_group_mm_yr": m_egms,
+            "offset_egms_minus_lev_mm_yr": m_egms - m_lev,
+            "offset_se_mm_yr": MEDIAN_SE_FACTOR * d["mad_sigma"] / np.sqrt(n),
+            "group_mad_dv_mm_yr": d["mad_sigma"]}
+    rest = ok & ~grp
+    dt = out.loc[rest, "dt_yr"].to_numpy(float)
+    out.loc[rest, "ref_dh_lev_mm"], out.loc[rest, "ref_dh_egms_mm"] = m_lev * dt, m_egms * dt
+    out.loc[rest, "dh_lev_mm"] = out.loc[rest, "dh_lev_mm"] - m_lev * dt
+    out.loc[rest, "dh_egms_mm"] = out.loc[rest, "dh_egms_mm"] - m_egms * dt
+    out["diff_mm"] = out["dh_egms_mm"] - out["dh_lev_mm"]
+    out["v_lev_mm_yr"], out["v_egms_dh_mm_yr"] = out["dh_lev_mm"] / out["dt_yr"], out["dh_egms_mm"] / out["dt_yr"]
+    out.loc[grp, ["dh_lev_mm", "dh_egms_mm", "diff_mm", "v_lev_mm_yr", "v_egms_dh_mm_yr"]] = np.nan
+    out.loc[grp, "status"] = f"NaN: reper w grupie odniesienia ({info['group_rule']})"
+    out["reference"] = f"stable_group_median:{info['group_rule']}"
+    print(f"Wariant względny: grupa {n} reperów ({info['group_rule']}); mediana v grupy: niwelacja {m_lev:+.2f}, "
+          f"EGMS {m_egms:+.2f} mm/rok; przesunięcie EGMS - niwelacja {m_egms - m_lev:+.2f} "
+          f"± {info['offset_se_mm_yr']:.2f} mm/rok; ocenianych reperów: {int(rest.sum())}")
+    return out[COMPARE_COLUMNS], info
+
+
 # ==============================================================================
 # VII. TEST OFFLINE I OPIS PLIKÓW NRW
 # ==============================================================================
@@ -1115,6 +1170,29 @@ def _selftest() -> None:
     assert (gd["dist_station_km_min"] == [8.0, 8.0, 20.0]).all() and gd["dist_station_km_median"].iat[1] == 10.0, gd
     _expect_raises(ValueError, levelling_groups, rg.assign(dist_station_km=[12.0, np.nan, 30.0, 20.0, 1.0]), 10.0, 6.0,
                    match="brak odległości")
+    # Wariant względny: EGMS = niwelacja + stałe przesunięcie -2 mm/rok -> po odjęciu mediany grupy stabilnej różnice 0.
+    rr = pd.DataFrame({"benchmark_id": list("abcdefg"), "t1": pd.Timestamp("2019-05-10"), "t2": pd.Timestamp("2022-05-10"),
+                       "dt_yr": [3.0, 3.0, 3.0, 3.0, 2.9, 3.1, 3.0], "dh_lev_mm": [0.5, -1.0, 1.5, -60.0, -30.0, 9.0, np.nan],
+                       "ref_dh_lev_mm": np.nan, "ref_dh_egms_mm": np.nan, "reference": "absolute",
+                       "status": ["ok"] * 6 + ["NaN: brak szeregu EGMS (pion) przy reperze"]})
+    rr["dh_egms_mm"] = rr["dh_lev_mm"] - 2.0 * rr["dt_yr"]
+    rr["diff_mm"] = rr["dh_egms_mm"] - rr["dh_lev_mm"]
+    rr["v_lev_mm_yr"], rr["v_egms_dh_mm_yr"] = rr["dh_lev_mm"] / rr["dt_yr"], rr["dh_egms_mm"] / rr["dt_yr"]
+    rr = rr[COMPARE_COLUMNS]
+    rel, inf = relative_to_stable_group(rr, 2.0)
+    assert inf["n_group"] == 3 and abs(inf["offset_egms_minus_lev_mm_yr"] + 2.0) < 1e-9 and inf["offset_se_mm_yr"] < 1e-9, inf
+    okr = rel[rel["status"] == "ok"]
+    assert list(okr["benchmark_id"]) == ["d", "e", "f"] and np.allclose(okr["diff_mm"], 0.0, atol=1e-9), okr
+    assert np.isclose(okr["dh_lev_mm"].iat[0], -60.0 - inf["median_v_lev_group_mm_yr"] * 3.0)   # niwelacja też względem grupy
+    assert rel.loc[rel["benchmark_id"] == "a", "status"].iat[0].startswith("NaN: reper w grupie")
+    assert rel.loc[rel["benchmark_id"] == "g", "status"].iat[0].startswith("NaN: brak szeregu")      # powód zachowany
+    assert rr["diff_mm"].iat[3] == -6.0, "wejście nie może się zmienić"
+    sr = summarize_levelling(rel, {"median_abs_dh_mm": 5.0, "sign_min_signal_mm": 6.0, "sign_agreement": 0.9,
+                                   "stable_max_lev_mm": 2.0, "stable_abs_dh_mm": 5.0, "velocity_bias_mm_yr": 1.5})
+    assert sr.loc[0, "spełnione"] and sr.loc[1, "spełnione"] and sr.loc[3, "spełnione"], sr
+    _expect_raises(ValueError, relative_to_stable_group, rr[rr["benchmark_id"].isin(list("adefg"))], 2.0, match="co najmniej 3")
+    _expect_raises(ValueError, relative_to_stable_group, rr, 0.0, match="dodatnie")
+    _expect_raises(KeyError, relative_to_stable_group, rr.drop(columns="reference"), 2.0, match="reference")
     # Format oficjalny (Datenformatbeschreibung HFP NRW, 07/2023): przykład z dokumentu, bez nagłówka, UTF-8,
     # średnik w nazwie w cudzysłowie, Ostwert z prefiksem strefy 32 i samym przecinkiem; EPSG:4647 -> okolice Lotte.
     with tempfile.TemporaryDirectory() as td_doc:

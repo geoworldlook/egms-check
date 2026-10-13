@@ -110,6 +110,7 @@ SITES_COLUMNS = ["site", "site_type", "group", "lat_deg", "lon_deg", "x_3035", "
 L2B_EXTRA = ["site", "distance_m", "source_file", "track", "direction"]
 GNSS_REFERENCE = "GNSS_NGL"
 LEVELLING_REFERENCE = "LEVELLING_NRW"
+LEVELLING_REFERENCE_REL = "LEVELLING_NRW_STABLE_GROUP"     # wariant względny (oba zbiory względem grupy stabilnej)
 GNSS_METRICS = ["v_egms", "v_gnss_los", "dv", "sigma_v_egms", "sigma_v_gnss", "series_diff_std", "corr",
                 "frac_release", "frac_dates"]
 LEVELLING_METRICS = ["dh_lev_mm", "dh_egms_mm", "diff_mm", "v_lev_mm_yr", "v_egms_dh_mm_yr"]
@@ -473,7 +474,7 @@ CHECK_CONFIG: Dict[str, Any] = {
                 "crs_epsg": 4647,
                 "epoch_rule": "first_last_in_release",   # [p]
                 "min_epoch_span_yr": 1.0,                # [p]
-                "reference": {"type": "absolute"},       # autor 2026-10-12: wariant główny bez wspólnego reperu (jak Even i in. 2024)
+                "reference": {"type": "absolute"},       # autor 2026-10-12: wariant główny bez wspólnego reperu (zgodność z metodą Even i in. 2024 niezweryfikowana, F10 pkt 8)
                 "read_method": "linear_interpolation",   # dodane [p] (prototyp read_at_epochs; bez ekstrapolacji)
                 # Autor 2026-10-12, po diagnostyce epok (kampania niwelacji 05.2019 -> 05.2022: 1491 reperów z dwiema
                 # epokami w oknie 2019-2023, 13 w oknie 2020-2024): porównanie z niwelacją DODATKOWO z wydaniem
@@ -485,6 +486,11 @@ CHECK_CONFIG: Dict[str, Any] = {
                 # Autor 2026-10-12: podział INFORMACYJNY (bez progu i bez werdyktu) na niecki |v_niw| >= 10 mm/rok
                 # i pozostałe, według niwelacji; z odległością reperu do najbliższej stacji GNSS (NGL, plik MIDAS).
                 "strong_motion_mm_yr": 10.0,
+                # Autor 2026-10-13: wariant DODATKOWY (wariant główny 'absolute' i jego werdykt bez zmian) - oba zbiory
+                # względem grupy reperów stabilnych według niwelacji (|Δh_niw| <= thresholds.levelling_l3u.
+                # stable_max_lev_mm), mediana prędkości grupy; metodyka F4 sekcja 10 (zapisana przed obliczeniami),
+                # policzony po obejrzeniu wyniku 'absolute' (stałe przesunięcie ok. -2 mm/rok) - tak opisywać w raporcie.
+                "relative_variant": "stable_group_median",
             },
             "approved": "2026-10-12",                # autor 2026-10-12: obszar 5,9-7,0 E, 50,7-51,3 N; egms_check 2019-2023
         },
@@ -698,7 +704,12 @@ def levelling_check_paths(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) 
             "summary": out / f"levelling_summary_{region}_{tag}.csv",
             "status": out / f"levelling_egms_status_{region}_{tag}.csv",
             "groups": out / f"levelling_groups_{region}_{tag}.csv",
-            "figure": P["figures"] / f"{region}_levelling_scatter_{tag}.png"}
+            "figure": P["figures"] / f"{region}_levelling_scatter_{tag}.png",
+            "compare_rel": out / f"levelling_compare_{region}_{tag}_relative.csv",
+            "summary_rel": out / f"levelling_summary_{region}_{tag}_relative.csv",
+            "groups_rel": out / f"levelling_groups_{region}_{tag}_relative.csv",
+            "offset_rel": out / f"levelling_offset_{region}_{tag}_relative.json",
+            "figure_rel": P["figures"] / f"{region}_levelling_scatter_{tag}_relative.png"}
 
 
 def hyp3_paths(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, track: str) -> Dict[str, Path]:
@@ -1663,23 +1674,54 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
     xy = lev.drop_duplicates("benchmark_id").rename(columns={"benchmark_id": "id"})[["id", "x_3035", "y_3035"]]
     xy["id"] = xy["id"].astype(str)
     ok_ids = set(res.loc[res["status"] == "ok", "benchmark_id"].astype(str))
-    near = s6.nearest_station_km(xy[xy["id"].isin(ok_ids)], _latest_midas(rt, cfg))
-    res = res.assign(benchmark_id=res["benchmark_id"].astype(str)).merge(
-        near.rename(columns={"id": "benchmark_id"}), on="benchmark_id", how="left")
-    res.to_csv(C["compare"], index=False, date_format="%Y-%m-%d")
-    groups = s6.levelling_groups(res, strong, th["sign_min_signal_mm"])
-    groups.to_csv(C["groups"], index=False)
-    print("Podział informacyjny (bez progów; niecki według niwelacji):")
-    print(groups.to_string(index=False))
-    fig = s7.plot_levelling_scatter(res, float(strong), f"EGMS L3 vertical {q['release']} vs levelling, {region}")
-    C["figure"].parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(C["figure"], dpi=150, facecolor=fig.get_facecolor())
-    plt.close(fig)
+    near = s6.nearest_station_km(xy[xy["id"].isin(ok_ids)], _latest_midas(rt, cfg)).rename(columns={"id": "benchmark_id"})
+    res = res.assign(benchmark_id=res["benchmark_id"].astype(str))
+
+    def with_dist(df: pd.DataFrame) -> pd.DataFrame:
+        return df.assign(benchmark_id=df["benchmark_id"].astype(str)).merge(near, on="benchmark_id", how="left")
+
+    def report(df: pd.DataFrame, compare_p: Path, groups_p: Path, fig_p: Path, title: str) -> pd.DataFrame:
+        df.to_csv(compare_p, index=False, date_format="%Y-%m-%d")
+        groups = s6.levelling_groups(df, strong, th["sign_min_signal_mm"])
+        groups.to_csv(groups_p, index=False)
+        print("Podział informacyjny (bez progów; niecki według niwelacji):")
+        print(groups.to_string(index=False))
+        fig = s7.plot_levelling_scatter(df, float(strong), title)
+        fig_p.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(fig_p, dpi=150, facecolor=fig.get_facecolor())
+        plt.close(fig)
+        return groups
+
+    print(f"=== Wariant główny 'absolute' ({source}) ===")
+    groups = report(with_dist(res), C["compare"], C["groups"], C["figure"],
+                    f"EGMS L3 vertical {q['release']} vs levelling, {region}")
+    # Wariant dodatkowy (autor 2026-10-13): oba zbiory względem grupy stabilnej według niwelacji; werdykt główny bez zmian.
+    variant = _decided(reg["levelling"], "relative_variant", path)
+    if variant not in s6.RELATIVE_VARIANTS:
+        raise ValueError(f"CHECK_CONFIG['{path}']['relative_variant'] = {variant!r}: dozwolone {s6.RELATIVE_VARIANTS}")
+    print(f"=== Wariant dodatkowy '{variant}' (metodyka F4 sekcja 10; policzony po wyniku 'absolute') ===")
+    rel, info = s6.relative_to_stable_group(res[s6.COMPARE_COLUMNS], th["stable_max_lev_mm"])
+    summ_rel = s6.summarize_levelling(rel, th)
+    summ_rel.to_csv(C["summary_rel"], index=False)
+    print(summ_rel.to_string(index=False))
+    C["offset_rel"].write_text(json.dumps({"variant": variant, "source": source, **info}, indent=1, ensure_ascii=False),
+                               encoding="utf-8")
+    report(with_dist(rel), C["compare_rel"], C["groups_rel"], C["figure_rel"],
+           f"EGMS L3 vertical {q['release']} vs levelling, {region}, relative to stable benchmarks")
+    m = require_approved(cfg, "method")
+    reg_rows = pd.concat([reg_rows, _metric_rows(rel.assign(product=source, site=rel["benchmark_id"], track="L3",
+                                                            radius_m=_l3_radius(m), n=1.0),
+                                                 region, LEVELLING_METRICS, "n", LEVELLING_REFERENCE_REL)],
+                         ignore_index=True)
+    crit_rel = "; ".join(f"{k[:2]}: {v}" for k, v in zip(summ_rel["kryterium"], summ_rel["spełnione"])
+                         if str(k)[:1] == "N" and str(k)[1:2].isdigit())
     bowls = groups.iloc[1]
     btxt = (f"niecki: n {int(bowls['n'])}, mediana |diff| {bowls['median_abs_diff_mm']:.1f} mm, najbliższa stacja GNSS "
             f"(mediana) {bowls['dist_station_km_median']:.1f} km" if bowls["n"] else "niecki: brak reperów")
     return {"message": f"{source}: {int((res['status'] == 'ok').sum())} z {len(res)} reperów 'ok' (okno {t0.date()} - "
-                       f"{t1.date()}); {crit}; {btxt}; rycina {C['figure'].name}",
+                       f"{t1.date()}); główny 'absolute': {crit}; {btxt}; dodatkowy względny (grupa {info['n_group']}, "
+                       f"przesunięcie {info['offset_egms_minus_lev_mm_yr']:+.2f} ± {info['offset_se_mm_yr']:.2f} mm/rok): "
+                       f"{crit_rel}; ryciny {C['figure'].name}, {C['figure_rel'].name}",
             "registry": {"gwl_validation_metrics": reg_rows}}
 
 
@@ -2212,9 +2254,11 @@ def task_summary(rt: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
         if cfg["regions"][region].get("levelling") is not None:
             C = levelling_check_paths(rt, cfg, region)
             rel = cfg["regions"][region]["levelling"]["egms_check"]["release"]
-            for key in ("summary", "groups"):
+            for key in ("summary", "groups", "summary_rel", "groups_rel"):
                 if C[key].exists():
                     r[f"levelling_check_{key}"] = pd.read_csv(C[key])
+            if C["offset_rel"].exists():
+                r["levelling_check_offset_rel"] = json.loads(C["offset_rel"].read_text(encoding="utf-8"))
             if "levelling_check_summary" in r:
                 r["levelling_check_release"] = rel
         regions[region] = r
@@ -2252,6 +2296,16 @@ def task_summary(rt: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
             if "levelling_check_groups" in r:
                 parts += [f"### EGMS L3 {rel} kontra niwelacja: podział informacyjny (bez progów)",
                           _md_table(r["levelling_check_groups"]), ""]
+            if "levelling_check_summary_rel" in r:
+                off = r.get("levelling_check_offset_rel", {})
+                parts += [f"### EGMS L3 {rel} kontra niwelacja: wariant DODATKOWY względem grupy stabilnej "
+                          f"(policzony po wyniku 'absolute'; werdykt główny bez zmian)",
+                          f"Grupa: {off.get('n_group')} reperów, {off.get('group_rule')}; przesunięcie EGMS - niwelacja "
+                          f"{off.get('offset_egms_minus_lev_mm_yr', float('nan')):+.2f} ± "
+                          f"{off.get('offset_se_mm_yr', float('nan')):.2f} mm/rok.", "",
+                          _md_table(r["levelling_check_summary_rel"]), ""]
+                if "levelling_check_groups_rel" in r:
+                    parts += [_md_table(r["levelling_check_groups_rel"]), ""]
         for k, v in r.items():
             if k.startswith("hyp3_align_"):
                 parts += [f"### Etap B: dowiązanie do EGMS ({k})", _md_table(v), ""]
@@ -2417,6 +2471,8 @@ def _selftest() -> None:
         cfg_b = copy.deepcopy(cfg_t)
         cfg_b["regions"]["nrw_west"]["levelling"]["strong_motion_mm_yr"] = None
         _expect(RuntimeError, task_compare_levelling_check, rt, cfg_b, "nrw_west", match="strong_motion_mm_yr")
+        assert C["compare_rel"].name == "levelling_compare_nrw_west_2019_2023_relative.csv"
+        assert CHECK_CONFIG["regions"]["nrw_west"]["levelling"]["relative_variant"] == "stable_group_median"
         assert CHECK_CONFIG["regions"]["nrw_west"]["levelling"]["egms_check"]["release"] == "2019-2023"
 
         # 5. Blokada confirm_jobs: liczba zleceń z planu ścieżki, przed danymi logowania Earthdata.

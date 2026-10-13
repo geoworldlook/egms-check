@@ -222,7 +222,7 @@ Zatwierdzone przez autora 2026-10-12: `regions.nrw_west` (obszar 5,9–7,0° E, 
 2020.0–2024.25), `method` (parametry E1), `thresholds` (progi [p]). W tych sekcjach nadal nieustalone (notatnik zatrzyma się
 przy użyciu): brak. Niwelacja NRW (autor 2026-10-12): adresy `hfp_pl.csv` i `hfp_plzf.csv`, UTF-8, EPSG:4647 (Ostwert z
 prefiksem strefy 32; Datenformatbeschreibung 07/2023: pliki bez nagłówka — czytnik rozpoznaje to jawnie). Autor 2026-10-12: `k3_definition = 'abs_dv'` (wybór po
-wnioskach E1, przed obliczeniami tego eksperymentu), odniesienie niwelacji `absolute` (wariant główny, jak Even i in. 2024).
+wnioskach E1, przed obliczeniami tego eksperymentu), odniesienie niwelacji `absolute` (wariant główny; zgodność z metodą Even i in. 2024 niezweryfikowana — F10, sekcja 5).
 Uwaga: plik `hfp_plzf.csv` w F5 ma datę 21.08.2023 — epoki niwelacji w oknie EGMS 2020–2024 mogą być nieliczne.
 
 Zatwierdzone przez autora 2026-10-12 (komplet): `monitoring` (wartości [p]) i `hyp3`: region Groningen, ścieżki 37 i 88,
@@ -241,6 +241,11 @@ Autor 2026-10-12, po pełnym przebiegu i diagnostyce epok niwelacji NRW (13 repe
 Zadania: `task_levelling_egms_search`, `task_levelling_egms_download` (`CONFIRM_MB_NRW_WEST_LEVELLING`),
 `task_levelling_extract`, `task_compare_levelling_check`; wyniki `levelling_*_nrw_west_2019_2023.csv` i rycina
 `nrw_west_levelling_scatter_2019_2023.png`.
+
+Autor 2026-10-13: wariant **dodatkowy** porównania z niwelacją 2019–2023 — oba zbiory względem grupy reperów stabilnych
+według niwelacji (|Δh_niw| ≤ 2 mm, mediana prędkości grupy; metodyka F4 sekcja 10), `regions.nrw_west.levelling.
+relative_variant = 'stable_group_median'`. Policzony po obejrzeniu wyniku `absolute` (stałe przesunięcie ok. −2 mm/rok),
+raportowany obok niego; werdykt wariantu głównego bez zmian. Weryfikacja informacji o przypadku: `docs/evidence/F10_NRW_niwelacja_EGMS.md`.
 
 Historia decyzji (wcześniejszy stan listy):
 1. `regions.nrw_west`: prostokąt obszaru (ryc. 14–15 Even 2024), adresy plików niwelacji, kodowanie, EPSG, odniesienie.

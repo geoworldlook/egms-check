@@ -49,6 +49,7 @@ assert CHECK_CONFIG['hyp3']['tracks'] == ['37', '88'], 'kopia testowa nie może 
 display(approvals_table(cfg))'''
 
 CHECK = f'''# HARNESS (test): kontrola znanej odpowiedzi na danych syntetycznych (egms_harness_lib); wartości testowe, nie wynik.
+import json
 import egms_harness_lib as Lh
 from step_05_colab_run import registry_read
 from step_07_monitoring import read_long
@@ -93,6 +94,14 @@ assert cc.at[Lh.bench_id('B001'), 'nearest_station'] == 'N001', cc['nearest_stat
 gp = pd.read_csv(Cn['groups'])
 assert list(gp['n']) == [13, 2, 11] and gp['median_abs_diff_mm'].iat[1] < 3.0 and gp['sign_agreement'].iat[1] == 1.0, gp
 assert Cn['figure'].stat().st_size > 10000 and Path(Cn['l3_cells']).exists()
+# Wariant względny: dane syntetyczne bez przesunięcia układów -> przesunięcie grupy stabilnej ok. 0, N1 i N4 spełnione.
+off = json.loads(Cn['offset_rel'].read_text())
+assert off['n_group'] >= 3 and abs(off['offset_egms_minus_lev_mm_yr']) < 0.5, off
+sr = pd.read_csv(Cn['summary_rel'])
+assert bool(sr.loc[sr['kryterium'].str[:2] == 'N1', 'spełnione'].iat[0]) and bool(sr.loc[sr['kryterium'].str[:2] == 'N4', 'spełnione'].iat[0]), sr
+cr = pd.read_csv(Cn['compare_rel'], dtype={{'benchmark_id': str}})
+assert (cr['status'] == 'ok').sum() == 13 - off['n_group'] and cr['status'].str.startswith('NaN: reper w grupie').sum() == off['n_group'], cr['status']
+assert Cn['figure_rel'].stat().st_size > 10000 and Cn['groups_rel'].exists()
 assert 'EGMS_L3U_2019_2023' in set(registry_read(rt, 'gwl_validation_metrics')['product'])
 lg, ln_ = read_long(G['long']), read_long(N['long'])
 assert {{'EGMS_L2b_2020_2024', 'EGMS_L3U_2020_2024', 'GNSS_NGL_LOS', 'GNSS_NGL_U', 'S1_HYP3_MINTPY'}} <= set(lg['source']), set(lg['source'])

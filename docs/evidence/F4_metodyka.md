@@ -170,6 +170,8 @@ d_rel(t) = d_P(t) − d_ref(t)
 
 `d_P` to szereg EGMS przy reperze P, `d_ref` przy reperze odniesienia. Tak samo postępują
 Even i in. 2024: średnia różnica między zbiorami nie ma znaczenia, bo mają różne odniesienia.
+(Uwaga 2026-10-13: to zdanie o metodzie Even i in. jest niezweryfikowane — artykuł podaje bias 0,93 mm/rok dla NRW,
+więc jakąś różnicę bezwzględną raportuje; rozstrzygnąć po lekturze PDF, rozdz. 3 i 4.3. Zob. F10, sekcja 5, punkt 8.)
 
 **Porównywana wielkość.** Dla epok t1 < t2:
 
