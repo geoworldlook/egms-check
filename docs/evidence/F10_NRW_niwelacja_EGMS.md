@@ -1,6 +1,6 @@
 # F10 — Zachodnia NRW: EGMS L3 (pion) kontra niwelacja, wydanie 2019–2023
 
-> **Data:** 2026-10-13 · **Status:** `Draft` — wariant główny policzony; wariant dodatkowy (względny) czeka na przebieg w Colab.
+> **Data:** 2026-10-13 · **Status:** `Draft` — wariant główny i dodatkowy (względny) policzone; ryciny szeregów reperów czekają na przebieg w Colab.
 > **Wyniki:** `notebooks/EGMS_Monitoring.ipynb`, zapis z Colab w commicie `ace4313` (kod `1afb1da`).
 > **Źródło porównawcze:** Even i in. 2024 — pełny tekst przeczytany 2026-10-13 (PDF od autora projektu; tekst w
 > `docs/evidence/literatura_txt/even2024_bbd_vs_egms.txt`, katalog poza gitem).
@@ -89,8 +89,38 @@ Rycina: `data/05_Final_Outputs/egmscheck/nrw_west/figures/nrw_west_levelling_sca
 - **Status:** wariant **dodatkowy**. Policzony po obejrzeniu wyniku `absolute`, więc raportowany obok niego, bez zmiany werdyktu.
   N4 w tym wariancie sprawdza, czy przesunięcie jest jednakowe w całym obszarze (grupa stabilna kontra pozostałe repery).
   N3 jest tu mało informatywne, bo repery stabilne tworzą grupę odniesienia.
-- **Wynik:** do uzupełnienia po przebiegu komórki `compare_levelling_check_nrw_west` w Colab
-  (`levelling_summary_nrw_west_2019_2023_relative.csv`, `levelling_offset_nrw_west_2019_2023_relative.json`).
+- **Wynik** (Colab, kod `da72a77`, zapis `0fc76cf`):
+  - grupa odniesienia: 307 reperów stabilnych według niwelacji; ich mediana prędkości: niwelacja +0,00, EGMS −1,22 mm/rok;
+    **przesunięcie EGMS − niwelacja w strefie stabilnej: −1,22 ± 0,05 mm/rok** (błąd standardowy mediany; rozrzut w grupie
+    MAD·1,48 = 0,73 mm/rok);
+  - ocenianych reperów: 909 (repery grupy nie biorą udziału).
+
+| Kryterium | Wynik | Próg | Spełnione | n |
+|---|---|---|---|---|
+| N1 mediana \|Δh_EGMS − Δh_niw\| | 3,4 mm | ≤ 5,0 mm | tak | 909 |
+| N2 zgodność znaku (\|Δh_niw\| ≥ 6 mm) | 94% | ≥ 90% | tak | 559 |
+| N3 repery stabilne | brak (tworzą grupę odniesienia) | — | — | 0 |
+| N4 bias prędkości | −1,00 mm/rok | \|bias\| ≤ 1,5 | tak | 909 |
+| Rozrzut (MAD·1,48) | 1,05 mm/rok | — | — | 909 |
+| Nachylenie | 0,96 ± 0,01, wyraz wolny −2,8 mm | ≈ 1 | — | 909 |
+
+| Grupa (według niwelacji) | n | Mediana \|różnicy\| | Zgodność znaku | Bias | Nachylenie |
+|---|---|---|---|---|---|
+| wszystkie oceniane | 909 | 3,4 mm | 94% | −1,00 mm/rok | 0,96 |
+| niecki, \|v_niw\| ≥ 10 mm/rok | 54 | **2,6 mm** | **100%** | **−0,33 mm/rok** | 0,98 |
+| pozostałe | 855 | 3,4 mm | 93% | −1,02 mm/rok | 0,90 |
+
+  **Interpretacja:**
+  - po usunięciu przesunięcia ze strefy stabilnej wszystkie trzy policzalne kryteria są spełnione; w nieckach różnica
+    wynosi 2,6 mm przy ruchu 30–140 mm;
+  - przesunięcie **nie jest jednakowe**: po odjęciu −1,22 mm/rok pozostaje −1,0 mm/rok na reperach poza grupą stabilną
+    (w nieckach tylko −0,3). Jednorodna różnica układów odniesienia tego nie tłumaczy w całości — część przesunięcia
+    zależy od miejsca albo od rodzaju reperu (hipoteza, nie badana);
+  - wynik dodatkowy, policzony po obejrzeniu wariantu głównego; werdykt wariantu głównego bez zmian.
+
+- **Ryciny:** rozrzut `nrw_west_levelling_scatter_2019_2023_relative.png`; szeregi w czasie przy reperach z reguły przykładów
+  (najszybsze osiadanie, mediana, najmniejszy ruch, mediana niecek) `nrw_west_levelling_series_2019_2023_<reper>.png`
+  — dodane 2026-10-13, do przebiegu w Colab.
 
 ---
 

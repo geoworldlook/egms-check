@@ -93,7 +93,10 @@ print('Wariant dodatkowy (względem reperów stabilnych według niwelacji; polic
 print(C_{region.upper()}['offset_rel'].read_text())
 display(pd.read_csv(C_{region.upper()}['summary_rel']))
 display(pd.read_csv(C_{region.upper()}['groups_rel']).round(2))
-display(Image(str(C_{region.upper()}['figure_rel'])))"""),
+display(Image(str(C_{region.upper()}['figure_rel'])))
+print('Szeregi w czasie przy reperach z reguły przykładów: EGMS (linia) i epoki niwelacji (punkty), oba od zera w pierwszej epoce')
+for f in sorted(C_{region.upper()}['figure'].parent.glob('{region}_levelling_series_*.png')):
+    display(Image(str(f)))"""),
         ]
     return cells
 

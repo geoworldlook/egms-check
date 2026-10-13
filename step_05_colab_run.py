@@ -88,7 +88,7 @@ import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -1589,7 +1589,7 @@ def _compare_levelling_core(rt: Dict[str, Any], cfg: Dict[str, Any], region: str
     Wspólny rdzeń porównania z niwelacją (task_compare_levelling, task_compare_levelling_check): szeregi L3 przy
     reperach z cells_path, epoki w oknie dat tych szeregów, Δh (step_06.compare_levelling), N1-N4. Zapis statusów
     (out['status']) i podsumowania (out['summary']); wynik porównania zwracany (zapis robi wywołujący).
-    Zwraca (lev, res, summ, t0, t1, wiersze rejestru, opis kryteriów).
+    Zwraca (lev, res, summ, t0, t1, wiersze rejestru, opis kryteriów, szeregi EGMS w formacie długim).
     """
     import step_06_ground as s6
     require_approved(cfg, "egms")
@@ -1617,7 +1617,7 @@ def _compare_levelling_core(rt: Dict[str, Any], cfg: Dict[str, Any], region: str
                                        radius_m=_l3_radius(m), n=1.0), region, LEVELLING_METRICS, "n", LEVELLING_REFERENCE)
     crit = "; ".join(f"{k[:2]}: {v}" for k, v in zip(summ["kryterium"], summ["spełnione"])
                      if str(k)[:1] == "N" and str(k)[1:2].isdigit())
-    return lev, res, summ, t0, t1, reg_rows, crit
+    return lev, res, summ, t0, t1, reg_rows, crit, long_u
 
 
 def task_compare_levelling(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
@@ -1630,7 +1630,7 @@ def task_compare_levelling(rt: Dict[str, Any], cfg: Dict[str, Any], region: str)
     if _region(cfg, region).get("levelling") is None:
         return {"skipped": True, "message": f"region {region} bez niwelacji (levelling = None)"}
     P = region_paths(rt, cfg, region)
-    _, res, _, t0, t1, reg_rows, crit = _compare_levelling_core(
+    _, res, _, t0, t1, reg_rows, crit, _ = _compare_levelling_core(
         rt, cfg, region, P["l3_cells"], _sources(cfg)["L3"],
         {"status": P["levelling_status"], "summary": P["levelling_summary"]})
     res.to_csv(P["levelling_compare"], index=False, date_format="%Y-%m-%d")
@@ -1646,6 +1646,52 @@ def _latest_midas(rt: Dict[str, Any], cfg: Dict[str, Any]) -> pd.DataFrame:
     if not snapshots:
         raise FileNotFoundError(f"Brak migawki midas_*.IGS.txt w {gdir}: uruchom task_select_gnss")
     return s1.read_ngl_midas(snapshots[-1].read_text(encoding="utf-8"))
+
+
+def _levelling_check_examples(res: pd.DataFrame, rule: str, strong_mm_yr: float) -> List[Tuple[str, str]]:
+    """
+    Repery do rycin szeregów, regułą bez wyboru ręcznego: monitoring.example_rule dla niwelacji (najszybsze osiadanie,
+    mediana v_niw, najmniejsze |v_niw|) oraz reper o medianie v_niw w nieckach (|v_niw| >= strong_mm_yr; podział
+    według niwelacji, autor 2026-10-12). Zwraca (benchmark_id, opis reguły) bez powtórzeń.
+    """
+    empty = pd.DataFrame(columns=["site", "site_type", "group", "vu_mm_yr"])
+    base = _example_sites(empty, res, rule)
+    labels = ["fastest subsidence by levelling", "median rate, all benchmarks", "smallest |rate|, stable"]
+    out = list(zip(base, labels[:len(base)]))
+    ok = res[res["status"] == "ok"]
+    bowls = ok[ok["v_lev_mm_yr"].abs() >= strong_mm_yr].sort_values("v_lev_mm_yr")
+    if len(bowls):
+        out.append((str(bowls["benchmark_id"].iat[len(bowls) // 2]), f"median rate in bowls (|v| >= {strong_mm_yr:g} mm/yr)"))
+    seen, uniq = set(), []
+    for bid, lab in out:
+        if bid not in seen:
+            seen.add(bid)
+            uniq.append((bid, lab))
+    return uniq
+
+
+def _levelling_series_long(long_u: pd.DataFrame, lev: pd.DataFrame, row: pd.Series, region: str) -> pd.DataFrame:
+    """
+    Szereg EGMS (pion) i epoki niwelacji jednego reperu w formacie długim, oba wyzerowane w pierwszej epoce porównania
+    t1 (EGMS: interpolacja liniowa w t1, jak w porównaniu; bez ekstrapolacji). Epoki niwelacji z okna szeregu EGMS.
+    """
+    bid, t1 = str(row["benchmark_id"]), pd.Timestamp(row["t1"])
+    e = long_u[(long_u["site"].astype(str) == bid) & long_u["disp_mm"].notna()].sort_values("date")
+    if e.empty:
+        raise ValueError(f"Reper {bid}: brak szeregu EGMS")
+    d = pd.DatetimeIndex(e["date"])
+    if not d[0] <= t1 <= d[-1]:
+        raise ValueError(f"Reper {bid}: epoka {t1.date()} poza szeregiem EGMS {d[0].date()} - {d[-1].date()}")
+    e0 = float(np.interp(t1.value, d.asi8, e["disp_mm"].to_numpy(float)))
+    e = e.assign(disp_mm=e["disp_mm"] - e0, ref_date=t1)
+    g = lev[(lev["benchmark_id"].astype(str) == bid) & (lev["epoch_date"] >= d[0]) & (lev["epoch_date"] <= d[-1])]
+    g = g.sort_values("epoch_date")
+    h1 = float(g.loc[g["epoch_date"] == t1, "height_m"].iat[0]) * 1000.0
+    lv = pd.DataFrame({"region": region, "source": LEVELLING_REFERENCE, "site": bid, "track": "vertical",
+                       "direction": "vertical", "component": "U", "los_east": 0.0, "los_north": 0.0, "los_up": 1.0,
+                       "date": pd.DatetimeIndex(g["epoch_date"]).normalize(), "disp_mm": g["height_m"].to_numpy(float) * 1000.0 - h1,
+                       "ref_date": t1, "reference": "absolute", "n_points": np.nan})
+    return pd.concat([e.assign(reference="absolute"), lv], ignore_index=True)
 
 
 def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
@@ -1670,7 +1716,7 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
     q = _query_levelling(rt, cfg, region)
     C = levelling_check_paths(rt, cfg, region)
     source = _sources_of(q["release"])["L3"]
-    lev, res, _, t0, t1, reg_rows, crit = _compare_levelling_core(rt, cfg, region, C["l3_cells"], source,
+    lev, res, _, t0, t1, reg_rows, crit, long_u = _compare_levelling_core(rt, cfg, region, C["l3_cells"], source,
                                                                   {"status": C["status"], "summary": C["summary"]})
     xy = lev.drop_duplicates("benchmark_id").rename(columns={"benchmark_id": "id"})[["id", "x_3035", "y_3035"]]
     xy["id"] = xy["id"].astype(str)
@@ -1709,6 +1755,20 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
                                encoding="utf-8")
     report(with_dist(rel), C["compare_rel"], C["groups_rel"], C["figure_rel"],
            f"EGMS L3 vertical {q['release']} vs levelling, {region}, relative to stable benchmarks")
+    # Ryciny szeregów: EGMS w czasie i epoki niwelacji przy reperach z reguły przykładów (bez wyboru ręcznego).
+    mo = require_approved(cfg, "monitoring")
+    figs = []
+    for bid, label in _levelling_check_examples(res, mo["example_rule"], float(strong)):
+        row = res[(res["benchmark_id"] == bid) & (res["status"] == "ok")].iloc[0]
+        one = _levelling_series_long(long_u, lev, row, region)
+        title = (f"Benchmark {bid} ({label}): levelling {row['dh_lev_mm']:+.0f} mm, EGMS L3 {row['dh_egms_mm']:+.0f} mm "
+                 f"between {pd.Timestamp(row['t1']):%Y-%m-%d} and {pd.Timestamp(row['t2']):%Y-%m-%d}")
+        fig = s7.plot_series_long(one, bid, title, mo["s1b_end_date"])
+        out_png = C["figure"].parent / f"{region}_levelling_series_{str(q['release']).replace('-', '_')}_{bid}.png"
+        fig.savefig(out_png, dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
+        plt.close(fig)
+        figs.append(out_png.name)
+    print(f"Ryciny szeregów reperów ({len(figs)}): {figs}")
     m = require_approved(cfg, "method")
     reg_rows = pd.concat([reg_rows, _metric_rows(rel.assign(product=source, site=rel["benchmark_id"], track="L3",
                                                             radius_m=_l3_radius(m), n=1.0),
@@ -1722,7 +1782,7 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
     return {"message": f"{source}: {int((res['status'] == 'ok').sum())} z {len(res)} reperów 'ok' (okno {t0.date()} - "
                        f"{t1.date()}); główny 'absolute': {crit}; {btxt}; dodatkowy względny (grupa {info['n_group']}, "
                        f"przesunięcie {info['offset_egms_minus_lev_mm_yr']:+.2f} ± {info['offset_se_mm_yr']:.2f} mm/rok): "
-                       f"{crit_rel}; ryciny {C['figure'].name}, {C['figure_rel'].name}",
+                       f"{crit_rel}; ryciny {C['figure'].name}, {C['figure_rel'].name} i {len(figs)} szeregów reperów",
             "registry": {"gwl_validation_metrics": reg_rows}}
 
 

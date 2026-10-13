@@ -102,6 +102,8 @@ assert bool(sr.loc[sr['kryterium'].str[:2] == 'N1', 'spełnione'].iat[0]) and bo
 cr = pd.read_csv(Cn['compare_rel'], dtype={{'benchmark_id': str}})
 assert (cr['status'] == 'ok').sum() == 13 - off['n_group'] and cr['status'].str.startswith('NaN: reper w grupie').sum() == off['n_group'], cr['status']
 assert Cn['figure_rel'].stat().st_size > 10000 and Cn['groups_rel'].exists()
+series = sorted(Cn['figure'].parent.glob('nrw_west_levelling_series_2019_2023_*.png'))
+assert len(series) >= 3 and Lh.bench_id('B001') in ' '.join(f.name for f in series), [f.name for f in series]
 assert 'EGMS_L3U_2019_2023' in set(registry_read(rt, 'gwl_validation_metrics')['product'])
 lg, ln_ = read_long(G['long']), read_long(N['long'])
 assert {{'EGMS_L2b_2020_2024', 'EGMS_L3U_2020_2024', 'GNSS_NGL_LOS', 'GNSS_NGL_U', 'S1_HYP3_MINTPY'}} <= set(lg['source']), set(lg['source'])
