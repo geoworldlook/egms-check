@@ -55,12 +55,15 @@ print('Wniosek (reguła ustalona przed obliczeniami):', G['verdict_l2b'].with_su
 pokaz(G['figures'] / 'groningen_velocity_scatter.png', 650)"""),
     ("md", """**Jak czytać:** każdy punkt to stacja × ścieżka; linia to zgodność idealna, szary pas ±1,5 mm/rok.
 Tempo osiadania się zgadza. Kontrola na stacjach „stabilnych” (K3) nie przeszła o włos, dlatego wniosek formalny to
-zgodność częściowa. Ograniczenie: EGMS jest kalibrowany modelem GNSS, więc to porównanie nie jest w pełni niezależne —
+zgodność częściowa. Punkty ze ścieżek wznoszących (niebieskie) leżą nieco nad linią, a z zstępujących (pomarańczowe) nieco
+pod nią (ok. 0,5–1 mm/rok, w granicach progu). Taki układ wskazuje na niewielką różnicę ruchu poziomego wschód–zachód
+między GNSS a EGMS; nie badaliśmy jej osobno. Ograniczenie: EGMS jest kalibrowany modelem GNSS, więc to porównanie nie jest w pełni niezależne —
 stąd drugie sprawdzenie niwelacją."""),
     ("md", """## 2. Niwelacja — zachodnia NRW
 
-Mapa pokazuje, gdzie EGMS widzi ruch: czerwone plamy to niecki osiadania (do kilkudziesięciu mm/rok)."""),
-    ("code", """pokaz(N['figures'] / 'nrw_west_l3_velocity_map.png', 700)"""),
+Mapa pokazuje, gdzie EGMS widzi ruch: czerwone plamy to niecki osiadania (do kilkudziesięciu mm/rok). Mapa jest z tego
+samego wydania EGMS (2019–2023) co porównanie z niwelacją; trójkąty to stacje GNSS, kółka to repery z rycin w czasie niżej."""),
+    ("code", """pokaz(C['map'], 700)"""),
     ("md", """Każdy reper ma dwa pomiary niwelacyjne (maj 2019 i maj 2022). Dla tych samych dni odczytujemy EGMS w komórce 100 m
 z reperem i porównujemy zmianę wysokości. Wybór reperów: wszystkie z dwoma pomiarami, bez wyboru według EGMS."""),
     ("code", """pokaz(C['figure'], 620)"""),
@@ -87,15 +90,25 @@ display(nie.round(2))"""),
   się nie ruszają, czyli usuwa wspólne „zero”; wtedy wszystkie policzalne kryteria są spełnione;
 - w nieckach EGMS i niwelacja zgadzają się co do znaku zawsze, a skala ruchu jest prawie 1:1.
 
+Największe rozbieżności w nieckach (tabela niżej) pokazujemy wprost. W żadnej nie zmienia się znak ruchu — EGMS pokazuje
+mniej osiadania niż niwelacja. Prawdopodobna przyczyna (nie sprawdzona): reper na brzegu niecki, gdzie komórka EGMS
+100 × 100 m uśrednia teren osiadający szybciej i wolniej."""),
+    ("code", """res = pd.read_csv(C['compare'], dtype={'benchmark_id': str})
+strong = CHECK_CONFIG['regions']['nrw_west']['levelling']['strong_motion_mm_yr']
+nie_ok = res[(res['status'] == 'ok') & (res['v_lev_mm_yr'].abs() >= strong)]
+top = nie_ok.reindex(nie_ok['diff_mm'].abs().sort_values(ascending=False).index).head(3)
+display(top[['benchmark_id', 'dh_lev_mm', 'dh_egms_mm', 'diff_mm']].rename(columns={
+    'benchmark_id': 'reper', 'dh_lev_mm': 'niwelacja [mm]', 'dh_egms_mm': 'EGMS [mm]', 'diff_mm': 'EGMS − niwelacja [mm]'}).round(1))"""),
+    ("md", """Te repery stanowią niewielką część z 54 reperów w nieckach; mediana różnicy w nieckach jest w tabeli wyżej.
+
 Niecki mają kilka kilometrów szerokości, a model GNSS do kalibracji EGMS ma siatkę ok. 50 km. Takiej niecki kalibracja
 nie mogła „dorysować” — EGMS zmierzył ją sam."""),
     ("md", """### Przykładowe repery w czasie
 
-Linia: EGMS co 6–12 dni; punkty: pomiary niwelacyjne; oba od zera w dniu pierwszego pomiaru. Repery wybrane regułą:
+Niebieska linia: EGMS co 6–12 dni. Duże żółte punkty: dwa pomiary niwelacyjne; przerywana linia tylko je łączy,
+między nimi niwelacji nie ma. Oba szeregi od zera w dniu pierwszego pomiaru. Repery wybrane regułą:
 najszybsze osiadanie według niwelacji, mediana niecek i reper, który najmniej się rusza (kontrola)."""),
-    ("code", """res = pd.read_csv(C['compare'], dtype={'benchmark_id': str})
-strong = CHECK_CONFIG['regions']['nrw_west']['levelling']['strong_motion_mm_yr']
-przyklady = dict((lab, bid) for bid, lab in _levelling_check_examples(res, CHECK_CONFIG['monitoring']['example_rule'], strong))
+    ("code", """przyklady = dict((lab, bid) for bid, lab in _levelling_check_examples(res, CHECK_CONFIG['monitoring']['example_rule'], strong))
 for lab in ('fastest subsidence by levelling', f'median rate in bowls (|v| >= {strong:g} mm/yr)', 'smallest |rate|, stable'):
     if lab not in przyklady:
         print(f'Reguła „{lab}”: ten sam reper co na rycinie wyżej albo brak reperów w tej grupie')

@@ -580,6 +580,46 @@ def _source_color(source: str) -> str:
     raise KeyError(f"Nieznana rodzina źródła {source!r}; znane prefiksy {[p for p, _ in SOURCE_FAMILIES]}")
 
 
+def _source_label(src: str) -> str:
+    """Czytelna nazwa źródła do legendy: EGMS_L3U_2019_2023 -> 'EGMS L3 vertical, release 2019-2023', LEVELLING_* ->
+    'levelling'; inne (GNSS, S1_*) bez zmian."""
+    import re
+    m = re.fullmatch(r"EGMS_(L3U|L2b)_(\d{4})_(\d{4})", src)
+    if m:
+        kind = "L3 vertical" if m.group(1) == "L3U" else "L2b calibrated (LOS)"
+        return f"EGMS {kind}, release {m.group(2)}-{m.group(3)}"
+    if src.startswith("LEVELLING"):
+        return "levelling"
+    return src
+
+
+def _label_offsets(ax, xs, ys, names, fontsize: float) -> list:
+    """
+    Przesunięcia podpisów punktów [pt] bez nachodzenia: dla każdego punktu pierwsze z czterech położeń (prawo-góra,
+    prawo-dół, lewo-góra, lewo-dół), którego prostokąt (szerokość ~0,6 * fontsize na znak) nie nachodzi na już
+    postawione. Gdy żadne nie jest wolne - prawo-góra (nachodzenie widoczne, nie ukryte).
+    """
+    pts = ax.transData.transform(np.column_stack([xs, ys])) * 72.0 / ax.figure.dpi
+    cands = [((5, 4), "left", "bottom"), ((5, -4), "left", "top"), ((-5, 4), "right", "bottom"), ((-5, -4), "right", "top")]
+    placed, out = [], []
+    for (px, py), name in zip(pts, names):
+        wd, ht = 0.6 * fontsize * len(str(name)), 1.2 * fontsize
+        choice = cands[0]
+        for c in cands:
+            (dx, dy), ha, va = c
+            x0 = px + dx - (wd if ha == "right" else 0.0)
+            y0 = py + dy - (ht if va == "top" else 0.0)
+            box = (x0, y0, x0 + wd, y0 + ht)
+            if all(box[2] <= b[0] or box[0] >= b[2] or box[3] <= b[1] or box[1] >= b[3] for b in placed):
+                choice = c
+                break
+        (dx, dy), ha, va = choice
+        x0, y0 = px + dx - (wd if ha == "right" else 0.0), py + dy - (ht if va == "top" else 0.0)
+        placed.append((x0, y0, x0 + wd, y0 + ht))
+        out.append(choice)
+    return out
+
+
 def _s1b_line(ax, s1b_end, label: bool) -> None:
     import matplotlib.transforms as mtransforms
     if s1b_end is None or pd.isna(s1b_end):
@@ -595,7 +635,8 @@ def plot_l3_map(cells: pd.DataFrame, sites: pd.DataFrame, title: str, vlim_perce
     """
     Mapa prędkości L3 (kolumny easting, northing, mean_velocity [mm/rok]) w km EPSG:3035; skala rozbieżna z zerem
     pośrodku, granice symetryczne +-percentyl |v| (vlim_percentile z CHECK_CONFIG), wartości poza zakresem w kolorze
-    końca skali (strzałki paska). Punkty naziemnych (site, x_3035, y_3035) zaznaczone i podpisane.
+    końca skali (strzałki paska). Punkty naziemnych (site, x_3035, y_3035) zaznaczone i podpisane bez nachodzenia
+    podpisów; z kolumną site_type stacje GNSS to trójkąty, repery kółka (legenda).
     Komórki bez prędkości nie są rysowane; ich liczba jest w podpisie.
     """
     import matplotlib.pyplot as plt
@@ -632,12 +673,20 @@ def plot_l3_map(cells: pd.DataFrame, sites: pd.DataFrame, title: str, vlim_perce
     cb.ax.tick_params(colors=MUTED, labelcolor=INK_2, labelsize=8)
     cb.outline.set_edgecolor(AXIS)
     sx, sy = sites["x_3035"].to_numpy(float) / 1000.0, sites["y_3035"].to_numpy(float) / 1000.0
-    ax.scatter(sx, sy, marker="^", s=64, facecolor=INK, edgecolor=SURFACE, linewidths=1.5, zorder=3, label="ground sites")
-    halo = [pe.withStroke(linewidth=2.5, foreground=SURFACE)]
-    for name, xs, ys in zip(sites["site"], sx, sy):
-        ax.annotate(str(name), (xs, ys), xytext=(5, 4), textcoords="offset points", fontsize=8, color=INK,
-                    path_effects=halo, zorder=4)
+    kind = sites["site_type"].to_numpy(str) if "site_type" in sites.columns else np.full(len(sites), "site")
+    for k, mk, lab in (("gnss", "^", "GNSS station"), ("benchmark", "o", "levelling benchmark"), ("site", "^", None)):
+        sel = kind == k
+        if sel.any():
+            ax.scatter(sx[sel], sy[sel], marker=mk, s=64 if mk == "^" else 48, facecolor=INK, edgecolor=SURFACE,
+                       linewidths=1.5, zorder=3, label=lab)
+    if "site_type" in sites.columns:
+        ax.legend(fontsize=7, loc="upper right", frameon=True, facecolor=SURFACE, edgecolor=AXIS, labelcolor=INK_2)
     ax.set_aspect("equal")
+    fig.canvas.draw()                                                 # układ osi ustalony przed liczeniem podpisów
+    halo = [pe.withStroke(linewidth=2.5, foreground=SURFACE)]
+    for name, xs, ys, ((dx, dy), ha, va) in zip(sites["site"], sx, sy, _label_offsets(ax, sx, sy, sites["site"], 8)):
+        ax.annotate(str(name), (xs, ys), xytext=(dx, dy), textcoords="offset points", fontsize=8, color=INK,
+                    ha=ha, va=va, path_effects=halo, zorder=4)
     ax.set_xlabel("Easting, EPSG:3035 [km]")
     ax.set_ylabel("Northing, EPSG:3035 [km]")
     n_nan = int((~ok).sum())
@@ -650,7 +699,8 @@ def plot_l3_map(cells: pd.DataFrame, sites: pd.DataFrame, title: str, vlim_perce
 def plot_series_long(long_df: pd.DataFrame, site: str, title: str, s1b_end):
     """
     Szeregi jednego punktu z formatu długiego: panel na ścieżkę LOS i jeden panel pionu (U); w panelu każde źródło
-    w kolorze swojej rodziny (EGMS linia z punktami akwizycji, GNSS kropki dobowe, niwelacja punkty z linią).
+    w kolorze swojej rodziny (EGMS linia z punktami akwizycji, GNSS kropki dobowe, niwelacja duże punkty epok połączone
+    cienką linią przerywaną - linia tylko łączy epoki, nie jest pomiarem). Legenda z czytelną nazwą źródła.
     W legendzie data odniesienia szeregu. Pionowa linia: koniec Sentinel-1B (s1b_end z CHECK_CONFIG).
     Dwa źródła tej samej rodziny w jednym panelu = ValueError.
     """
@@ -674,16 +724,20 @@ def plot_series_long(long_df: pd.DataFrame, site: str, title: str, s1b_end):
             colors[src] = c
             gs = gs.sort_values("date")
             ref = gs["ref_date"].iat[0].date()
+            name = _source_label(src)
             if src.startswith("GNSS"):
-                ax.plot(gs["date"], gs["disp_mm"], ".", ms=2.5, color=c, alpha=0.6, label=f"{src} (daily, ref {ref})")
+                ax.plot(gs["date"], gs["disp_mm"], ".", ms=2.5, color=c, alpha=0.6, label=f"{name} (daily, ref {ref})")
             elif src.startswith("LEVELLING"):
-                ax.plot(gs["date"], gs["disp_mm"], "-o", lw=1.5, ms=6, color=c, mec=SURFACE, mew=1.5,
-                        label=f"{src} (ref {ref})")
+                n = len(gs)
+                ax.plot(gs["date"], gs["disp_mm"], "--", lw=1.0, color=c, zorder=4)
+                ax.plot(gs["date"], gs["disp_mm"], "o", ms=8, color=c, mec=INK, mew=1.0, zorder=5,
+                        label=f"{name}, {n} survey{'s' if n != 1 else ''} (ref {ref}; dashed line only joins them)")
             else:
                 npts = gs["n_points"].iat[0]
-                extra = (f"median of {int(npts)} point{'s' if npts != 1 else ''}, " if np.isfinite(npts) else "")
+                unit = "cell" if src.startswith("EGMS_L3") else "point"
+                extra = (f"median of {int(npts)} {unit}{'s' if npts != 1 else ''}, " if np.isfinite(npts) else "")
                 ax.plot(gs["date"], gs["disp_mm"], "-o", lw=1.5, ms=3, color=c, mec=SURFACE, mew=0.5,
-                        label=f"{src} ({extra}ref {ref})", zorder=3)
+                        label=f"{name} ({extra}ref {ref})", zorder=3)
         _s1b_line(ax, s1b_end, label=(i == 0))
         if key == "U":
             ax.set_ylabel("Vertical displacement [mm]")
@@ -695,7 +749,7 @@ def plot_series_long(long_df: pd.DataFrame, site: str, title: str, s1b_end):
             ax.legend(fontsize=7, loc="lower left", frameon=False, labelcolor=INK_2)
             ax.set_title(head, loc="left", fontsize=9)
         else:
-            ax.set_title(f"{head}: {next(iter(colors))}", loc="left", fontsize=9)
+            ax.set_title(f"{head}: {_source_label(next(iter(colors)))}", loc="left", fontsize=9)
     axes[-1, 0].set_xlabel("Date")
     fig.suptitle(title, fontsize=11, color=INK)
     fig.tight_layout()
@@ -1067,6 +1121,19 @@ def _selftest() -> None:
             assert out.stat().st_size > 1000, name
         _expect(ValueError, plot_series_long, long_all, "Z", "none", s1b_end)
         _expect(ValueError, plot_l3_map, cells, sites, "x", 0.0)
+        # Czytelne nazwy źródeł; podpisy dwóch bliskich punktów mapy nie nachodzą na siebie; typy punktów w legendzie.
+        assert _source_label("EGMS_L3U_2019_2023") == "EGMS L3 vertical, release 2019-2023"
+        assert _source_label("EGMS_L2b_2020_2024").startswith("EGMS L2b") and _source_label("LEVELLING_NRW") == "levelling"
+        assert _source_label("GNSS_NGL") == "GNSS_NGL"
+        close = pd.DataFrame({"site": ["5204900182", "5204900194", "G1"], "x_3035": [x0, x0 + 60.0, x0 - 1500.0],
+                              "y_3035": [y0, y0 + 30.0, y0], "site_type": ["benchmark", "benchmark", "gnss"]})
+        fig = plot_l3_map(cells, close, "x", 98.0)
+        ax = fig.axes[0]
+        fig.canvas.draw()
+        boxes = [t.get_window_extent() for t in ax.texts]
+        assert len(boxes) == 3 and not boxes[0].overlaps(boxes[1]), "podpisy bliskich punktów nachodzą na siebie"
+        assert sorted(t.get_text() for t in ax.get_legend().get_texts()) == ["GNSS station", "levelling benchmark"]
+        plt.close(fig)
         _expect(ValueError, plot_sampling, {"37": table}, "x", None)                     # data końca 1B nieustalona
         # Szum zmiennoprzecinkowy współrzędnych nie zmienia rozmiaru komórek na mapie.
         size_clean = plot_l3_map(cells, sites, "x", 98.0)

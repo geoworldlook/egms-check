@@ -686,7 +686,8 @@ def region_paths(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
 def levelling_check_paths(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Path]:
     """
     Pliki porównania z niwelacją na drugim wydaniu (regions.<region>.levelling.egms_check.release, np. 2019-2023):
-    plan i dziennik pobrania, komórki L3 przy reperach, parametry wycinka, wyniki N1-N4, podział, rycina.
+    plan i dziennik pobrania, komórki L3 przy reperach, mapa prędkości L3 obszaru, parametry wycinka, wyniki N1-N4,
+    podział, ryciny (rozrzut, mapa).
     Nazwy z rokiem wydania, więc nie mieszają się z plikami wydania głównego.
     """
     lv = _region(cfg, region).get("levelling")
@@ -700,6 +701,8 @@ def levelling_check_paths(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) 
     return {"plan": ex / f"egms_plan_{region}_levelling_{tag}.csv",
             "download_log": out / f"egms_download_{region}_levelling_{tag}.csv",
             "l3_cells": ex / f"egms_l3u_{tag}_cells_at_benchmarks.csv.gz",
+            "l3_map": ex / f"egms_l3u_{tag}_map.csv.gz",
+            "map": P["figures"] / f"{region}_l3_velocity_map_{tag}.png",
             "params": ex / f"extract_params_levelling_{tag}.json",
             "compare": out / f"levelling_compare_{region}_{tag}.csv",
             "summary": out / f"levelling_summary_{region}_{tag}.csv",
@@ -1320,9 +1323,10 @@ def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
 def task_levelling_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
     """
     Komórki L3 (U) drugiego wydania (regions.<region>.levelling.egms_check) przy wszystkich reperach z sites.csv
-    (step_04.l3_cells_at_sites, jak w task_extract; bez wyboru według EGMS). Wycinek aktualny (nowszy niż pliki
-    i sites.csv, te same parametry) = pominięty. Bez planu: pominięty, gdy wycinek istnieje i nie ma tokenu,
-    inaczej FileNotFoundError. Zero reperów w komórkach = RuntimeError.
+    (step_04.l3_cells_at_sites, jak w task_extract; bez wyboru według EGMS) i mapa prędkości L3 obszaru regionu
+    (step_04.read_l3_aoi, jak mapa wydania głównego). Każdy z dwóch wycinków liczony tylko, gdy nieaktualny (komórki:
+    nowsze niż pliki i sites.csv, te same parametry; mapa: nowsza niż pliki). Bez planu: pominięty, gdy wycinek
+    istnieje i nie ma tokenu, inaczej FileNotFoundError. Zero reperów w komórkach albo pusta mapa = RuntimeError.
     """
     import step_04_egms_aoi as s4
     e = require_approved(cfg, "egms")
@@ -1353,17 +1357,30 @@ def task_levelling_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str)
         raise RuntimeError(f"{P['sites']}: brak reperów - uruchom task_levelling")
     params = {"release": str(q["release"]), "l3_cell_m": m["l3_cell_m"], "files": sorted(str(f) for f in l3["filename"])}
     same = C["params"].exists() and json.loads(C["params"].read_text(encoding="utf-8")) == params
-    if same and _up_to_date([C["l3_cells"]], zips + [P["sites"]]):
-        return {"skipped": True, "message": f"wycinek aktualny ({C['l3_cells'].name}: nowszy niż pliki i sites.csv)"}
-    cells = s4.l3_cells_at_sites(zips, bench, m["l3_cell_m"], e["chunksize"])
-    if cells.empty:
-        raise RuntimeError(f"Żaden z {len(bench)} reperów nie leży w komórce L3 wydania {q['release']}")
+    cells_ok = same and _up_to_date([C["l3_cells"]], zips + [P["sites"]])
+    map_ok = _up_to_date([C["l3_map"]], zips)
+    if cells_ok and map_ok:
+        return {"skipped": True, "message": f"wycinki aktualne ({C['l3_cells'].name}, {C['l3_map'].name}: nowsze niż pliki)"}
+    msg = []
     C["l3_cells"].parent.mkdir(parents=True, exist_ok=True)
-    cells.to_csv(C["l3_cells"], index=False)
-    C["params"].write_text(json.dumps(params, indent=1), encoding="utf-8")
-    d = _date_cols(cells)
-    return {"message": f"L3 {q['release']}: komórki przy {cells['site'].nunique()} z {len(bench)} reperów; "
-                       f"daty {d[0]} - {d[-1]} ({len(d)})"}
+    if not cells_ok:
+        cells = s4.l3_cells_at_sites(zips, bench, m["l3_cell_m"], e["chunksize"])
+        if cells.empty:
+            raise RuntimeError(f"Żaden z {len(bench)} reperów nie leży w komórce L3 wydania {q['release']}")
+        cells.to_csv(C["l3_cells"], index=False)
+        C["params"].write_text(json.dumps(params, indent=1), encoding="utf-8")
+        d = _date_cols(cells)
+        msg.append(f"L3 {q['release']}: komórki przy {cells['site'].nunique()} z {len(bench)} reperów; "
+                   f"daty {d[0]} - {d[-1]} ({len(d)})")
+    if not map_ok:
+        aoi = _region(cfg, region)["aoi_lonlat"]
+        maps = [x for x in (s4.read_l3_aoi(z, s4.aoi_lonlat_to_3035(aoi), e["chunksize"], False) for z in zips) if len(x)]
+        if not maps:
+            raise RuntimeError(f"Mapa L3 {q['release']}: brak komórek w obszarze {aoi} we wszystkich kaflach")
+        mp = pd.concat(maps, ignore_index=True)
+        mp.to_csv(C["l3_map"], index=False)
+        msg.append(f"mapa L3 {q['release']}: {len(mp)} komórek")
+    return {"message": "; ".join(msg)}
 
 
 def task_checks(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
@@ -1757,12 +1774,23 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
            f"EGMS L3 vertical {q['release']} vs levelling, {region}, relative to stable benchmarks")
     # Ryciny szeregów: EGMS w czasie i epoki niwelacji przy reperach z reguły przykładów (bez wyboru ręcznego).
     mo = require_approved(cfg, "monitoring")
+    examples = _levelling_check_examples(res, mo["example_rule"], float(strong))
+    # Mapa prędkości L3 tego samego wydania co porównanie: stacje GNSS i repery z rycin szeregów.
+    if C["l3_map"].exists():
+        sites = _read_sites(region_paths(rt, cfg, region))
+        shown = sites[(sites["site_type"] == "gnss") | sites["site"].astype(str).isin([b for b, _ in examples])]
+        fig = s7.plot_l3_map(_read_points(C["l3_map"], "mapa L3: task_levelling_extract"), shown,
+                             f"EGMS L3 vertical velocity {q['release']}, {region}", mo["map_vlim_percentile"])
+        fig.savefig(C["map"], dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
+        plt.close(fig)
+    else:
+        print(f"Brak {C['l3_map'].name} (tryb bez plików surowych): mapa {C['map'].name} nie powstała")
     figs = []
-    for bid, label in _levelling_check_examples(res, mo["example_rule"], float(strong)):
+    for bid, label in examples:
         row = res[(res["benchmark_id"] == bid) & (res["status"] == "ok")].iloc[0]
         one = _levelling_series_long(long_u, lev, row, region)
-        title = (f"Benchmark {bid} ({label}): levelling {row['dh_lev_mm']:+.0f} mm, EGMS L3 {row['dh_egms_mm']:+.0f} mm "
-                 f"between {pd.Timestamp(row['t1']):%Y-%m-%d} and {pd.Timestamp(row['t2']):%Y-%m-%d}")
+        title = (f"Benchmark {bid}: {label}\nlevelling {row['dh_lev_mm']:+.0f} mm, EGMS {row['dh_egms_mm']:+.0f} mm "
+                 f"({pd.Timestamp(row['t1']):%Y-%m-%d} to {pd.Timestamp(row['t2']):%Y-%m-%d})")
         fig = s7.plot_series_long(one, bid, title, mo["s1b_end_date"])
         out_png = C["figure"].parent / f"{region}_levelling_series_{str(q['release']).replace('-', '_')}_{bid}.png"
         fig.savefig(out_png, dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())

@@ -94,6 +94,7 @@ assert cc.at[Lh.bench_id('B001'), 'nearest_station'] == 'N001', cc['nearest_stat
 gp = pd.read_csv(Cn['groups'])
 assert list(gp['n']) == [13, 2, 11] and gp['median_abs_diff_mm'].iat[1] < 3.0 and gp['sign_agreement'].iat[1] == 1.0, gp
 assert Cn['figure'].stat().st_size > 10000 and Path(Cn['l3_cells']).exists()
+assert Cn['map'].stat().st_size > 10000 and Cn['l3_map'].exists(), 'brak mapy L3 wydania 2019-2023'
 # Wariant względny: dane syntetyczne bez przesunięcia układów -> przesunięcie grupy stabilnej ok. 0, N1 i N4 spełnione.
 off = json.loads(Cn['offset_rel'].read_text())
 assert off['n_group'] >= 3 and abs(off['offset_egms_minus_lev_mm_yr']) < 0.5, off
