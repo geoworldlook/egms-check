@@ -10,10 +10,11 @@ Atrapy: CLMS (token), EGMS API (wyszukanie L2B/L3 w prostokącie, pobranie), NGL
 tests/monitoring_harness/run_harness.sh <ścieżka do colab313/bin/python> <katalog roboczy, usuwany>
 ```
 
-Trzy przebiegi:
+Cztery przebiegi:
 1. pełny notatnik od zera na kopii z zatwierdzeniami `TEST` i wartościami `CONFIRM_*` → `HARNESS: znana odpowiedź OK`;
 2. ponowne uruchomienie na tym samym Dysku → nic nie jest pobierane ani zlecane drugi raz (MIDAS z migawki na Dysku),
    wycinki obu regionów nie są liczone od nowa;
 3. notatnik z repozytorium (konfiguracja autora, bez `CONFIRM_JOBS`) → etap A przechodzi, stop na potwierdzeniu zleceń HyP3.
+4. notatnik pokazowy `notebooks/EGMS_Pokaz.ipynb` (tylko odczyt wyników z przebiegów 1–3) → tabele i co najmniej 5 rycin.
 
 Uwaga: skrypt usuwa i tworzy od nowa `/content/drive/MyDrive/GeoWorldLook/egmscheck` (atrapa Dysku).

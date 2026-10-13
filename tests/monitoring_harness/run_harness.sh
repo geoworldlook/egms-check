@@ -49,4 +49,15 @@ if run_nb "$REPO/notebooks/EGMS_Monitoring.ipynb" "$WORK/out3.ipynb" > "$WORK/pa
 fi
 grep -q "Zlecenia HyP3 wstrzymane: po obejrzeniu planu ustaw CONFIRM_JOBS\['37'\]" "$WORK/out3.ipynb.txt"
 tail -3 "$WORK/pass3.log"
-echo "HARNESS: 3 przebiegi zgodne z oczekiwaniem"
+echo "=== PRZEBIEG 4: notatnik pokazowy (notebooks/EGMS_Pokaz.ipynb) na wynikach z przebiegów 1-3: tylko odczyt ==="
+run_nb "$REPO/notebooks/EGMS_Pokaz.ipynb" "$WORK/out4.ipynb" > "$WORK/pass4.log" || { tail -20 "$WORK/pass4.log"; exit 1; }
+grep -q "Przesunięcie EGMS względem niwelacji na" "$WORK/out4.ipynb.txt" || { echo "PRZEBIEG 4: brak wyniku wariantu względnego"; exit 1; }
+grep -q "Wniosek (reguła ustalona przed obliczeniami)" "$WORK/out4.ipynb.txt" || { echo "PRZEBIEG 4: brak werdyktu GNSS"; exit 1; }
+"$PY" - "$WORK/out4.ipynb" <<'PYEOF'
+import sys, nbformat
+nb = nbformat.read(sys.argv[1], as_version=4)
+imgs = sum(1 for c in nb.cells if c.cell_type == "code" for o in c.get("outputs", []) if "image/png" in o.get("data", {}))
+assert imgs >= 5, f"PRZEBIEG 4: za mało rycin ({imgs})"
+print(f"PRZEBIEG 4: {imgs} rycin")
+PYEOF
+echo "HARNESS: 4 przebiegi zgodne z oczekiwaniem"
