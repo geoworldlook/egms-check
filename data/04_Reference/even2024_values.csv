@@ -1,6 +1,7 @@
 site,reference_data,service,quantity,value,unit,n_points,note,source
 Western NRW,levelling 2017 and 2019 (Geoportal NRW),EGMS,bias of vertical displacement-rate differences,0.93,mm/yr,279,"Only two campaigns; authors advise caution","Even et al. 2024, sec. 4.3.1"
 Western NRW,levelling 2017 and 2019 (Geoportal NRW),EGMS,overall std of displacement differences,1.76,mm,279,,"Even et al. 2024, sec. 4.3.1"
+Western NRW,levelling 2017 and 2019 (Geoportal NRW),EGMS,MAD x 1.4826 of vertical displacement-rate differences,1.12,mm/yr,279,"Histogram titled 'Differences Rates EGMS and Levelling'; order of subtraction not stated in text, so sign of the 0.93 median is not comparable with ours","Even et al. 2024, Fig. 17b (read 2026-10-13)"
 Western NRW,levelling 2017 and 2019 (Geoportal NRW),BBD,bias of vertical displacement-rate differences,1.42,mm/yr,584,,"Even et al. 2024, sec. 4.3.1"
 Western NRW,levelling 2017 and 2019 (Geoportal NRW),BBD,overall std of displacement differences,2.68,mm,584,,"Even et al. 2024, sec. 4.3.1"
 Western NRW,BBD vs EGMS vertical,both,bias of displacement-rate differences,0.71,mm/yr,24358,,"Even et al. 2024, sec. 4.3.2"

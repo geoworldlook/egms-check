@@ -2,6 +2,8 @@
 
 > **Data:** 2026-10-13 · **Status:** `Draft` — wariant główny policzony; wariant dodatkowy (względny) czeka na przebieg w Colab.
 > **Wyniki:** `notebooks/EGMS_Monitoring.ipynb`, zapis z Colab w commicie `ace4313` (kod `1afb1da`).
+> **Źródło porównawcze:** Even i in. 2024 — pełny tekst przeczytany 2026-10-13 (PDF od autora projektu; tekst w
+> `docs/evidence/literatura_txt/even2024_bbd_vs_egms.txt`, katalog poza gitem).
 > **Decyzje autora:** 2026-10-12 (wydanie 2019–2023 tylko do niwelacji, wszystkie repery, kryteria N1–N4 bez zmian, podział
 > informacyjny) i 2026-10-13 (wariant dodatkowy względem reperów stabilnych). Poziom weryfikacji każdej informacji: sekcja 5.
 
@@ -80,7 +82,7 @@ Rycina: `data/05_Final_Outputs/egmscheck/nrw_west/figures/nrw_west_levelling_sca
 
 ## 4. Wariant dodatkowy: względem reperów stabilnych (decyzja autora 2026-10-13)
 
-- **Metoda (F4, sekcja 10, zapisana 2026-10-09, przed obliczeniami):** oba zbiory względem wspólnego odniesienia,
+- **Metoda (F4, sekcja 10, zapisana 2026-10-09, przed obliczeniami; metodyka projektu, nie metoda Even i in. 2024):** oba zbiory względem wspólnego odniesienia,
   `d_rel = d_P − d_ref`. Odniesienie = grupa reperów stabilnych **według niwelacji** (\|Δh_niw\| ≤ 2 mm, próg N3 z konfiguracji).
   Mediana prędkości grupy jest odejmowana osobno od niwelacji i od EGMS (`step_06.relative_to_stable_group`).
   Repery grupy nie biorą udziału w ocenie.
@@ -101,12 +103,30 @@ Rycina: `data/05_Final_Outputs/egmscheck/nrw_west/figures/nrw_west_levelling_sca
 | 3 | „Stacje GNSS w obszarze nie osiadają” | **poprawione** | W obszarze jest 17 stacji NGL; regułę jakości spełnia 6, z vu od −1,28 do +1,98 mm/rok (MIDAS, cały szereg). O pozostałych 11 nie wiemy nic; nie wiemy też, które stacje wchodzą do modelu kalibracji EGMS. Zdanie wycofane; argument niezależności = skala przestrzenna (sekcja 3). |
 | 4 | Kalibracja L2b/L3 modelem GNSS (A-EPND) w siatce ok. 50 km | zweryfikowane w dokumentach projektu | F4 (tabela produktów), F1 (Koudogbo i in. 2025, krok 4); pełne teksty nie są w repozytorium |
 | 5 | „Najbliższa stacja GNSS 8,5 km” | **doprecyzowane** | liczone do wszystkich stacji NGL z migawki MIDAS (`midas_20261012.IGS.txt`), także tych spoza modelu EGMS; poprawnie: „najbliższa stacja NGL” |
-| 6 | Przesunięcie wynika z różnicy układów odniesienia | **hipoteza** | Fakty: EGMS L3 dowiązany do GNSS w ETRF2000 (F4, F6); niwelacja w DHHN2016 (Datenformatbeschreibung 07/2023). Wydawca: wartości z różnych punktów i dat są „tylko warunkowo porównywalne” (cytowane w F6; źródło pierwotne, Nutzerinformation.pdf, nie jest w repozytorium). Nie sprawdzaliśmy ruchu punktów nawiązania sieci niwelacyjnej. |
-| 7 | Even i in. 2024: NRW, 279 reperów, bias 0,93 mm/rok, σ 1,76 mm, kampanie 2017 i 2019, EGMS 2016–2021 | zweryfikowane w repozytorium | `data/04_Reference/even2024_values.csv` (sekcja 4.3.1). **Znak biasu i sposób odniesienia niezweryfikowane**: pełnego tekstu nie ma w repozytorium, serwer wydawcy niedostępny z sesji 2026-10-13. Nie mówić „ten sam kierunek przesunięcia”. |
-| 8 | Sprzeczność: konfiguracja „absolute (jak Even i in. 2024)” kontra F4 §10 „tak samo postępują Even: średnia różnica nie ma znaczenia” | **wykryta, nierozstrzygnięta** | oba zdania o metodzie Even oznaczone jako niezweryfikowane (konfiguracja, F4, Plan_v2); rozstrzygnąć po lekturze PDF, rozdz. 3 i 4.3 |
-| 9 | Niecki = odkrywki węgla brunatnego | **niezweryfikowane** | mapa L3 (silne osiadanie w środkowo-wschodniej części obszaru) i wiedza ogólna; sprawdzić z mapą odkrywek albo warstwą Bodenbewegungsgebiete NRW (F6) |
+| 6 | Przesunięcie wynika z różnicy układów odniesienia | **hipoteza** | Fakty: EGMS L3 jest w ETRF2000 przez kalibrację GNSS (EPND) — potwierdzone w Even i in. 2024, rozdz. 2 i 2.2; niwelacja w DHHN2016 (Datenformatbeschreibung 07/2023). Wydawca niwelacji: wartości z różnych punktów i dat „tylko warunkowo porównywalne” (cytowane w F6; Nutzerinformation.pdf nie jest w repozytorium). Even i in. **nie podają przyczyny** biasu w NRW. Nie sprawdzaliśmy ruchu punktów nawiązania sieci niwelacyjnej. |
+| 7 | Even i in. 2024: NRW, 279 reperów, bias 0,93 mm/rok, σ 1,76 mm, kampanie 2017 i 2019, EGMS 01.2016–12.2021 | **zweryfikowane w pełnym tekście** (2026-10-13) | rozdz. 4.3 i 4.3.1, ryc. 17b: mediana różnic prędkości 0,93, MAD·1,48 = 1,12 mm/rok. **Znak**: histogram ma tytuł „Differences Rates EGMS and Levelling”, kolejności odejmowania tekst nie podaje — znaku nie da się porównać z naszym. Autorzy: bias „not negligible, but small compared to the magnitude of displacement rates”; ostrożność, bo tylko dwie kampanie. |
+| 8 | Metoda Even i in.: konfiguracja „absolute (jak Even)” kontra F4 §10 „Even: średnia różnica nie ma znaczenia” | **rozstrzygnięte** (pełny tekst, rozdz. 3) | Even porównują **prędkości wprost** i raportują bias — to odpowiada naszemu wariantowi `absolute`. Zdanie o „średniej różnicy bez znaczenia” dotyczy tylko σ różnic szeregów przemieszczeń (wzór 1), nie prędkości. **F4 §10 było błędne** — poprawione 2026-10-13. Wariant względny jest metodyką projektu, nie metodą Even i in. |
+| 9 | Niecki = odkrywki węgla brunatnego | **częściowo zweryfikowane** | Even i in. 2024, rozdz. 4.3: ruch w zachodniej NRW wynika z obniżania wód podziemnych wokół odkrywek węgla brunatnego, a na zachodzie z wypiętrzania po zatopieniu kopalń węgla kamiennego. Położenia konkretnych odkrywek względem naszych niecek nie sprawdzaliśmy (mapa odkrywek albo warstwa Bodenbewegungsgebiete NRW, F6). |
 | 10 | „Do −140 mm w 3 lata” | **zweryfikowane** | reper 5104900560: −140 mm, 2019-05-13 → 2022-05-13 (komórka diagnostyczna) |
 | 11 | Sformułowanie „EGMS wykrywa” | **poprawione** | CLAUDE.md: „pomiar naziemny potwierdza osiadanie widoczne w EGMS”; EGMS jest produktem archiwalnym |
+
+---
+
+## 5a. Porównanie z Even i in. 2024 (ten sam region, inny okres)
+
+| | Even i in. 2024 | Ten projekt |
+|---|---|---|
+| Kampanie niwelacji | 2017 i 2019 | 05.2019 i 05.2022 |
+| EGMS | Ortho, pion, dane 01.2016–12.2021 | L3 Ortho, pion, wydanie 2019–2023 |
+| Łączenie | reper i punkt InSAR w tej samej komórce siatki 50 m | komórka L3 100 m zawierająca reper |
+| Szereg InSAR | wygładzenie RLOESS (7 punktów), interpolacja kawałkami sześcienna | bez wygładzania, interpolacja liniowa |
+| Repery | 279 | 1216 |
+| Mediana różnicy prędkości | 0,93 mm/rok (kolejność odejmowania nieopisana) | −1,97 mm/rok (EGMS − niwelacja) |
+| MAD·1,4826 | 1,12 mm/rok | 1,04 mm/rok |
+| Ocena autorów / nasza | bias „nieznikomy, ale mały wobec prędkości ruchu” | kryteria N1, N2, N4 niespełnione; ruch względny zgodny |
+
+Rozrzut (MAD) jest tego samego rzędu. Bias u nas jest około dwa razy większy co do wartości; przyczyny różnicy
+(okres, wydanie, sposób łączenia, wygładzanie) nie były badane. Kierunku przesunięcia u Even i in. nie da się ustalić z tekstu.
 
 ---
 
@@ -122,4 +142,7 @@ Rycina: `data/05_Final_Outputs/egmscheck/nrw_west/figures/nrw_west_levelling_sca
 - **Mówić:** „pomiar naziemny potwierdza niecki osiadania widoczne w EGMS”; „ruch względny zgodny, poziom bezwzględny przesunięty
   o ok. 2 mm/rok”; „najbliższa stacja NGL w medianie 8,5 km”.
 - **Nie mówić:** „EGMS zgodny z niwelacją w granicach 5 mm” (N1 nie przeszło); „EGMS wykrył niecki”; „stacje GNSS w obszarze nie
-  osiadają”; „Even i in. znaleźli przesunięcie w tym samym kierunku”; „odkrywki X i Y” bez sprawdzenia mapy.
+  osiadają”; „Even i in. znaleźli przesunięcie w tym samym kierunku”; „Even i in. wyjaśniają przesunięcie układami”
+  (nie wyjaśniają); „odkrywki X i Y” bez sprawdzenia mapy.
+- **Można powołać się na Even i in. 2024** tak: „w tym samym regionie, dla kampanii 2017–2019, Even i in. (2024) również
+  raportują nieznikomy bias różnic prędkości EGMS i niwelacji (0,93 mm/rok) przy rozrzucie podobnym do naszego (1,12 mm/rok)”.

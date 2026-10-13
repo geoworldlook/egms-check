@@ -168,10 +168,17 @@ bez założenia o ruchu poziomym; w niecce osiadania ruch poziomy ku środkowi i
 d_rel(t) = d_P(t) − d_ref(t)
 ```
 
-`d_P` to szereg EGMS przy reperze P, `d_ref` przy reperze odniesienia. Tak samo postępują
-Even i in. 2024: średnia różnica między zbiorami nie ma znaczenia, bo mają różne odniesienia.
-(Uwaga 2026-10-13: to zdanie o metodzie Even i in. jest niezweryfikowane — artykuł podaje bias 0,93 mm/rok dla NRW,
-więc jakąś różnicę bezwzględną raportuje; rozstrzygnąć po lekturze PDF, rozdz. 3 i 4.3. Zob. F10, sekcja 5, punkt 8.)
+`d_P` to szereg EGMS przy reperze P, `d_ref` przy reperze odniesienia. Uzasadnienie: zastrzeżenie wydawcy niwelacji NRW
+o ograniczonej porównywalności wartości z różnych punktów i dat (F6, „Pułapki”).
+
+**Sprostowanie 2026-10-13 (pełny tekst Even i in. 2024 przeczytany, `literatura_txt/even2024_bbd_vs_egms.txt`).**
+Wcześniej stało tu: „Tak samo postępują Even i in. 2024: średnia różnica między zbiorami nie ma znaczenia”. To było
+**błędne odczytanie**. Even i in. **nie** odnoszą zbiorów do reperu: porównują prędkości wprost (mediana i MAD × 1,4826
+różnic prędkości, rozdz. 3) i raportują bias (NRW: 0,93 mm/rok, rozdz. 4.3.1). Zdanie o średniej różnicy dotyczy tylko
+łącznego odchylenia σ różnic szeregów przemieszczeń (wzór 1): „As the different datasets are relative to different
+references, the mean difference μP between two time series at P has no meaning and it can be assumed that μP = 0”.
+Wariant `absolute` (różnice prędkości bez reperu, bias raportowany) odpowiada więc metodzie Even i in.;
+wariant względny `d_rel` jest metodyką tego projektu, nie ich.
 
 **Porównywana wielkość.** Dla epok t1 < t2:
 

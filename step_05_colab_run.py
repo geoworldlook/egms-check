@@ -474,7 +474,7 @@ CHECK_CONFIG: Dict[str, Any] = {
                 "crs_epsg": 4647,
                 "epoch_rule": "first_last_in_release",   # [p]
                 "min_epoch_span_yr": 1.0,                # [p]
-                "reference": {"type": "absolute"},       # autor 2026-10-12: wariant główny bez wspólnego reperu (zgodność z metodą Even i in. 2024 niezweryfikowana, F10 pkt 8)
+                "reference": {"type": "absolute"},       # autor 2026-10-12: wariant główny bez wspólnego reperu; jak Even i in. 2024 (rozdz. 3, 4.3.1: różnice prędkości wprost, bias raportowany; pełny tekst sprawdzony 2026-10-13)
                 "read_method": "linear_interpolation",   # dodane [p] (prototyp read_at_epochs; bez ekstrapolacji)
                 # Autor 2026-10-12, po diagnostyce epok (kampania niwelacji 05.2019 -> 05.2022: 1491 reperów z dwiema
                 # epokami w oknie 2019-2023, 13 w oknie 2020-2024): porównanie z niwelacją DODATKOWO z wydaniem
@@ -488,7 +488,8 @@ CHECK_CONFIG: Dict[str, Any] = {
                 "strong_motion_mm_yr": 10.0,
                 # Autor 2026-10-13: wariant DODATKOWY (wariant główny 'absolute' i jego werdykt bez zmian) - oba zbiory
                 # względem grupy reperów stabilnych według niwelacji (|Δh_niw| <= thresholds.levelling_l3u.
-                # stable_max_lev_mm), mediana prędkości grupy; metodyka F4 sekcja 10 (zapisana przed obliczeniami),
+                # stable_max_lev_mm), mediana prędkości grupy; metodyka projektu F4 sekcja 10 (zapisana przed obliczeniami;
+                # to NIE jest metoda Even i in. 2024, którzy porównują prędkości wprost - sprostowanie w F4),
                 # policzony po obejrzeniu wyniku 'absolute' (stałe przesunięcie ok. -2 mm/rok) - tak opisywać w raporcie.
                 "relative_variant": "stable_group_median",
             },
