@@ -130,10 +130,14 @@ def git(*args):
         raise RuntimeError(f"git {{' '.join(args)}} -> kod {{r.returncode}}: {{(r.stderr or r.stdout).strip()}}")
     return r.stdout.strip()
 
-if not os.path.exists(os.path.join(PROJECT_DIR, '.git')):
+fresh = not os.path.exists(os.path.join(PROJECT_DIR, '.git'))
+if fresh:
     os.makedirs(os.path.dirname(PROJECT_DIR), exist_ok=True)
     git('clone', '-q', '-b', BRANCH, REPO_URL, PROJECT_DIR)
-else:
+# Dysk Google nie przechowuje bitu wykonywalności: bez tego git widzi zmianę uprawnień plików .sh jako lokalną zmianę
+# i pull się zatrzymuje. Zmiany treści plików nadal zatrzymują pull (błąd głośny).
+git('-C', PROJECT_DIR, 'config', 'core.fileMode', 'false')
+if not fresh:
     git('-C', PROJECT_DIR, 'fetch', '-q', 'origin', BRANCH)
     git('-C', PROJECT_DIR, 'checkout', '-q', BRANCH)
     git('-C', PROJECT_DIR, 'pull', '-q', '--ff-only', 'origin', BRANCH)

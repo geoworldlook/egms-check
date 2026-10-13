@@ -34,7 +34,8 @@ PROJECT_DIR = '/content/drive/MyDrive/GeoWorldLook/egmscheck'
 if not os.path.exists(os.path.join(PROJECT_DIR, '.git')):
     os.makedirs(os.path.dirname(PROJECT_DIR), exist_ok=True)
     !git clone -q -b "{{BRANCH}}" "{{REPO_URL}}" "{{PROJECT_DIR}}"
-else:
+!git -C "{{PROJECT_DIR}}" config core.fileMode false
+if os.path.exists(os.path.join(PROJECT_DIR, '.git')):
     !git -C "{{PROJECT_DIR}}" fetch -q origin "{{BRANCH}}"
     !git -C "{{PROJECT_DIR}}" checkout -q "{{BRANCH}}"
     !git -C "{{PROJECT_DIR}}" pull -q --ff-only origin "{{BRANCH}}"
