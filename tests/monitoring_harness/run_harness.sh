@@ -49,15 +49,23 @@ if run_nb "$REPO/notebooks/EGMS_Monitoring.ipynb" "$WORK/out3.ipynb" > "$WORK/pa
 fi
 grep -q "Zlecenia HyP3 wstrzymane: po obejrzeniu planu ustaw CONFIRM_JOBS\['37'\]" "$WORK/out3.ipynb.txt"
 tail -3 "$WORK/pass3.log"
-echo "=== PRZEBIEG 4: notatnik pokazowy (notebooks/EGMS_Pokaz.ipynb) na wynikach z przebiegów 1-3: tylko odczyt ==="
-run_nb "$REPO/notebooks/EGMS_Pokaz.ipynb" "$WORK/out4.ipynb" > "$WORK/pass4.log" || { tail -20 "$WORK/pass4.log"; exit 1; }
-grep -q "Przesunięcie EGMS względem niwelacji na" "$WORK/out4.ipynb.txt" || { echo "PRZEBIEG 4: brak wyniku wariantu względnego"; exit 1; }
-grep -q "Wniosek (reguła ustalona przed obliczeniami)" "$WORK/out4.ipynb.txt" || { echo "PRZEBIEG 4: brak werdyktu GNSS"; exit 1; }
-"$PY" - "$WORK/out4.ipynb" <<'PYEOF'
+echo "=== PRZEBIEG 4: notatniki pokazowe (notebooks/Pokaz_*.ipynb) na wynikach z przebiegów 1-3: tylko odczyt ==="
+run_nb "$REPO/notebooks/Pokaz_1_GNSS_Groningen.ipynb" "$WORK/out4a.ipynb" > "$WORK/pass4a.log" || { tail -20 "$WORK/pass4a.log"; exit 1; }
+grep -q "Wniosek według reguły ustalonej z góry" "$WORK/out4a.ipynb.txt" || { echo "PRZEBIEG 4: brak werdyktu GNSS"; exit 1; }
+grep -q "stacji GNSS" "$WORK/out4a.ipynb.txt" || { echo "PRZEBIEG 4: brak liczby stacji GNSS"; exit 1; }
+run_nb "$REPO/notebooks/Pokaz_2_Niwelacja_NRW.ipynb" "$WORK/out4b.ipynb" > "$WORK/pass4b.log" || { tail -20 "$WORK/pass4b.log"; exit 1; }
+grep -q "Przesunięcie EGMS względem niwelacji na" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak wyniku wariantu względnego"; exit 1; }
+grep -q "Najszybciej osiadający reper" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak podsumowania liczbowego"; exit 1; }
+grep -q "EGMS − niwelacja \[mm\]" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak tabeli rozbieżności"; exit 1; }
+"$PY" - "$WORK/out4a.ipynb" "$WORK/out4b.ipynb" <<'PYEOF'
 import sys, nbformat
-nb = nbformat.read(sys.argv[1], as_version=4)
-imgs = sum(1 for c in nb.cells if c.cell_type == "code" for o in c.get("outputs", []) if "image/png" in o.get("data", {}))
-assert imgs >= 5, f"PRZEBIEG 4: za mało rycin ({imgs})"
-print(f"PRZEBIEG 4: {imgs} rycin")
+need = {"out4a": 2, "out4b": 4}             # GNSS: rozrzut + stacja w czasie; niwelacja: mapa + rozrzut + >= 2 repery
+for path in sys.argv[1:]:
+    nb = nbformat.read(path, as_version=4)
+    imgs = sum(1 for c in nb.cells if c.cell_type == "code" for o in c.get("outputs", []) if "image/png" in o.get("data", {}))
+    key = path.rsplit("/", 1)[-1].split(".")[0]
+    assert imgs >= need[key], f"PRZEBIEG 4 {key}: za mało rycin ({imgs})"
+    assert all(c.metadata.get("cellView") == "form" for c in nb.cells if c.cell_type == "code"), f"{key}: kod nieukryty"
+    print(f"PRZEBIEG 4 {key}: {imgs} rycin")
 PYEOF
 echo "HARNESS: 4 przebiegi zgodne z oczekiwaniem"

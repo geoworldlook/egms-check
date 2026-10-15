@@ -15,6 +15,6 @@ Cztery przebiegi:
 2. ponowne uruchomienie na tym samym Dysku → nic nie jest pobierane ani zlecane drugi raz (MIDAS z migawki na Dysku),
    wycinki obu regionów nie są liczone od nowa;
 3. notatnik z repozytorium (konfiguracja autora, bez `CONFIRM_JOBS`) → etap A przechodzi, stop na potwierdzeniu zleceń HyP3.
-4. notatnik pokazowy `notebooks/EGMS_Pokaz.ipynb` (tylko odczyt wyników z przebiegów 1–3) → tabele i co najmniej 5 rycin.
+4. notatniki pokazowe `notebooks/Pokaz_1_GNSS_Groningen.ipynb` i `notebooks/Pokaz_2_Niwelacja_NRW.ipynb` (tylko odczyt wyników z przebiegów 1–3) → werdykt, tabele, podsumowanie liczbowe, ryciny, kod ukryty w formularzach.
 
 Uwaga: skrypt usuwa i tworzy od nowa `/content/drive/MyDrive/GeoWorldLook/egmscheck` (atrapa Dysku).

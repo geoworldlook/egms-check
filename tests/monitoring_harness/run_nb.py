@@ -21,6 +21,10 @@ for i, c in enumerate([c for c in nb.cells if c.cell_type == "code"], start=1):
             out.append(o.text)
         elif o.output_type == "error":
             out.append("ERROR " + o.ename + ": " + o.evalue)
+        elif "text/markdown" in o.get("data", {}):     # Markdown(...) w notatnikach pokazowych
+            out.append(o.data["text/markdown"] + "\n")
+        elif "text/html" in o.get("data", {}):         # tabele HTML(...) w notatnikach pokazowych
+            out.append(o.data["text/html"] + "\n")
         elif "text/plain" in o.get("data", {}):
             out.append(o.data["text/plain"])
     full.append(f"===== komórka kodu {i} =====\n" + "".join(out))
