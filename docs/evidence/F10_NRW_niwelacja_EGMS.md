@@ -121,6 +121,11 @@ Rycina: `data/05_Final_Outputs/egmscheck/nrw_west/figures/nrw_west_levelling_sca
 - **Ryciny:** rozrzut `nrw_west_levelling_scatter_2019_2023_relative.png`; szeregi w czasie przy reperach z reguły przykładów
   (najszybsze osiadanie, mediana, najmniejszy ruch, mediana niecek) `nrw_west_levelling_series_2019_2023_<reper>.png`
   — dodane 2026-10-13, do przebiegu w Colab.
+- **Niepewność EGMS (autor 2026-10-15, informacyjnie, bez progu):** σ_Δh = √2 · `rmse` komórki L3, pas ±2σ na rycinach
+  reperów i wokół 1:1 na rozrzucie; odsetek reperów w pasie w `levelling_uncertainty_nrw_west_2019_2023.json`. Rycina
+  reperu stabilnego `nrw_west_levelling_stable_2019_2023_<reper>.png` rozdziela szum (pas) i wspólne tempo grupy
+  stabilnej (linia), pokazuje szereg po odjęciu tego tempa i rozkład Δh EGMS całej grupy z progiem N3. Że przesunięcie
+  jest wspólne dla grupy — zmierzone; że wynika z różnych układów odniesienia — hipoteza (sekcja 5, wiersz 6).
 
 ---
 

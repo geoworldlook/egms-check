@@ -105,6 +105,13 @@ assert (cr['status'] == 'ok').sum() == 13 - off['n_group'] and cr['status'].str.
 assert Cn['figure_rel'].stat().st_size > 10000 and Cn['groups_rel'].exists()
 series = sorted(Cn['figure'].parent.glob('nrw_west_levelling_series_2019_2023_*.png'))
 assert len(series) >= 3 and Lh.bench_id('B001') in ' '.join(f.name for f in series), [f.name for f in series]
+# Niepewność EGMS (informacyjnie): fixture ma rmse = 1,0 mm w każdej komórce -> sigma_Δh = sqrt(2) mm.
+un = json.loads(Cn['uncertainty'].read_text())
+assert un['sigma_column'] == 'rmse' and abs(un['median_rmse_mm'] - 1.0) < 1e-9 and abs(un['median_sigma_dh_mm'] - 2 ** 0.5) < 1e-9, un
+assert un['n_without_sigma'] == 0 and 0.0 <= un['share_within_absolute'] <= 1.0 and 0.0 <= un['share_within_relative'] <= 1.0, un
+assert np.allclose(cc['sigma_dh_mm'].dropna(), 2 ** 0.5), cc['sigma_dh_mm'].describe()
+stable = sorted(Cn['figure'].parent.glob('nrw_west_levelling_stable_2019_2023_*.png'))
+assert len(stable) == 1 and stable[0].stat().st_size > 10000, [f.name for f in stable]
 assert 'EGMS_L3U_2019_2023' in set(registry_read(rt, 'gwl_validation_metrics')['product'])
 lg, ln_ = read_long(G['long']), read_long(N['long'])
 assert {{'EGMS_L2b_2020_2024', 'EGMS_L3U_2020_2024', 'GNSS_NGL_LOS', 'GNSS_NGL_U', 'S1_HYP3_MINTPY'}} <= set(lg['source']), set(lg['source'])

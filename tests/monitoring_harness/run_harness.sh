@@ -57,9 +57,11 @@ run_nb "$REPO/notebooks/Pokaz_2_Niwelacja_NRW.ipynb" "$WORK/out4b.ipynb" > "$WOR
 grep -q "Przesunięcie EGMS względem niwelacji na" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak wyniku wariantu względnego"; exit 1; }
 grep -q "Najszybciej osiadający reper" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak podsumowania liczbowego"; exit 1; }
 grep -q "EGMS − niwelacja \[mm\]" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak tabeli rozbieżności"; exit 1; }
+grep -q "Niepewność EGMS (mediana" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak niepewności EGMS"; exit 1; }
+grep -q "Po odjęciu wspólnego przesunięcia różnica EGMS − niwelacja" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak sekcji reperu stabilnego"; exit 1; }
 "$PY" - "$WORK/out4a.ipynb" "$WORK/out4b.ipynb" <<'PYEOF'
 import sys, nbformat
-need = {"out4a": 2, "out4b": 4}             # GNSS: rozrzut + stacja w czasie; niwelacja: mapa + rozrzut + >= 2 repery
+need = {"out4a": 2, "out4b": 5}             # GNSS: rozrzut + stacja; niwelacja: mapa + rozrzut + >= 2 repery + reper stabilny
 for path in sys.argv[1:]:
     nb = nbformat.read(path, as_version=4)
     imgs = sum(1 for c in nb.cells if c.cell_type == "code" for o in c.get("outputs", []) if "image/png" in o.get("data", {}))

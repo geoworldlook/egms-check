@@ -247,6 +247,13 @@ według niwelacji (|Δh_niw| ≤ 2 mm, mediana prędkości grupy; metodyka F4 se
 relative_variant = 'stable_group_median'`. Policzony po obejrzeniu wyniku `absolute` (stałe przesunięcie ok. −2 mm/rok),
 raportowany obok niego; werdykt wariantu głównego bez zmian. Weryfikacja informacji o przypadku: `docs/evidence/F10_NRW_niwelacja_EGMS.md`.
 
+Autor 2026-10-15: **niepewność EGMS na rycinach** porównania z niwelacją 2019–2023, informacyjnie (bez progu, werdykty bez
+zmian): σ pojedynczego odczytu = kolumna `rmse` komórki L3, σ_Δh = √2 · rmse, pas ±2σ
+(`regions.nrw_west.levelling.uncertainty`). Ryciny: pas na szeregach reperów i wokół linii 1:1 rozrzutu (odsetek reperów
+w pasie dla obu wariantów, `levelling_uncertainty_nrw_west_2019_2023.json`) oraz rycina reperu stabilnego z reguły
+przykładów `nrw_west_levelling_stable_2019_2023_<reper>.png`: A — szereg z linią wspólnego tempa grupy stabilnej,
+B — po odjęciu tego tempa, C — rozkład Δh EGMS całej grupy z progiem N3. Niwelacja bez niepewności (rejestr NRW jej nie podaje).
+
 Historia decyzji (wcześniejszy stan listy):
 1. `regions.nrw_west`: prostokąt obszaru (ryc. 14–15 Even 2024), adresy plików niwelacji, kodowanie, EPSG, odniesienie.
 2. `gnss`: reguła E1 z oknem 2020.0–2024.25; `method`: parametry E1.

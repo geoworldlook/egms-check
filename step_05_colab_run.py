@@ -492,6 +492,11 @@ CHECK_CONFIG: Dict[str, Any] = {
                 # to NIE jest metoda Even i in. 2024, którzy porównują prędkości wprost - sprostowanie w F4),
                 # policzony po obejrzeniu wyniku 'absolute' (stałe przesunięcie ok. -2 mm/rok) - tak opisywać w raporcie.
                 "relative_variant": "stable_group_median",
+                # Autor 2026-10-15: niepewność EGMS na rycinach, INFORMACYJNIE (bez progu, werdykty bez zmian):
+                # sigma pojedynczego odczytu = kolumna 'rmse' komórki L3 (reszty szeregu względem modelu EGMS, mm);
+                # Δh to różnica dwóch odczytów -> sigma_Δh = sqrt(2) * rmse; pas +-k_sigma * sigma_Δh (2 = ok. 95%).
+                # Niwelacja bez niepewności: rejestr NRW jej nie podaje (kolumny: punkt, data, wysokość).
+                "uncertainty": {"egms_sigma_column": "rmse", "k_sigma": 2.0},
             },
             "approved": "2026-10-12",                # autor 2026-10-12: obszar 5,9-7,0 E, 50,7-51,3 N; egms_check 2019-2023
         },
@@ -713,6 +718,7 @@ def levelling_check_paths(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) 
             "summary_rel": out / f"levelling_summary_{region}_{tag}_relative.csv",
             "groups_rel": out / f"levelling_groups_{region}_{tag}_relative.csv",
             "offset_rel": out / f"levelling_offset_{region}_{tag}_relative.json",
+            "uncertainty": out / f"levelling_uncertainty_{region}_{tag}.json",
             "figure_rel": P["figures"] / f"{region}_levelling_scatter_{tag}_relative.png"}
 
 
@@ -1687,6 +1693,23 @@ def _levelling_check_examples(res: pd.DataFrame, rule: str, strong_mm_yr: float)
     return uniq
 
 
+def _egms_sigma_at_benchmarks(cells_path: Path, sigma_column: str) -> pd.DataFrame:
+    """
+    Niepewność EGMS przy reperze z komórki L3 (jedna komórka na reper, step_04.l3_cells_at_sites): egms_rmse_mm =
+    kolumna sigma_column, sigma_dh_mm = sqrt(2) * rmse (Δh = różnica dwóch odczytów; interpolacja między sąsiednimi
+    datami pominięta - zachowawczo). Brak kolumny = KeyError; komórka bez wartości = NaN (jawnie, liczone w raporcie).
+    """
+    cells = _read_points(cells_path, "komórki L3 przy reperach: task_levelling_extract")
+    if sigma_column not in cells.columns:
+        raise KeyError(f"{cells_path.name}: brak kolumny {sigma_column!r} (CHECK_CONFIG ...levelling.uncertainty."
+                       f"egms_sigma_column); kolumny bez dat: {[c for c in cells.columns if not str(c).isdigit()]}")
+    if cells["site"].duplicated().any():
+        raise ValueError(f"{cells_path.name}: więcej niż jedna komórka przy reperze {cells.loc[cells['site'].duplicated(), 'site'].tolist()[:5]}")
+    rmse = pd.to_numeric(cells[sigma_column], errors="raise").to_numpy(float)
+    return pd.DataFrame({"benchmark_id": cells["site"].astype(str).to_numpy(), "egms_rmse_mm": rmse,
+                         "sigma_dh_mm": np.sqrt(2.0) * rmse})
+
+
 def _levelling_series_long(long_u: pd.DataFrame, lev: pd.DataFrame, row: pd.Series, region: str) -> pd.DataFrame:
     """
     Szereg EGMS (pion) i epoki niwelacji jednego reperu w formacie długim, oba wyzerowane w pierwszej epoce porównania
@@ -1699,7 +1722,8 @@ def _levelling_series_long(long_u: pd.DataFrame, lev: pd.DataFrame, row: pd.Seri
     d = pd.DatetimeIndex(e["date"])
     if not d[0] <= t1 <= d[-1]:
         raise ValueError(f"Reper {bid}: epoka {t1.date()} poza szeregiem EGMS {d[0].date()} - {d[-1].date()}")
-    e0 = float(np.interp(t1.value, d.asi8, e["disp_mm"].to_numpy(float)))
+    # Jedna jednostka czasu po obu stronach: Timestamp.value jest zawsze w ns, a asi8 w jednostce indeksu (pandas 3: us).
+    e0 = float(np.interp(t1.as_unit("ns").value, d.as_unit("ns").asi8, e["disp_mm"].to_numpy(float)))
     e = e.assign(disp_mm=e["disp_mm"] - e0, ref_date=t1)
     g = lev[(lev["benchmark_id"].astype(str) == bid) & (lev["epoch_date"] >= d[0]) & (lev["epoch_date"] <= d[-1])]
     g = g.sort_values("epoch_date")
@@ -1741,8 +1765,15 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
     near = s6.nearest_station_km(xy[xy["id"].isin(ok_ids)], _latest_midas(rt, cfg)).rename(columns={"id": "benchmark_id"})
     res = res.assign(benchmark_id=res["benchmark_id"].astype(str))
 
+    # Niepewność EGMS przy reperze (autor 2026-10-15, informacyjnie): rmse komórki L3, sigma_Δh = sqrt(2) * rmse.
+    unc = _decided(reg["levelling"], "uncertainty", path)
+    sig_col = _decided(unc, "egms_sigma_column", f"{path}.uncertainty")
+    k_sig = float(_decided(unc, "k_sigma", f"{path}.uncertainty"))
+    sig = _egms_sigma_at_benchmarks(C["l3_cells"], sig_col)
+
     def with_dist(df: pd.DataFrame) -> pd.DataFrame:
-        return df.assign(benchmark_id=df["benchmark_id"].astype(str)).merge(near, on="benchmark_id", how="left")
+        return (df.assign(benchmark_id=df["benchmark_id"].astype(str)).merge(near, on="benchmark_id", how="left")
+                .merge(sig, on="benchmark_id", how="left"))
 
     def report(df: pd.DataFrame, compare_p: Path, groups_p: Path, fig_p: Path, title: str) -> pd.DataFrame:
         df.to_csv(compare_p, index=False, date_format="%Y-%m-%d")
@@ -1750,14 +1781,15 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
         groups.to_csv(groups_p, index=False)
         print("Podział informacyjny (bez progów; niecki według niwelacji):")
         print(groups.to_string(index=False))
-        fig = s7.plot_levelling_scatter(df, float(strong), title)
+        fig = s7.plot_levelling_scatter(df, float(strong), title, k_sig)
         fig_p.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(fig_p, dpi=150, facecolor=fig.get_facecolor())
         plt.close(fig)
         return groups
 
     print(f"=== Wariant główny 'absolute' ({source}) ===")
-    groups = report(with_dist(res), C["compare"], C["groups"], C["figure"],
+    res_x = with_dist(res)
+    groups = report(res_x, C["compare"], C["groups"], C["figure"],
                     f"EGMS L3 vertical {q['release']} vs levelling, {region}")
     # Wariant dodatkowy (autor 2026-10-13): oba zbiory względem grupy stabilnej według niwelacji; werdykt główny bez zmian.
     variant = _decided(reg["levelling"], "relative_variant", path)
@@ -1770,8 +1802,20 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
     print(summ_rel.to_string(index=False))
     C["offset_rel"].write_text(json.dumps({"variant": variant, "source": source, **info}, indent=1, ensure_ascii=False),
                                encoding="utf-8")
-    report(with_dist(rel), C["compare_rel"], C["groups_rel"], C["figure_rel"],
+    rel_x = with_dist(rel)
+    report(rel_x, C["compare_rel"], C["groups_rel"], C["figure_rel"],
            f"EGMS L3 vertical {q['release']} vs levelling, {region}, relative to stable benchmarks")
+    w_abs, w_rel = s7.share_within_uncertainty(res_x, k_sig), s7.share_within_uncertainty(rel_x, k_sig)
+    ok_x = res_x[res_x["status"] == "ok"]
+    unc_info = {"sigma_column": sig_col, "k_sigma": k_sig, "sigma_dh_rule": "sqrt(2) * rmse (różnica dwóch odczytów EGMS)",
+                "median_rmse_mm": float(ok_x["egms_rmse_mm"].median()), "median_sigma_dh_mm": w_abs["median_sigma_dh_mm"],
+                "n_without_sigma": w_abs["n_without_sigma"], "n_absolute": w_abs["n"], "share_within_absolute": w_abs["share_within"],
+                "n_relative": w_rel["n"], "share_within_relative": w_rel["share_within"],
+                "note": "informacyjnie, bez progu; niwelacja bez niepewności (rejestr NRW jej nie podaje)"}
+    C["uncertainty"].write_text(json.dumps(unc_info, indent=1, ensure_ascii=False), encoding="utf-8")
+    print(f"Niepewność EGMS (informacyjnie): mediana rmse {unc_info['median_rmse_mm']:.2f} mm, sigma_Δh "
+          f"{unc_info['median_sigma_dh_mm']:.2f} mm; w granicach ±{k_sig:g}σ: wariant główny {w_abs['share_within']:.0%} "
+          f"(n {w_abs['n']}), względny {w_rel['share_within']:.0%} (n {w_rel['n']}); bez rmse: {w_abs['n_without_sigma']}")
     # Ryciny szeregów: EGMS w czasie i epoki niwelacji przy reperach z reguły przykładów (bez wyboru ręcznego).
     mo = require_approved(cfg, "monitoring")
     examples = _levelling_check_examples(res, mo["example_rule"], float(strong))
@@ -1785,18 +1829,36 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
         plt.close(fig)
     else:
         print(f"Brak {C['l3_map'].name} (tryb bez plików surowych): mapa {C['map'].name} nie powstała")
-    figs = []
+    figs, tag = [], str(q["release"]).replace("-", "_")
+
+    def egms_txt(row) -> str:
+        s_ = float(row["sigma_dh_mm"])
+        return (f"EGMS {row['dh_egms_mm']:+.0f} ± {k_sig * s_:.0f} mm ({k_sig:g}σ)" if np.isfinite(s_)
+                else f"EGMS {row['dh_egms_mm']:+.0f} mm (no EGMS rmse)")
+
     for bid, label in examples:
-        row = res[(res["benchmark_id"] == bid) & (res["status"] == "ok")].iloc[0]
+        row = res_x[(res_x["benchmark_id"] == bid) & (res_x["status"] == "ok")].iloc[0]
         one = _levelling_series_long(long_u, lev, row, region)
-        title = (f"Benchmark {bid}: {label}\nlevelling {row['dh_lev_mm']:+.0f} mm, EGMS {row['dh_egms_mm']:+.0f} mm "
+        title = (f"Benchmark {bid}: {label}\nlevelling {row['dh_lev_mm']:+.0f} mm, {egms_txt(row)} "
                  f"({pd.Timestamp(row['t1']):%Y-%m-%d} to {pd.Timestamp(row['t2']):%Y-%m-%d})")
-        fig = s7.plot_series_long(one, bid, title, mo["s1b_end_date"])
-        out_png = C["figure"].parent / f"{region}_levelling_series_{str(q['release']).replace('-', '_')}_{bid}.png"
+        fig = s7.plot_levelling_series(one, bid, title, mo["s1b_end_date"], float(row["sigma_dh_mm"]), k_sig)
+        out_png = C["figure"].parent / f"{region}_levelling_series_{tag}_{bid}.png"
         fig.savefig(out_png, dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
         plt.close(fig)
         figs.append(out_png.name)
-    print(f"Ryciny szeregów reperów ({len(figs)}): {figs}")
+        if label == "smallest |rate|, stable":
+            # Reper stabilny (autor 2026-10-15): szum EGMS, wspólne tempo grupy stabilnej i rozkład całej grupy (N3).
+            grp = res_x[(res_x["status"] == "ok") & (res_x["dh_lev_mm"].abs() <= th["stable_max_lev_mm"])]
+            title = (f"Benchmark {bid}: stable by levelling ({row['dh_lev_mm']:+.0f} mm), {egms_txt(row)}\n"
+                     f"EGMS difference explained: noise (band) + common rate of all {info['n_group']} stable benchmarks")
+            fig = s7.plot_stable_benchmark(one, bid, float(row["dh_egms_mm"]), grp["dh_egms_mm"].to_numpy(float), info,
+                                           float(row["sigma_dh_mm"]), k_sig, float(th["stable_abs_dh_mm"]), title,
+                                           mo["s1b_end_date"])
+            out_png = C["figure"].parent / f"{region}_levelling_stable_{tag}_{bid}.png"
+            fig.savefig(out_png, dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
+            plt.close(fig)
+            figs.append(out_png.name)
+    print(f"Ryciny reperów ({len(figs)}): {figs}")
     m = require_approved(cfg, "method")
     reg_rows = pd.concat([reg_rows, _metric_rows(rel.assign(product=source, site=rel["benchmark_id"], track="L3",
                                                             radius_m=_l3_radius(m), n=1.0),
@@ -2651,6 +2713,18 @@ def _selftest() -> None:
         assert calls == list(TRANSIENT_WAITS_S)
     finally:
         time.sleep = real_sleep
+    # Szereg reperu na rycinie: EGMS wyzerowany w epoce t1 niezależnie od jednostki czasu indeksu (ns w pandas 2, us w 3).
+    t1 = pd.Timestamp("2019-05-02")
+    for unit in ("ns", "us"):
+        de = pd.date_range("2019-01-07", "2020-12-31", freq="6D").as_unit(unit)
+        lu = pd.DataFrame({"site": "B1", "date": de, "disp_mm": -2.0 * (de - t1).days.to_numpy(float) / 365.25 + 7.0})
+        lv = pd.DataFrame({"benchmark_id": "B1", "epoch_date": pd.DatetimeIndex([t1, pd.Timestamp("2020-06-01")]).as_unit(unit),
+                           "height_m": [100.0, 99.998]})
+        one = _levelling_series_long(lu, lv, pd.Series({"benchmark_id": "B1", "t1": t1}), "r")
+        eg = one[one["source"] != LEVELLING_REFERENCE].sort_values("date")
+        at_t1 = float(np.interp(0.0, (pd.DatetimeIndex(eg["date"]) - t1).days.to_numpy(float), eg["disp_mm"].to_numpy(float)))
+        assert abs(at_t1) < 1e-9, (unit, at_t1)
+        assert np.allclose(one.loc[one["source"] == LEVELLING_REFERENCE, "disp_mm"], [0.0, -2.0]), unit
     print("SELFTEST step_05_colab_run OK")
 
 
