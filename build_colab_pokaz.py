@@ -30,8 +30,23 @@ for m in [m for m in sys.modules if m.startswith('step_0')]:
 from step_05_colab_run import (CHECK_CONFIG, region_paths, levelling_check_paths, _levelling_check_examples,
                                _example_sites, _read_sites, _sources)
 rt = {'PROJECT_DIR': PROJECT_DIR}
-print('Wyniki policzone kodem:', subprocess.run(['git', '-C', PROJECT_DIR, 'log', '-1', '--format=%h z %ci'],
-                                               capture_output=True, text=True).stdout.strip())
+KOD = subprocess.run(['git', '-C', PROJECT_DIR, 'log', '-1', '--format=%h z %ci'], capture_output=True, text=True).stdout.strip()
+print('Wyniki policzone kodem:', KOD)
+KROK = ('W EGMS_Monitoring.ipynb uruchom komórki startowe (pobierają aktualny kod na Dysk) i komórki obliczeń tego '
+        'przypadku, a potem ten notatnik jeszcze raz.')
+
+def wymagaj(paths, klucze, kolumny=None):
+    # Wyniki starsze niż notatnik = jasny komunikat, co uruchomić (zamiast KeyError albo pustej komórki).
+    stare = [k for k in klucze if k not in paths]
+    if stare:
+        raise RuntimeError(f'Kod na Dysku ({KOD}) jest starszy niż ten notatnik (brak: {stare}). {KROK}')
+    brak = [Path(paths[k]).name for k in klucze if not Path(paths[k]).exists()]
+    if brak:
+        raise FileNotFoundError(f'Brak wyników na Dysku: {brak}. {KROK}')
+    for k, cols in (kolumny or {}).items():
+        jest = pd.read_csv(paths[k], nrows=0).columns
+        if [c for c in cols if c not in jest]:
+            raise RuntimeError(f'{Path(paths[k]).name} policzony starszym kodem (brak kolumn {[c for c in cols if c not in jest]}). {KROK}')
 
 def pokaz(path, width=850):
     # Brak pliku = błąd (wyniki liczy EGMS_Monitoring.ipynb), nie pusta komórka.
@@ -67,7 +82,8 @@ GNSS na ziemi?
 satelity i porównujemy tempo ruchu [mm/rok]. Progi oceny ustaliliśmy przed obliczeniami.
 """ + JAK_URUCHOMIC),
     ("code", SETUP + """
-G = region_paths(rt, CHECK_CONFIG, 'groningen')"""),
+G = region_paths(rt, CHECK_CONFIG, 'groningen')
+wymagaj(G, ['sites', 'gnss_compare', 'verdict_l2b'])"""),
     ("md", """## 1. Ile mamy danych"""),
     ("code", """#@title Liczba stacji i par stacja–ścieżka
 sites = _read_sites(G)
@@ -135,6 +151,8 @@ ustaliliśmy przed obliczeniami.
 """ + JAK_URUCHOMIC),
     ("code", SETUP + """
 C = levelling_check_paths(rt, CHECK_CONFIG, 'nrw_west')
+wymagaj(C, ['compare', 'summary', 'summary_rel', 'offset_rel', 'groups', 'groups_rel', 'figure', 'map', 'uncertainty'],
+        kolumny={'compare': ['sigma_dh_mm']})
 strong = CHECK_CONFIG['regions']['nrw_west']['levelling']['strong_motion_mm_yr']
 res = pd.read_csv(C['compare'], dtype={'benchmark_id': str})
 ok = res[res['status'] == 'ok']
