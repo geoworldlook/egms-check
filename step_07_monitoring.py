@@ -849,35 +849,41 @@ def _check_k_sigma(k_sigma) -> float:
     return float(k_sigma)
 
 
-def share_within_uncertainty(res: pd.DataFrame, k_sigma: float) -> dict:
+UNCERTAINTY_BANDS = (("sigma_emp_dh_mm", "typical EGMS-levelling disagreement on stable benchmarks"),
+                     ("sigma_dh_mm", "EGMS noise (√2·rmse)"))          # od szerszego (rysowany pod spodem) do węższego
+
+
+def share_within_uncertainty(res: pd.DataFrame, k_sigma: float, sigma_column: str) -> dict:
     """
-    Informacyjnie (bez progu): odsetek reperów 'ok' z |diff_mm| <= k_sigma * sigma_dh_mm (sigma reperu, kolumna
-    sigma_dh_mm). Repery bez sigma (NaN) nie wchodzą do mianownika; ich liczba jest w wyniku (n_without_sigma).
+    Informacyjnie (bez progu): odsetek reperów 'ok' z |diff_mm| <= k_sigma * sigma (sigma reperu z kolumny
+    sigma_column: sigma_dh_mm = szum EGMS, sigma_emp_dh_mm = rozrzut na reperach stabilnych). Repery bez sigma (NaN)
+    nie wchodzą do mianownika; ich liczba jest w wyniku (n_without_sigma).
     """
     k = _check_k_sigma(k_sigma)
-    missing = [c for c in ("diff_mm", "sigma_dh_mm", "status") if c not in res.columns]
+    missing = [c for c in ("diff_mm", sigma_column, "status") if c not in res.columns]
     if missing:
         raise KeyError(f"share_within_uncertainty: brak kolumn {missing}")
     ok = res[res["status"] == "ok"]
-    s = ok["sigma_dh_mm"].to_numpy(float)
+    s = ok[sigma_column].to_numpy(float)
     has = np.isfinite(s)
     if not has.any():
-        raise ValueError("share_within_uncertainty: żaden reper 'ok' nie ma sigma_dh_mm")
+        raise ValueError(f"share_within_uncertainty: żaden reper 'ok' nie ma {sigma_column}")
     d = ok["diff_mm"].to_numpy(float)[has]
     return {"n": int(has.sum()), "n_without_sigma": int((~has).sum()),
-            "share_within": float(np.mean(np.abs(d) <= k * s[has])), "median_sigma_dh_mm": float(np.median(s[has]))}
+            "share_within": float(np.mean(np.abs(d) <= k * s[has])), "median_sigma_mm": float(np.median(s[has]))}
 
 
 def plot_levelling_scatter(res: pd.DataFrame, strong_mm_yr: float, title: str, k_sigma: float):
     """
     Δh EGMS (pion) względem Δh niwelacji między epokami reperu (wynik step_06.compare_levelling, wiersze 'ok'):
     kolor = grupa według NIWELACJI (|v_lev| >= strong_mm_yr: niecki; pozostałe), linia 1:1, osie w mm, równa skala.
-    Szary pas wokół 1:1: +-k_sigma * mediana sigma_dh_mm (niepewność Δh EGMS, informacyjnie); w tytule n, mediana
-    |Δh_EGMS - Δh_niw| i odsetek reperów w granicach +-k_sigma * własnej sigma (share_within_uncertainty).
+    Dwa pasy wokół 1:1 (informacyjnie, UNCERTAINTY_BANDS): szerszy +-k_sigma * mediana sigma_emp_dh_mm (typowa
+    niezgodność EGMS-niwelacja na reperach stabilnych) i węższy +-k_sigma * mediana sigma_dh_mm (szum EGMS z rmse);
+    w tytule n, mediana |Δh_EGMS - Δh_niw| i odsetek reperów w każdym pasie (share_within_uncertainty, sigma reperu).
     W legendzie liczba reperów w grupie. Zero wierszy 'ok' = ValueError.
     """
     import matplotlib.pyplot as plt
-    need = ["dh_lev_mm", "dh_egms_mm", "diff_mm", "v_lev_mm_yr", "status", "sigma_dh_mm"]
+    need = ["dh_lev_mm", "dh_egms_mm", "diff_mm", "v_lev_mm_yr", "status"] + [c for c, _ in UNCERTAINTY_BANDS]
     missing = [c for c in need if c not in res.columns]
     if missing:
         raise KeyError(f"plot_levelling_scatter: brak kolumn {missing}")
@@ -887,7 +893,7 @@ def plot_levelling_scatter(res: pd.DataFrame, strong_mm_yr: float, title: str, k
     ok = res[res["status"] == "ok"]
     if ok.empty:
         raise ValueError("plot_levelling_scatter: brak reperów ze statusem 'ok'")
-    within = share_within_uncertainty(res, k)
+    within = {c: share_within_uncertainty(res, k, c) for c, _ in UNCERTAINTY_BANDS}
     strong = ok["v_lev_mm_yr"].abs() >= strong_mm_yr
     x, y = ok["dh_lev_mm"].to_numpy(float), ok["dh_egms_mm"].to_numpy(float)
     lo, hi = float(min(x.min(), y.min())), float(max(x.max(), y.max()))
@@ -895,9 +901,10 @@ def plot_levelling_scatter(res: pd.DataFrame, strong_mm_yr: float, title: str, k
     lo, hi = lo - pad, hi + pad
     fig, ax = plt.subplots(figsize=(6.4, 6.0), facecolor=SURFACE)
     _style(ax)
-    band = k * within["median_sigma_dh_mm"]
-    ax.fill_between([lo, hi], [lo - band, hi - band], [lo + band, hi + band], color=GRID, alpha=0.9, lw=0, zorder=0,
-                    label=f"EGMS uncertainty ±{k:g}σ (median σ = {within['median_sigma_dh_mm']:.1f} mm)")
+    for (col, lab), color in zip(UNCERTAINTY_BANDS, (GRID, AXIS)):
+        band = k * within[col]["median_sigma_mm"]
+        ax.fill_between([lo, hi], [lo - band, hi - band], [lo + band, hi + band], color=color, alpha=0.8, lw=0, zorder=0,
+                        label=f"{lab} ±{k:g}σ (median σ = {within[col]['median_sigma_mm']:.1f} mm)")
     ax.plot([lo, hi], [lo, hi], color=INK_2, lw=1.0, zorder=1, label="1:1")
     for mask, color, label in ((~strong, SERIES_COLORS[0], f"|v_levelling| < {strong_mm_yr:g} mm/yr"),
                                (strong, SERIES_COLORS[1], f"|v_levelling| >= {strong_mm_yr:g} mm/yr (subsidence bowls)")):
@@ -910,8 +917,9 @@ def plot_levelling_scatter(res: pd.DataFrame, strong_mm_yr: float, title: str, k
     ax.set_xlabel("Levelling height change between epochs [mm]")
     ax.set_ylabel("EGMS vertical change between the same epochs [mm]")
     med = float(ok["diff_mm"].abs().median())
-    ax.set_title(f"{title}\nn = {len(ok)} benchmarks; median |EGMS - levelling| = {med:.1f} mm; "
-                 f"within ±{k:g}σ of EGMS: {within['share_within']:.0%}", fontsize=9, color=INK)
+    ax.set_title(f"{title}\nn = {len(ok)} benchmarks; median |EGMS - levelling| = {med:.1f} mm\n"
+                 f"within ±{k:g}σ: {within['sigma_emp_dh_mm']['share_within']:.0%} (typical disagreement), "
+                 f"{within['sigma_dh_mm']['share_within']:.0%} (EGMS noise)", fontsize=9, color=INK)
     ax.legend(fontsize=7, loc="upper left", frameon=False, labelcolor=INK_2)
     fig.tight_layout()
     return fig
@@ -931,36 +939,43 @@ def _levelling_parts(long_df: pd.DataFrame, site: str) -> tuple:
     return e, lv, t1
 
 
-def _band_label(k: float, sigma_dh_mm: float) -> str:
-    return f"EGMS uncertainty ±{k:g}σ (σ = √2·rmse = {sigma_dh_mm:.1f} mm)"
-
-
-def plot_levelling_series(long_df: pd.DataFrame, site: str, title: str, s1b_end, sigma_dh_mm: float, k_sigma: float):
+def _bands(ax, dates, y, k: float, sigma_dh_mm: float, sigma_emp_dh_mm: float) -> None:
     """
-    Rycina reperu w czasie (plot_series_long) z pasem niepewności EGMS w panelu pionu: +-k_sigma * sigma_dh_mm wokół
-    szeregu EGMS (sigma zmiany wysokości od epoki odniesienia). Brak sigma (NaN) = rycina bez pasa z dopiskiem
-    w legendzie (jawnie, nie zero).
+    Dwa pasy wokół szeregu EGMS: szerszy (szary) +-k * sigma_emp_dh_mm = typowa niezgodność EGMS-niwelacja na
+    reperach stabilnych, węższy (niebieski) +-k * sigma_dh_mm = szum EGMS (√2·rmse). Brak sigma = pas pominięty
+    z dopiskiem w legendzie (jawnie, nie zero).
+    """
+    for sig, color, alpha, lab in ((sigma_emp_dh_mm, AXIS, 0.35, "typical EGMS-levelling disagreement"),
+                                   (sigma_dh_mm, _source_color("EGMS"), 0.22, "EGMS noise (√2·rmse)")):
+        if sig is not None and np.isfinite(sig):
+            ax.fill_between(dates, y - k * sig, y + k * sig, color=color, alpha=alpha, lw=0, zorder=2,
+                            label=f"{lab} ±{k:g}σ (σ = {sig:.1f} mm)")
+        else:
+            ax.plot([], [], " ", label=f"{lab}: no value (no band)")
+
+
+def plot_levelling_series(long_df: pd.DataFrame, site: str, title: str, s1b_end, sigma_dh_mm: float,
+                          sigma_emp_dh_mm: float, k_sigma: float):
+    """
+    Rycina reperu w czasie (plot_series_long) z dwoma pasami niepewności w panelu pionu (_bands): szum EGMS
+    (sigma_dh_mm) i typowa niezgodność EGMS-niwelacja na reperach stabilnych (sigma_emp_dh_mm), obie jako sigma
+    zmiany wysokości od epoki odniesienia.
     """
     k = _check_k_sigma(k_sigma)
     fig = plot_series_long(long_df, site, title, s1b_end)
     e, _, _ = _levelling_parts(long_df, site)
     ax = fig.axes[-1]                                                  # panel pionu (U) jest ostatni
-    if sigma_dh_mm is not None and np.isfinite(sigma_dh_mm):
-        y = e["disp_mm"].to_numpy(float)
-        ax.fill_between(e["date"], y - k * sigma_dh_mm, y + k * sigma_dh_mm, color=_source_color("EGMS"), alpha=0.15,
-                        lw=0, zorder=2, label=_band_label(k, sigma_dh_mm))
-    else:
-        ax.plot([], [], " ", label="EGMS uncertainty: no rmse in the EGMS cell (no band)")
+    _bands(ax, e["date"], e["disp_mm"].to_numpy(float), k, sigma_dh_mm, sigma_emp_dh_mm)
     ax.legend(fontsize=7, loc="lower left", frameon=False, labelcolor=INK_2)
     return fig
 
 
 def plot_stable_benchmark(long_df: pd.DataFrame, site: str, site_dh_egms_mm: float, group_dh_egms_mm,
-                          group_info: dict, sigma_dh_mm: float, k_sigma: float, n3_threshold_mm: float,
-                          title: str, s1b_end):
+                          group_info: dict, sigma_dh_mm: float, sigma_emp_dh_mm: float, k_sigma: float,
+                          n3_threshold_mm: float, title: str, s1b_end):
     """
     Reper stabilny według niwelacji, trzy panele (autor 2026-10-15):
-      A - szereg EGMS z pasem +-k_sigma * sigma_dh_mm, epoki niwelacji i linia wspólnego tempa EGMS grupy reperów
+      A - szereg EGMS z pasami (_bands: szum EGMS i typowa niezgodność), epoki niwelacji i linia wspólnego tempa grupy
           stabilnych (group_info['median_v_egms_group_mm_yr'] * (t - t1));
       B - oba szeregi po odjęciu tempa grupy (EGMS: median_v_egms_group, niwelacja: median_v_lev_group), jak wariant
           względny step_06.relative_to_stable_group;
@@ -983,26 +998,21 @@ def plot_stable_benchmark(long_df: pd.DataFrame, site: str, site_dh_egms_mm: flo
     ve, vl = float(group_info["median_v_egms_group_mm_yr"]), float(group_info["median_v_lev_group_mm_yr"])
     yr = lambda dates: (pd.DatetimeIndex(dates) - t1).days.to_numpy(float) / 365.25
     ce, cl = _source_color("EGMS"), _source_color("LEVELLING")
-    has_sigma = sigma_dh_mm is not None and np.isfinite(sigma_dh_mm)
     fig = plt.figure(figsize=(13, 7.2), facecolor=SURFACE)
     gs = fig.add_gridspec(2, 2, width_ratios=[1.7, 1.0])
     ax_a = fig.add_subplot(gs[0, 0])
     ax_b = fig.add_subplot(gs[1, 0], sharex=ax_a)
     ax_c = fig.add_subplot(gs[:, 1])
     panels = ((ax_a, e["disp_mm"].to_numpy(float), lv["disp_mm"].to_numpy(float),
-               "A. As measured: EGMS follows the common rate of all stable benchmarks"),
+               "A. As measured, with the common EGMS rate of all stable benchmarks (dotted)"),
               (ax_b, e["disp_mm"].to_numpy(float) - ve * yr(e["date"]), lv["disp_mm"].to_numpy(float) - vl * yr(lv["date"]),
                "B. After removing the common rate of the stable group (relative variant)"))
     for i, (ax, ye, yl, head) in enumerate(panels):
         _style(ax)
-        if has_sigma:
-            ax.fill_between(e["date"], ye - k * sigma_dh_mm, ye + k * sigma_dh_mm, color=ce, alpha=0.15, lw=0, zorder=2,
-                            label=_band_label(k, sigma_dh_mm))
-        ax.plot(e["date"], ye, "-o", lw=1.2, ms=2.5, color=ce, mec=SURFACE, mew=0.4, zorder=3,
-                label="EGMS L3 vertical" + (" minus common rate" if i else ""))
+        _bands(ax, e["date"], ye, k, sigma_dh_mm, sigma_emp_dh_mm)
+        ax.plot(e["date"], ye, "-o", lw=1.2, ms=2.5, color=ce, mec=SURFACE, mew=0.4, zorder=3, label="EGMS L3 vertical")
         ax.plot(lv["date"], yl, "--", lw=1.0, color=cl, zorder=4)
-        ax.plot(lv["date"], yl, "o", ms=8, color=cl, mec=INK, mew=1.0, zorder=5,
-                label="levelling surveys" + (" minus common rate" if i else ""))
+        ax.plot(lv["date"], yl, "o", ms=8, color=cl, mec=INK, mew=1.0, zorder=5, label="levelling surveys")
         if i == 0:
             xx = pd.DatetimeIndex([e["date"].iat[0], e["date"].iat[-1]])
             ax.plot(xx, ve * yr(xx), ":", lw=1.6, color=INK_2, zorder=4,
@@ -1011,7 +1021,8 @@ def plot_stable_benchmark(long_df: pd.DataFrame, site: str, site_dh_egms_mm: flo
         _s1b_line(ax, s1b_end, label=False)
         ax.set_ylabel("Vertical displacement [mm]")
         ax.set_title(head, loc="left", fontsize=9)
-        ax.legend(fontsize=7, loc="lower left", frameon=False, labelcolor=INK_2)
+    h, lab = ax_a.get_legend_handles_labels()                          # jedna legenda pod panelami A i B (nie na danych)
+    ax_b.legend(h, lab, fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2, frameon=False, labelcolor=INK_2)
     ax_b.set_xlabel("Date")
     plt.setp(ax_a.get_xticklabels(), visible=False)
     _style(ax_c)
@@ -1256,15 +1267,20 @@ def _selftest() -> None:
                                 "v_lev_mm_yr": [-20.0, -10.0, 0.7, -0.3], "status": ["ok", "ok", "ok", "NaN: x"]})
         lev_res["diff_mm"] = lev_res["dh_egms_mm"] - lev_res["dh_lev_mm"]
         lev_res["sigma_dh_mm"] = [1.0, 1.0, np.nan, 1.0]                 # |diff| 3, 3 -> poza 2 sigma; trzeci bez sigma
+        lev_res["sigma_emp_dh_mm"] = [2.0, 2.0, 2.0, 2.0]               # szerszy pas: |diff| 3, 3, 1 <= 4
         _expect(ValueError, plot_levelling_scatter, lev_res.assign(status="NaN: x"), 10.0, "x", 2.0)
         _expect(ValueError, plot_levelling_scatter, lev_res, 0.0, "x", 2.0)
         _expect(ValueError, plot_levelling_scatter, lev_res, 10.0, "x", 0.0)
         _expect(KeyError, plot_levelling_scatter, lev_res.drop(columns="diff_mm"), 10.0, "x", 2.0)
         _expect(KeyError, plot_levelling_scatter, lev_res.drop(columns="sigma_dh_mm"), 10.0, "x", 2.0)
-        w = share_within_uncertainty(lev_res, 2.0)
-        assert w == {"n": 2, "n_without_sigma": 1, "share_within": 0.0, "median_sigma_dh_mm": 1.0}, w
-        assert share_within_uncertainty(lev_res, 3.0)["share_within"] == 1.0           # |diff| = 3 <= 3 * 1
-        _expect(ValueError, share_within_uncertainty, lev_res.assign(sigma_dh_mm=np.nan), 2.0)
+        _expect(KeyError, plot_levelling_scatter, lev_res.drop(columns="sigma_emp_dh_mm"), 10.0, "x", 2.0)
+        w = share_within_uncertainty(lev_res, 2.0, "sigma_dh_mm")
+        assert w == {"n": 2, "n_without_sigma": 1, "share_within": 0.0, "median_sigma_mm": 1.0}, w
+        assert share_within_uncertainty(lev_res, 3.0, "sigma_dh_mm")["share_within"] == 1.0   # |diff| = 3 <= 3 * 1
+        we = share_within_uncertainty(lev_res, 2.0, "sigma_emp_dh_mm")
+        assert we == {"n": 3, "n_without_sigma": 0, "share_within": 1.0, "median_sigma_mm": 2.0}, we
+        _expect(ValueError, share_within_uncertainty, lev_res.assign(sigma_dh_mm=np.nan), 2.0, "sigma_dh_mm")
+        _expect(KeyError, share_within_uncertainty, lev_res, 2.0, "sigma_xyz")
         # Reper stabilny: EGMS z tempem grupy -1,2 mm/rok, niwelacja 0; po odjęciu tempa grupy EGMS wokół zera.
         t1s = pd.Timestamp("2019-05-02")
         de = pd.date_range("2019-01-07", "2023-12-18", freq="6D")
@@ -1276,20 +1292,21 @@ def _selftest() -> None:
                                pd.DataFrame({**base, "source": "LEVELLING_NRW", "date": pd.DatetimeIndex([t1s, pd.Timestamp("2022-06-28")]),
                                              "disp_mm": [0.0, 0.0], "n_points": np.nan})], ignore_index=True)
         ginfo = {"n_group": 5, "median_v_egms_group_mm_yr": -1.2, "median_v_lev_group_mm_yr": 0.0}
-        fig_st = plot_stable_benchmark(stab_long, "B1", -3.8, [-4.0, -3.5, -3.8, -2.0, -5.1], ginfo, 1.4, 2.0, 5.0,
+        fig_st = plot_stable_benchmark(stab_long, "B1", -3.8, [-4.0, -3.5, -3.8, -2.0, -5.1], ginfo, 1.4, 2.3, 2.0, 5.0,
                                        "Stable benchmark (synthetic)", s1b_end)
         resid = fig_st.axes[1].lines[0].get_ydata()                      # panel B: EGMS po odjęciu tempa grupy
         assert abs(float(np.median(resid))) < 0.5 and len(fig_st.axes) == 3, float(np.median(resid))
         plt.close(fig_st)
-        _expect(KeyError, plot_stable_benchmark, stab_long, "B1", -3.8, [-4.0], {"n_group": 1}, 1.4, 2.0, 5.0, "x", s1b_end)
-        _expect(ValueError, plot_stable_benchmark, stab_long, "B1", -3.8, [], ginfo, 1.4, 2.0, 5.0, "x", s1b_end)
+        _expect(KeyError, plot_stable_benchmark, stab_long, "B1", -3.8, [-4.0], {"n_group": 1}, 1.4, 2.3, 2.0, 5.0, "x", s1b_end)
+        _expect(ValueError, plot_stable_benchmark, stab_long, "B1", -3.8, [], ginfo, 1.4, 2.3, 2.0, 5.0, "x", s1b_end)
         _expect(ValueError, plot_stable_benchmark, stab_long[stab_long["source"] != "LEVELLING_NRW"], "B1", -3.8, [-4.0],
-                ginfo, 1.4, 2.0, 5.0, "x", s1b_end)
-        fig_ls = plot_levelling_series(stab_long, "B1", "x", s1b_end, 1.4, 2.0)
-        assert any("±2σ" in t.get_text() for t in fig_ls.axes[-1].get_legend().get_texts())
+                ginfo, 1.4, 2.3, 2.0, 5.0, "x", s1b_end)
+        fig_ls = plot_levelling_series(stab_long, "B1", "x", s1b_end, 1.4, 2.3, 2.0)
+        texts = [t.get_text() for t in fig_ls.axes[-1].get_legend().get_texts()]
+        assert any(t.startswith("EGMS noise") and "±2σ" in t for t in texts) and any(t.startswith("typical") for t in texts), texts
         plt.close(fig_ls)
-        fig_ls = plot_levelling_series(stab_long, "B1", "x", s1b_end, np.nan, 2.0)
-        assert any("no rmse" in t.get_text() for t in fig_ls.axes[-1].get_legend().get_texts())
+        fig_ls = plot_levelling_series(stab_long, "B1", "x", s1b_end, np.nan, 2.3, 2.0)
+        assert any("EGMS noise (√2·rmse): no value" in t.get_text() for t in fig_ls.axes[-1].get_legend().get_texts())
         plt.close(fig_ls)
         figs = {"map": plot_l3_map(cells, sites, "Synthetic L3 velocity", 98.0),
                 "series": plot_series_long(long_all, "A", "Site A (synthetic)", s1b_end),

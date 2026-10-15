@@ -107,9 +107,13 @@ series = sorted(Cn['figure'].parent.glob('nrw_west_levelling_series_2019_2023_*.
 assert len(series) >= 3 and Lh.bench_id('B001') in ' '.join(f.name for f in series), [f.name for f in series]
 # Niepewność EGMS (informacyjnie): fixture ma rmse = 1,0 mm w każdej komórce -> sigma_Δh = sqrt(2) mm.
 un = json.loads(Cn['uncertainty'].read_text())
-assert un['sigma_column'] == 'rmse' and abs(un['median_rmse_mm'] - 1.0) < 1e-9 and abs(un['median_sigma_dh_mm'] - 2 ** 0.5) < 1e-9, un
-assert un['n_without_sigma'] == 0 and 0.0 <= un['share_within_absolute'] <= 1.0 and 0.0 <= un['share_within_relative'] <= 1.0, un
+sz, em = un['noise'], un['empirical']
+assert abs(sz['median_rmse_mm'] - 1.0) < 1e-9 and abs(sz['median_sigma_mm'] - 2 ** 0.5) < 1e-9 and sz['n_without_sigma'] == 0, un
+assert np.isfinite(em['group_mad_dv_mm_yr']) and em['group_mad_dv_mm_yr'] >= 0 and abs(em['group_mad_dv_mm_yr'] - off['group_mad_dv_mm_yr']) < 1e-12, un
+assert all(0.0 <= u[f'share_within_{{v}}'] <= 1.0 for u in (sz, em) for v in ('absolute', 'relative')), un
 assert np.allclose(cc['sigma_dh_mm'].dropna(), 2 ** 0.5), cc['sigma_dh_mm'].describe()
+okc = cc[cc['status'] == 'ok']                        # szerszy pas: rozrzut grupy stabilnej x czas między epokami
+assert np.allclose(okc['sigma_emp_dh_mm'], off['group_mad_dv_mm_yr'] * okc['dt_yr']), okc[['sigma_emp_dh_mm', 'dt_yr']]
 stable = sorted(Cn['figure'].parent.glob('nrw_west_levelling_stable_2019_2023_*.png'))
 assert len(stable) == 1 and stable[0].stat().st_size > 10000, [f.name for f in stable]
 assert 'EGMS_L3U_2019_2023' in set(registry_read(rt, 'gwl_validation_metrics')['product'])

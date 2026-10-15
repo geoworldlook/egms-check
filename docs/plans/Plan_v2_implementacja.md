@@ -254,6 +254,12 @@ w pasie dla obu wariantów, `levelling_uncertainty_nrw_west_2019_2023.json`) ora
 przykładów `nrw_west_levelling_stable_2019_2023_<reper>.png`: A — szereg z linią wspólnego tempa grupy stabilnej,
 B — po odjęciu tego tempa, C — rozkład Δh EGMS całej grupy z progiem N3. Niwelacja bez niepewności (rejestr NRW jej nie podaje).
 
+Wynik pierwszego przebiegu (2026-10-15): mediana ±2σ z `rmse` = ±2,0 mm; w pasie 12% reperów (wariant główny) i 37%
+(po odjęciu wspólnego przesunięcia) — `rmse` opisuje sam szum EGMS wokół jego modelu. Autor 2026-10-15 (po obejrzeniu tego
+wyniku): **drugi, szerszy pas** = typowa niezgodność EGMS–niwelacja na reperach stabilnych według niwelacji,
+σ_emp_Δh = `group_mad_dv` (MAD × 1,4826 różnic tempa w grupie wariantu względnego) × Δt reperu
+(`uncertainty.empirical_sigma = 'stable_group_mad_dv'`); oba pasy informacyjnie, werdykty bez zmian.
+
 Historia decyzji (wcześniejszy stan listy):
 1. `regions.nrw_west`: prostokąt obszaru (ryc. 14–15 Even 2024), adresy plików niwelacji, kodowanie, EPSG, odniesienie.
 2. `gnss`: reguła E1 z oknem 2020.0–2024.25; `method`: parametry E1.

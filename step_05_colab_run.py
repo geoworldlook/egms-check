@@ -496,7 +496,11 @@ CHECK_CONFIG: Dict[str, Any] = {
                 # sigma pojedynczego odczytu = kolumna 'rmse' komórki L3 (reszty szeregu względem modelu EGMS, mm);
                 # Δh to różnica dwóch odczytów -> sigma_Δh = sqrt(2) * rmse; pas +-k_sigma * sigma_Δh (2 = ok. 95%).
                 # Niwelacja bez niepewności: rejestr NRW jej nie podaje (kolumny: punkt, data, wysokość).
-                "uncertainty": {"egms_sigma_column": "rmse", "k_sigma": 2.0},
+                # Autor 2026-10-15 (po obejrzeniu wyniku: w pasie rmse tylko 12% reperów, po odjęciu przesunięcia 37% -
+                # rmse opisuje sam szum EGMS): drugi, szerszy pas = typowa niezgodność EGMS-niwelacja na reperach
+                # stabilnych według niwelacji: sigma_emp_Δh = group_mad_dv (MAD x 1,4826 różnic tempa w grupie
+                # wariantu względnego) x Δt reperu. Oba pasy informacyjnie; werdykty bez zmian.
+                "uncertainty": {"egms_sigma_column": "rmse", "k_sigma": 2.0, "empirical_sigma": "stable_group_mad_dv"},
             },
             "approved": "2026-10-12",                # autor 2026-10-12: obszar 5,9-7,0 E, 50,7-51,3 N; egms_check 2019-2023
         },
@@ -1770,10 +1774,20 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
     sig_col = _decided(unc, "egms_sigma_column", f"{path}.uncertainty")
     k_sig = float(_decided(unc, "k_sigma", f"{path}.uncertainty"))
     sig = _egms_sigma_at_benchmarks(C["l3_cells"], sig_col)
+    emp_rule = _decided(unc, "empirical_sigma", f"{path}.uncertainty")
+    if emp_rule != "stable_group_mad_dv":
+        raise ValueError(f"CHECK_CONFIG['{path}.uncertainty']['empirical_sigma'] = {emp_rule!r}: dozwolone 'stable_group_mad_dv'")
+    # Wariant dodatkowy (autor 2026-10-13): oba zbiory względem grupy stabilnej według niwelacji; werdykt główny bez zmian.
+    # Liczony przed rycinami, bo rozrzut grupy (group_mad_dv) daje szerszy pas niepewności na wszystkich rycinach.
+    variant = _decided(reg["levelling"], "relative_variant", path)
+    if variant not in s6.RELATIVE_VARIANTS:
+        raise ValueError(f"CHECK_CONFIG['{path}']['relative_variant'] = {variant!r}: dozwolone {s6.RELATIVE_VARIANTS}")
+    rel, info = s6.relative_to_stable_group(res[s6.COMPARE_COLUMNS], th["stable_max_lev_mm"])
 
     def with_dist(df: pd.DataFrame) -> pd.DataFrame:
         return (df.assign(benchmark_id=df["benchmark_id"].astype(str)).merge(near, on="benchmark_id", how="left")
-                .merge(sig, on="benchmark_id", how="left"))
+                .merge(sig, on="benchmark_id", how="left")
+                .assign(sigma_emp_dh_mm=lambda x: info["group_mad_dv_mm_yr"] * x["dt_yr"]))
 
     def report(df: pd.DataFrame, compare_p: Path, groups_p: Path, fig_p: Path, title: str) -> pd.DataFrame:
         df.to_csv(compare_p, index=False, date_format="%Y-%m-%d")
@@ -1783,7 +1797,7 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
         print(groups.to_string(index=False))
         fig = s7.plot_levelling_scatter(df, float(strong), title, k_sig)
         fig_p.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(fig_p, dpi=150, facecolor=fig.get_facecolor())
+        fig.savefig(fig_p, dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
         plt.close(fig)
         return groups
 
@@ -1791,12 +1805,7 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
     res_x = with_dist(res)
     groups = report(res_x, C["compare"], C["groups"], C["figure"],
                     f"EGMS L3 vertical {q['release']} vs levelling, {region}")
-    # Wariant dodatkowy (autor 2026-10-13): oba zbiory względem grupy stabilnej według niwelacji; werdykt główny bez zmian.
-    variant = _decided(reg["levelling"], "relative_variant", path)
-    if variant not in s6.RELATIVE_VARIANTS:
-        raise ValueError(f"CHECK_CONFIG['{path}']['relative_variant'] = {variant!r}: dozwolone {s6.RELATIVE_VARIANTS}")
     print(f"=== Wariant dodatkowy '{variant}' (metodyka F4 sekcja 10; policzony po wyniku 'absolute') ===")
-    rel, info = s6.relative_to_stable_group(res[s6.COMPARE_COLUMNS], th["stable_max_lev_mm"])
     summ_rel = s6.summarize_levelling(rel, th)
     summ_rel.to_csv(C["summary_rel"], index=False)
     print(summ_rel.to_string(index=False))
@@ -1805,17 +1814,27 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
     rel_x = with_dist(rel)
     report(rel_x, C["compare_rel"], C["groups_rel"], C["figure_rel"],
            f"EGMS L3 vertical {q['release']} vs levelling, {region}, relative to stable benchmarks")
-    w_abs, w_rel = s7.share_within_uncertainty(res_x, k_sig), s7.share_within_uncertainty(rel_x, k_sig)
+    sh = {(v, c): s7.share_within_uncertainty(df, k_sig, c) for v, df in (("absolute", res_x), ("relative", rel_x))
+          for c in ("sigma_dh_mm", "sigma_emp_dh_mm")}
     ok_x = res_x[res_x["status"] == "ok"]
-    unc_info = {"sigma_column": sig_col, "k_sigma": k_sig, "sigma_dh_rule": "sqrt(2) * rmse (różnica dwóch odczytów EGMS)",
-                "median_rmse_mm": float(ok_x["egms_rmse_mm"].median()), "median_sigma_dh_mm": w_abs["median_sigma_dh_mm"],
-                "n_without_sigma": w_abs["n_without_sigma"], "n_absolute": w_abs["n"], "share_within_absolute": w_abs["share_within"],
-                "n_relative": w_rel["n"], "share_within_relative": w_rel["share_within"],
-                "note": "informacyjnie, bez progu; niwelacja bez niepewności (rejestr NRW jej nie podaje)"}
+    unc_info = {"k_sigma": k_sig, "note": "informacyjnie, bez progu; niwelacja bez własnej niepewności (rejestr NRW jej nie podaje)",
+                "noise": {"rule": f"sqrt(2) * {sig_col} komórki EGMS L3 (różnica dwóch odczytów)",
+                          "median_rmse_mm": float(ok_x["egms_rmse_mm"].median()),
+                          "median_sigma_mm": sh[("absolute", "sigma_dh_mm")]["median_sigma_mm"],
+                          "n_without_sigma": sh[("absolute", "sigma_dh_mm")]["n_without_sigma"],
+                          "share_within_absolute": sh[("absolute", "sigma_dh_mm")]["share_within"],
+                          "share_within_relative": sh[("relative", "sigma_dh_mm")]["share_within"]},
+                "empirical": {"rule": f"group_mad_dv x Δt; grupa {info['n_group']} reperów {info['group_rule']}",
+                              "group_mad_dv_mm_yr": info["group_mad_dv_mm_yr"],
+                              "median_sigma_mm": sh[("absolute", "sigma_emp_dh_mm")]["median_sigma_mm"],
+                              "share_within_absolute": sh[("absolute", "sigma_emp_dh_mm")]["share_within"],
+                              "share_within_relative": sh[("relative", "sigma_emp_dh_mm")]["share_within"]},
+                "n_absolute": sh[("absolute", "sigma_dh_mm")]["n"], "n_relative": sh[("relative", "sigma_dh_mm")]["n"]}
     C["uncertainty"].write_text(json.dumps(unc_info, indent=1, ensure_ascii=False), encoding="utf-8")
-    print(f"Niepewność EGMS (informacyjnie): mediana rmse {unc_info['median_rmse_mm']:.2f} mm, sigma_Δh "
-          f"{unc_info['median_sigma_dh_mm']:.2f} mm; w granicach ±{k_sig:g}σ: wariant główny {w_abs['share_within']:.0%} "
-          f"(n {w_abs['n']}), względny {w_rel['share_within']:.0%} (n {w_rel['n']}); bez rmse: {w_abs['n_without_sigma']}")
+    for key, name in (("noise", "szum EGMS (rmse)"), ("empirical", "typowa niezgodność (repery stabilne)")):
+        u = unc_info[key]
+        print(f"Niepewność, {name} (informacyjnie): mediana σ_Δh {u['median_sigma_mm']:.2f} mm; w ±{k_sig:g}σ: "
+              f"wariant główny {u['share_within_absolute']:.0%}, względny {u['share_within_relative']:.0%}")
     # Ryciny szeregów: EGMS w czasie i epoki niwelacji przy reperach z reguły przykładów (bez wyboru ręcznego).
     mo = require_approved(cfg, "monitoring")
     examples = _levelling_check_examples(res, mo["example_rule"], float(strong))
@@ -1832,16 +1851,16 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
     figs, tag = [], str(q["release"]).replace("-", "_")
 
     def egms_txt(row) -> str:
-        s_ = float(row["sigma_dh_mm"])
-        return (f"EGMS {row['dh_egms_mm']:+.0f} ± {k_sig * s_:.0f} mm ({k_sig:g}σ)" if np.isfinite(s_)
-                else f"EGMS {row['dh_egms_mm']:+.0f} mm (no EGMS rmse)")
+        s_ = float(row["sigma_emp_dh_mm"])
+        return f"EGMS {row['dh_egms_mm']:+.0f} mm (typical disagreement ±{k_sig * s_:.0f} mm, {k_sig:g}σ)"
 
     for bid, label in examples:
         row = res_x[(res_x["benchmark_id"] == bid) & (res_x["status"] == "ok")].iloc[0]
         one = _levelling_series_long(long_u, lev, row, region)
         title = (f"Benchmark {bid}: {label}\nlevelling {row['dh_lev_mm']:+.0f} mm, {egms_txt(row)} "
                  f"({pd.Timestamp(row['t1']):%Y-%m-%d} to {pd.Timestamp(row['t2']):%Y-%m-%d})")
-        fig = s7.plot_levelling_series(one, bid, title, mo["s1b_end_date"], float(row["sigma_dh_mm"]), k_sig)
+        fig = s7.plot_levelling_series(one, bid, title, mo["s1b_end_date"], float(row["sigma_dh_mm"]),
+                                       float(row["sigma_emp_dh_mm"]), k_sig)
         out_png = C["figure"].parent / f"{region}_levelling_series_{tag}_{bid}.png"
         fig.savefig(out_png, dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
         plt.close(fig)
@@ -1849,11 +1868,11 @@ def task_compare_levelling_check(rt: Dict[str, Any], cfg: Dict[str, Any], region
         if label == "smallest |rate|, stable":
             # Reper stabilny (autor 2026-10-15): szum EGMS, wspólne tempo grupy stabilnej i rozkład całej grupy (N3).
             grp = res_x[(res_x["status"] == "ok") & (res_x["dh_lev_mm"].abs() <= th["stable_max_lev_mm"])]
-            title = (f"Benchmark {bid}: stable by levelling ({row['dh_lev_mm']:+.0f} mm), {egms_txt(row)}\n"
-                     f"EGMS difference explained: noise (band) + common rate of all {info['n_group']} stable benchmarks")
+            title = (f"Benchmark {bid}: stable by levelling ({row['dh_lev_mm']:+.0f} mm), EGMS {row['dh_egms_mm']:+.0f} mm\n"
+                     f"Difference split into the common rate of all {info['n_group']} stable benchmarks and uncertainty bands")
             fig = s7.plot_stable_benchmark(one, bid, float(row["dh_egms_mm"]), grp["dh_egms_mm"].to_numpy(float), info,
-                                           float(row["sigma_dh_mm"]), k_sig, float(th["stable_abs_dh_mm"]), title,
-                                           mo["s1b_end_date"])
+                                           float(row["sigma_dh_mm"]), float(row["sigma_emp_dh_mm"]), k_sig,
+                                           float(th["stable_abs_dh_mm"]), title, mo["s1b_end_date"])
             out_png = C["figure"].parent / f"{region}_levelling_stable_{tag}_{bid}.png"
             fig.savefig(out_png, dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
             plt.close(fig)

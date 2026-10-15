@@ -57,7 +57,8 @@ run_nb "$REPO/notebooks/Pokaz_2_Niwelacja_NRW.ipynb" "$WORK/out4b.ipynb" > "$WOR
 grep -q "Przesunięcie EGMS względem niwelacji na" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak wyniku wariantu względnego"; exit 1; }
 grep -q "Najszybciej osiadający reper" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak podsumowania liczbowego"; exit 1; }
 grep -q "EGMS − niwelacja \[mm\]" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak tabeli rozbieżności"; exit 1; }
-grep -q "Niepewność EGMS (mediana" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak niepewności EGMS"; exit 1; }
+grep -q "Typowa niezgodność EGMS–niwelacja jest około" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak niepewności (dwa pasy)"; exit 1; }
+grep -q "typowa niezgodność EGMS–niwelacja (repery stabilne)" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak tabeli pasów"; exit 1; }
 grep -q "Po odjęciu wspólnego przesunięcia różnica EGMS − niwelacja" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak sekcji reperu stabilnego"; exit 1; }
 "$PY" - "$WORK/out4a.ipynb" "$WORK/out4b.ipynb" <<'PYEOF'
 import sys, nbformat

@@ -126,6 +126,12 @@ Rycina: `data/05_Final_Outputs/egmscheck/nrw_west/figures/nrw_west_levelling_sca
   reperu stabilnego `nrw_west_levelling_stable_2019_2023_<reper>.png` rozdziela szum (pas) i wspólne tempo grupy
   stabilnej (linia), pokazuje szereg po odjęciu tego tempa i rozkład Δh EGMS całej grupy z progiem N3. Że przesunięcie
   jest wspólne dla grupy — zmierzone; że wynika z różnych układów odniesienia — hipoteza (sekcja 5, wiersz 6).
+- **Wynik (2026-10-15):** w pasie ±2σ z `rmse` tylko 12% reperów (37% po odjęciu przesunięcia), mediana pasa ±2,0 mm.
+  `rmse` jest więc zbyt optymistyczny względem pomiaru naziemnego: nie obejmuje błędu niwelacji, różnicy punkt–komórka
+  100 m ani lokalnych błędów EGMS. Decyzja autora tego dnia (po wyniku): drugi pas = rozrzut różnic tempa na grupie
+  stabilnej (`group_mad_dv`, ok. 0,73 mm/rok) × Δt, ok. ±4,6 mm przy 3,16 roku. Oba pasy informacyjnie, bez progu.
+  Największa rozbieżność (reper 5104900368, +23,5 mm) ma `rmse` komórki ok. 4 razy większe niż mediana — sam EGMS
+  oznacza tę komórkę jako zaszumioną.
 
 ---
 

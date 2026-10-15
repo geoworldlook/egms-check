@@ -152,13 +152,15 @@ ustaliliśmy przed obliczeniami.
     ("code", SETUP + """
 C = levelling_check_paths(rt, CHECK_CONFIG, 'nrw_west')
 wymagaj(C, ['compare', 'summary', 'summary_rel', 'offset_rel', 'groups', 'groups_rel', 'figure', 'map', 'uncertainty'],
-        kolumny={'compare': ['sigma_dh_mm']})
+        kolumny={'compare': ['sigma_dh_mm', 'sigma_emp_dh_mm']})
 strong = CHECK_CONFIG['regions']['nrw_west']['levelling']['strong_motion_mm_yr']
 res = pd.read_csv(C['compare'], dtype={'benchmark_id': str})
 ok = res[res['status'] == 'ok']
 unc = json.loads(C['uncertainty'].read_text())
 off = json.loads(C['offset_rel'].read_text())
-k = unc['k_sigma']"""),
+k = unc['k_sigma']
+sz, emp = unc['noise'], unc['empirical']
+stab_max = CHECK_CONFIG['thresholds']['levelling_l3u']['stable_max_lev_mm']"""),
     ("md", """## 1. Gdzie EGMS widzi ruch"""),
     ("code", """#@title Mapa tempa ruchu pionowego EGMS 2019–2023
 pokaz(C['map'], 720)"""),
@@ -166,21 +168,31 @@ pokaz(C['map'], 720)"""),
 niebieskie to wypiętrzanie. Trójkąty to stacje GNSS, kółka to repery pokazane niżej w czasie."""),
     ("md", """## 2. Czy niwelacja potwierdza ruch z EGMS?"""),
     ("code", """#@title Wykres: zmiana wysokości z niwelacji kontra z EGMS (wszystkie repery)
-display(Markdown(f'**{len(ok)} reperów** z dwoma pomiarami niwelacyjnymi i komórką EGMS. '
-                 f'Niepewność EGMS (mediana, ±{k:g}σ): **±{k * unc["median_sigma_dh_mm"]:.1f} mm**; '
-                 f'w granicach niepewności: **{unc["share_within_absolute"]:.0%}** reperów, a po odjęciu wspólnego '
-                 f'przesunięcia (wariant względny) **{unc["share_within_relative"]:.0%}**.'))
+tabela(pd.DataFrame({
+    'Pas (±2σ, mediana)': ['szum EGMS (z rmse w plikach EGMS)', 'typowa niezgodność EGMS–niwelacja (repery stabilne)'],
+    'Szerokość [mm]': [f"±{k * sz['median_sigma_mm']:.1f}", f"±{k * emp['median_sigma_mm']:.1f}"],
+    'Repery w pasie: wariant główny': [f"{sz['share_within_absolute']:.0%}", f"{emp['share_within_absolute']:.0%}"],
+    'Repery w pasie: po odjęciu przesunięcia': [f"{sz['share_within_relative']:.0%}", f"{emp['share_within_relative']:.0%}"]}))
+display(Markdown(f'**{len(ok)} reperów** z dwoma pomiarami niwelacyjnymi i komórką EGMS. Typowa niezgodność '
+                 f'EGMS–niwelacja jest około **{emp["median_sigma_mm"] / sz["median_sigma_mm"]:.1f} razy** większa '
+                 f'niż szum deklarowany przez EGMS.'))
 pokaz(C['figure'], 640)"""),
     ("md", """**Jak czytać:** każdy punkt to jeden reper. Oś pozioma to zmiana wysokości z niwelacji, pionowa z EGMS, obie w mm
 między tymi samymi dniami. Ukośna linia oznacza idealną zgodność. Pomarańczowe punkty to repery w nieckach osiadania.
 
-Szary pas wokół linii to niepewność EGMS (±2σ). Reper w pasie oznacza, że różnica EGMS − niwelacja mieści się w tym,
-jak dokładny jest sam EGMS. Niepewność bierzemy z kolumny `rmse` w plikach EGMS (typowy szum pojedynczego pomiaru);
-zmiana wysokości to różnica dwóch odczytów, więc σ = √2 · rmse. Niepewności niwelacji nie rysujemy, bo rejestr NRW jej
-nie podaje.
+Wokół linii są dwa pasy (±2σ):
+- **węższy, ciemniejszy — szum EGMS.** Bierzemy go z kolumny `rmse` w plikach EGMS (szum pojedynczego pomiaru wokół
+  modelu EGMS); zmiana wysokości to różnica dwóch odczytów, więc σ = √2 · rmse. To jest niepewność, którą deklaruje EGMS.
+- **szerszy, jaśniejszy — typowa niezgodność EGMS–niwelacja.** Liczymy ją na reperach, które według niwelacji się nie
+  ruszają: to rozrzut różnic tempa w tej grupie razy czas między pomiarami. Obejmuje szum EGMS, błąd niwelacji, różnicę
+  między punktem (reper) a średnią z komórki 100 × 100 m i lokalne błędy EGMS.
+
+**Co z tego wynika:** w wąskim pasie mieści się mała część reperów, w szerokim — większość (tabela wyżej). Sam `rmse`
+EGMS jest więc zbyt optymistyczny względem pomiaru naziemnego: faktyczna niezgodność jest kilkukrotnie większa niż szum,
+który deklaruje produkt (stosunek nad wykresem). Szeroki pas dodaliśmy po obejrzeniu wyniku wąskiego — oba są informacyjne, bez progu.
 
 Punkty leżą wzdłuż linii od 0 do około −140 mm. Cała chmura jest lekko przesunięta w dół: EGMS pokazuje wszędzie
-trochę więcej osiadania niż niwelacja. Dlatego po odjęciu tego wspólnego przesunięcia w pasie jest więcej reperów."""),
+trochę więcej osiadania niż niwelacja. Dlatego po odjęciu tego wspólnego przesunięcia w pasach jest więcej reperów."""),
     ("md", """## 3. Trzy repery w czasie"""),
     ("code", """#@title Repery wybrane regułą: najszybsze osiadanie, mediana niecek, reper stabilny
 przyklady = dict((lab, bid) for bid, lab in _levelling_check_examples(res, CHECK_CONFIG['monitoring']['example_rule'], strong))
@@ -189,17 +201,17 @@ for lab in ('fastest subsidence by levelling', f'median rate in bowls (|v| >= {s
         print(f'Reguła „{lab}”: ten sam reper co na rycinie wyżej albo brak reperów w tej grupie')
         continue
     pokaz(C['figure'].parent / f"nrw_west_levelling_series_2019_2023_{przyklady[lab]}.png", 900)"""),
-    ("md", """**Jak czytać:** niebieska linia to EGMS co 6–12 dni, a jasnoniebieski pas wokół niej to niepewność EGMS (±2σ). Duże
-żółte punkty to dwa pomiary niwelacyjne; przerywana linia tylko je łączy, między nimi niwelacji nie ma. Oba szeregi
-zaczynają się od zera w dniu pierwszego pomiaru. Jeśli żółty punkt leży w pasie, EGMS i niwelacja zgadzają się
-w granicach dokładności EGMS.
+    ("md", """**Jak czytać:** niebieska linia to EGMS co 6–12 dni. Niebieski pas to szum EGMS (±2σ), szary — typowa niezgodność
+EGMS–niwelacja (±2σ, z reperów stabilnych). Duże żółte punkty to dwa pomiary niwelacyjne; przerywana linia tylko je
+łączy, między nimi niwelacji nie ma. Oba szeregi zaczynają się od zera w dniu pierwszego pomiaru. Żółty punkt w szarym
+pasie oznacza zgodność w granicach tego, jak zwykle różnią się EGMS i niwelacja.
 
 Na dwóch pierwszych reperach EGMS i niwelacja kończą się prawie w tym samym miejscu. Trzeci reper się nie rusza, a EGMS
 pokazuje na nim kilka mm osiadania — wyjaśnia to następna sekcja."""),
     ("md", """## 4. Reper stabilny: czy różnica kilku mm to powód do niepokoju?
 
 Niwelacja mówi, że reper się nie rusza, a EGMS pokazuje kilka mm osiadania w 3 lata. Rozkładamy to na dwie części:
-**szum** (losowe skoki pomiaru, szary pas) i **wspólne przesunięcie** (to samo dla wszystkich reperów stabilnych)."""),
+**wspólne przesunięcie** (to samo dla wszystkich reperów stabilnych, kropkowana linia) i **niepewność** (pasy)."""),
     ("code", """#@title Reper stabilny wybrany regułą: trzy panele i liczby
 bid = przyklady.get('smallest |rate|, stable')
 if bid is None:
@@ -207,22 +219,25 @@ if bid is None:
 r = ok[ok['benchmark_id'] == bid].iloc[0]
 wspolne = off['median_v_egms_group_mm_yr'] * r['dt_yr'] - off['median_v_lev_group_mm_yr'] * r['dt_yr']
 po = r['diff_mm'] - wspolne
+grupa = ok.loc[ok['dh_lev_mm'].abs() <= stab_max, 'dh_egms_mm']
+w_pasie = lambda col: 'mieści się' if abs(po) <= k * r[col] else 'nie mieści się'
 display(Markdown(
-    f"- Reper **{bid}**: niwelacja **{r['dh_lev_mm']:+.1f} mm**, EGMS **{r['dh_egms_mm']:+.1f} ± {k * r['sigma_dh_mm']:.1f} mm** "
-    f"(±{k:g}σ) w {r['dt_yr']:.2f} roku.\\n"
+    f"- Reper **{bid}**: niwelacja **{r['dh_lev_mm']:+.1f} mm**, EGMS **{r['dh_egms_mm']:+.1f} mm** w {r['dt_yr']:.2f} roku.\\n"
     f"- Wszystkie **{off['n_group']} reperów stabilnych** mają w EGMS wspólne tempo **{off['offset_egms_minus_lev_mm_yr']:+.2f} mm/rok**; "
-    f"przez ten czas daje to **{wspolne:+.1f} mm**.\\n"
-    f"- Po odjęciu wspólnego przesunięcia różnica EGMS − niwelacja wynosi **{po:+.1f} mm** — "
-    + ('**w granicach niepewności EGMS**.' if abs(po) <= k * r['sigma_dh_mm'] else '**poza pasem niepewności EGMS**.')))
+    f"przez ten czas daje to **{wspolne:+.1f} mm**. Mediana zmiany EGMS w grupie: {grupa.median():+.1f} mm; "
+    f"{(grupa <= r['dh_egms_mm']).mean():.0%} reperów grupy ma zmianę EGMS mniejszą lub równą temu reperowi.\\n"
+    f"- Po odjęciu wspólnego przesunięcia różnica EGMS − niwelacja wynosi **{po:+.1f} mm**: "
+    f"{w_pasie('sigma_dh_mm')} w szumie EGMS (±{k * r['sigma_dh_mm']:.1f} mm) i "
+    f"**{w_pasie('sigma_emp_dh_mm')} w typowej niezgodności** (±{k * r['sigma_emp_dh_mm']:.1f} mm)."))
 pokaz(C['figure'].parent / f"nrw_west_levelling_stable_2019_2023_{bid}.png", 1000)"""),
     ("md", """**Jak czytać:**
-- **Panel A (tak jak jest):** EGMS (niebieski) idzie wzdłuż kropkowanej linii, czyli wspólnego tempa wszystkich reperów
-  stabilnych. Nie odjeżdża od niej, więc to nie jest ruch tego reperu.
-- **Panel B (po odjęciu wspólnego tempa):** EGMS skacze wokół zera w pasie szumu, a pomiary niwelacyjne leżą w pasie.
-  Po wyrównaniu „zera” obie metody pokazują to samo: reper się nie rusza.
-- **Panel C (wszystkie repery stabilne):** zmiany EGMS na wszystkich reperach stabilnych skupiają się wokół kilku mm
-  poniżej zera. Ten reper jest typowy. Kryterium N3, ustalone przed obliczeniami, dopuszcza medianę do 5 mm — jest
-  spełnione.
+- **Panel A (tak jak jest):** porównaj niebieską linię EGMS z kropkowaną linią wspólnego tempa wszystkich reperów
+  stabilnych **w dniu drugiego pomiaru niwelacyjnego** (liczby wyżej). Przed pierwszym i po drugim pomiarze nie ma
+  niwelacji, więc tamten odcinek niczego nie rozstrzyga.
+- **Panel B (po odjęciu wspólnego tempa):** ta sama linia po odjęciu wspólnego przesunięcia. W dniu drugiego pomiaru
+  różnica EGMS − niwelacja to wartość z ostatniego punktu listy wyżej; pasy pokazują, czy mieści się w niepewności.
+- **Panel C (wszystkie repery stabilne):** rozkład zmian EGMS na wszystkich reperach stabilnych, z tym reperem
+  (pomarańczowa linia) i medianą grupy. Kryterium N3, ustalone przed obliczeniami, dopuszcza medianę |Δh| do 5 mm.
 - **Skala:** kilka mm wobec −140 mm w nieckach to kilka procent sygnału.
 
 **Analogia:** mierzymy wzrost ludzi na promie. Miarka liczona od pokładu pokazuje, że nikt się nie zmienia. GPS liczony od
@@ -274,7 +289,8 @@ nie = ok[ok['v_lev_mm_yr'].abs() >= strong]
 top = nie.reindex(nie['diff_mm'].abs().sort_values(ascending=False).index).head(3)
 tabela(pd.DataFrame({'Reper': top['benchmark_id'], 'Niwelacja [mm]': top['dh_lev_mm'].round(1),
                      'EGMS [mm]': top['dh_egms_mm'].round(1), 'EGMS − niwelacja [mm]': top['diff_mm'].round(1),
-                     f'Niepewność EGMS ±{k:g}σ [mm]': (k * top['sigma_dh_mm']).round(1),
+                     f'Szum EGMS ±{k:g}σ [mm]': (k * top['sigma_dh_mm']).round(1),
+                     f'Typowa niezgodność ±{k:g}σ [mm]': (k * top['sigma_emp_dh_mm']).round(1),
                      'Co to znaczy': top['diff_mm'].map(lambda d: 'EGMS: mniej osiadania' if d > 0 else 'EGMS: więcej osiadania')}))"""),
     ("md", """**Jak czytać:** we wszystkich trzech kierunek ruchu się zgadza. Część różnic „więcej osiadania” to ogólne przesunięcie
 EGMS (kilka mm w 3 lata). Reper z dużą dodatnią różnicą odstaje naprawdę; prawdopodobna przyczyna (niesprawdzona) to
@@ -291,8 +307,9 @@ display(Markdown(
     f"- **Najszybciej osiadający reper {szyb['benchmark_id']}:** niwelacja {szyb['dh_lev_mm']:+.0f} mm, "
     f"EGMS {szyb['dh_egms_mm']:+.0f} mm.\\n"
     f"- **Przesunięcie EGMS:** {off['offset_egms_minus_lev_mm_yr']:+.2f} mm/rok względem reperów stabilnych.\\n"
-    f"- **Niepewność EGMS** (mediana, ±{k:g}σ): ±{k * unc['median_sigma_dh_mm']:.1f} mm; w granicach niepewności "
-    f"{unc['share_within_absolute']:.0%} reperów (po odjęciu wspólnego przesunięcia {unc['share_within_relative']:.0%})."))"""),
+    f"- **Niepewność (±{k:g}σ, mediana):** szum EGMS ±{k * sz['median_sigma_mm']:.1f} mm — w nim {sz['share_within_relative']:.0%} "
+    f"reperów po odjęciu przesunięcia; typowa niezgodność EGMS–niwelacja ±{k * emp['median_sigma_mm']:.1f} mm — w niej "
+    f"{emp['share_within_relative']:.0%}; niezgodność jest {emp['median_sigma_mm'] / sz['median_sigma_mm']:.1f} razy większa niż szum."))"""),
     ("md", """## Wniosek
 
 - **Niwelacja, pomiar niezależny od GNSS, potwierdza osiadanie widoczne w EGMS:** to samo położenie niecek, ten sam
