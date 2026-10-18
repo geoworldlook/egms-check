@@ -1,0 +1,4 @@
+station,vv_2016_2022_mm_yr,vv_2016_2022_unc_mm_yr,vv_2018_2022_mm_yr,vv_2018_2022_unc_mm_yr,note,source
+CODI,-2.8,1.8,-3.0,1.7,velocities restricted to 2020 (station decommissioned in 2021),"Fabris & Nazari 2026, Table 2"
+PTO1,-5.3,2.1,-5.2,1.9,,"Fabris & Nazari 2026, Table 2"
+TGPO,-5.8,1.8,-6.0,2.0,,"Fabris & Nazari 2026, Table 2"

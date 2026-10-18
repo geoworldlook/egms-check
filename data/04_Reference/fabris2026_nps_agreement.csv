@@ -1,0 +1,4 @@
+track,pct_within_1p5_before_calibration,pct_within_1p5_after_recalibration_text,note
+44,82,76,"After-recalibration values as stated in the article text (76/66/56 for tracks 44/117/95). The figure 6 description suggests 66 for track 44 and 76 for track 117 - verify in the PDF (Plan_v1_otwarte_pytania, B5)."
+117,81,66,"See note for track 44."
+95,60,56,

@@ -1,0 +1,6 @@
+dataset,orbit,track,scene,period_start,period_end,source
+EGMS,ascending,44,265-266-267,2018-06-13,2022-07-12,"Fabris & Nazari 2026, Table 1"
+EGMS,ascending,117,264-265-266,2018-06-12,2022-07-15,"Fabris & Nazari 2026, Table 1"
+EGMS,descending,95,806-807-808,2018-06-11,2022-07-14,"Fabris & Nazari 2026, Table 1"
+Veneto Region,ascending,117,regional area,2019-01-02,2022-07-15,"Fabris & Nazari 2026, Table 1"
+Veneto Region,descending,95,regional area,2019-01-01,2022-07-14,"Fabris & Nazari 2026, Table 1"

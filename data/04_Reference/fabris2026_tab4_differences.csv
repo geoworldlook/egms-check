@@ -1,0 +1,9 @@
+station,track,diff_before_calibration_mm_yr,diff_after_calibration_mm_yr,definition
+PTO1,44,0.1,0,CGNSS_LOS minus mean EGMS PS velocity within 200 m
+PTO1,117,0.7,0,CGNSS_LOS minus mean EGMS PS velocity within 200 m
+PTO1,95,-0.5,0,CGNSS_LOS minus mean EGMS PS velocity within 200 m
+TGPO,44,-0.8,-0.9,CGNSS_LOS minus mean EGMS PS velocity within 200 m
+TGPO,117,0.6,-0.1,CGNSS_LOS minus mean EGMS PS velocity within 200 m
+TGPO,95,-0.6,-0.1,CGNSS_LOS minus mean EGMS PS velocity within 200 m
+CODI,117,1.6,0.9,CGNSS_LOS minus mean EGMS PS velocity within 200 m
+CODI,95,0.3,0.8,CGNSS_LOS minus mean EGMS PS velocity within 200 m

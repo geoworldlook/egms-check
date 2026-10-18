@@ -1,0 +1,2 @@
+file_path,what,source_url,downloaded_on,downloaded_by,sha256,licence,egms_release,notes
+data/02_Raw_Ground/1_gnss_pangaea/PTO1.txt,GNSS daily vertical series PTO1,https://download.pangaea.de/dataset/958598/files/PTO1.txt,2026-10-09,author (uploaded to Claude Code session),101459224b55ded02c754c9e4f8d3c554d41d7a3f53dce2f3bb71736a1103280,CC BY 4.0,,"Pintori F., Serpelloni E. (2023), doi:10.1594/PANGAEA.958598. 4248 daily rows 2008-06-18..2021-04-13; download date = date the file was supplied to the session (original download date not recorded)"

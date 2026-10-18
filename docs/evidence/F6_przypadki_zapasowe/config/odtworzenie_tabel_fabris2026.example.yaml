@@ -1,0 +1,56 @@
+# Przypadek A - delta Padu. Szablon: skopiuj do case_a_po_delta.yaml i uzupełnij pola TODO.
+# Żadne pole nie ma wartości domyślnej w kodzie; brak pola ma zatrzymać przebieg.
+case_id: case_a_po_delta
+reference_publication: "Fabris & Nazari 2026, doi:10.3389/feart.2026.1781404"
+
+egms:
+  product: L2b                 # Calibrated (artykuł)
+  release: TODO                # najpewniej "2018_2022" - potwierdzić (Plan_v1_otwarte_pytania, A1)
+  tracks:
+    - {track: 44,  pass: ascending,  window_start: 2018-06-13, window_end: 2022-07-12}
+    - {track: 117, pass: ascending,  window_start: 2018-06-12, window_end: 2022-07-15}
+    - {track: 95,  pass: descending, window_start: 2018-06-11, window_end: 2022-07-14}
+  bursts: TODO                 # tabela 1 podaje "sceny" 265-267 / 264-266 / 806-808; interpretacja do potwierdzenia (Plan_v1_otwarte_pytania, A4)
+  remove_burst_overlap_duplicates: true
+  velocity_variants:           # liczymy oba i sprawdzamy, który odtwarza tabelę 3 (Plan_v1_otwarte_pytania, B1)
+    - attribute_mean_velocity
+    - refit_in_window
+
+stations:                      # współrzędne z dziennika stacji / nagłówka pliku, nie z pamięci
+  - {id: PTO1, lon_deg: TODO, lat_deg: TODO, role: calibration,  gnss_end: null}
+  - {id: TGPO, lon_deg: TODO, lat_deg: TODO, role: validation,   gnss_end: null}
+  - {id: CODI, lon_deg: TODO, lat_deg: TODO, role: validation,   gnss_end: 2020-07-31}  # dane GNSS do 07.2020
+
+spatial:
+  crs_epsg: 3035
+  buffer_radii_m: [50, 100, 150, 200]
+  nearest_n: [1, 2, 3]
+  min_points: TODO             # decyzja zespołu; EEA stosuje 3
+  height_filter: TODO          # decyzja zespołu (Plan_v1_otwarte_pytania, B6)
+  buffer_statistic: mean       # artykuł używa średniej
+
+gnss:
+  variant_2a:
+    source: reference/fabris2026_tab2_gnss_vertical.csv
+    column: vv_2018_2022_mm_yr
+  variant_2b:
+    source: TODO               # np. PANGAEA 10.1594/PANGAEA.958598 (PTO1, CODI); TGPO - brak, szukać w NGL
+    components: [up]           # zbiór PANGAEA ma tylko pion
+
+los_projection:
+  method: vertical_only        # V_LOS = V_V * cos(theta); uzasadnienie: ruch poziomy pomijalny (artykuł, sekcja 3.1)
+  incidence_angle_from: nearest_point
+
+temporal:
+  min_overlap_fraction: 0.85   # White Paper
+  interpolation: TODO          # decyzja zespołu (Plan_v1_otwarte_pytania, E3)
+  velocity_model: TODO         # linear | linear_plus_annual (Plan_v1_otwarte_pytania, E1)
+
+acceptance:                    # docs/plans/Plan_v1_kryteria_akceptacji.md; pola [propozycja] wymagają zatwierdzenia
+  velocity_difference_threshold_mm_yr: 1.5
+  table3_count_tolerance_fraction: TODO
+  table3_velocity_tolerance_mm_yr: TODO
+  table4_difference_tolerance_mm_yr: TODO
+
+outputs:
+  dir: results/case_a_po_delta

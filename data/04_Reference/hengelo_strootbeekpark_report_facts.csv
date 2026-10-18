@@ -1,0 +1,16 @@
+quantity,value,unit,status,source
+operator,Nobian (Hengelo),,read from report text,"Meetregister Strootbeekpark 2023, Antea Group, project 0487387.100, rev. 00, 24-04-2024"
+surveyor,Antea Group,,read from report text,same
+network size,50 benchmarks (45 own + 5 Rijkswaterstaat NAP),,read from report text,same
+method,secondary optical levelling in about 10 closed loops (about 20 km),,read from report text,same
+baseline epoch,2020-12,,read from report text,same
+repeat epoch,2022-06,,read from report text,same
+repeat epoch,2022-12,,inferred from map legend ('Differentie t.o.v. december 2022') - confirm in PDF,same
+latest epoch,2023-12 to 2024-01,,read from report text,same
+range of differences vs baseline 2020,-42 to +2,mm,read from report text,same
+range of differences vs previous epoch,-13 to +2,mm,read from report text,same
+area of largest subsidence,Steenzoutweg - Zoutwinningsweg,,read from report text,same
+levelling standard deviation,1.1,mm per sqrt(km),read from report text,same
+section tolerance,3,mm per sqrt(km),read from report text,same
+reference benchmark,000A2890 (underground; +19.388 m NAP fixed in 2012),,read from report text,same
+benchmark coordinates and heights per epoch,Bijlage 5 (differentiestaat),,stated in report text; appendix not machine-readable to me,same

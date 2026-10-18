@@ -1,0 +1,56 @@
+# Przypadek 1 - GNSS, stacja PTO1 (delta Padu). Skopiuj do case_1_gnss_pto1.yaml i uzupełnij TODO.
+# Żadne pole nie ma wartości domyślnej w kodzie; brak pola ma zatrzymać przebieg.
+case_id: case_1_gnss_pto1
+
+station:
+  id: PTO1
+  lon_deg: TODO                # z pliku PANGAEA (kolumna długości), nie z pamięci
+  lat_deg: TODO                # z pliku PANGAEA (kolumna szerokości)
+
+gnss:
+  source_url: https://download.pangaea.de/dataset/958598/files/PTO1.txt
+  citation: "Pintori F., Serpelloni E. (2023), PANGAEA, doi:10.1594/PANGAEA.958598 (CC BY 4.0)"
+  file: data/02_Raw_Ground/1_gnss_pangaea/PTO1.txt
+  components: [up]             # zbiór zawiera tylko pion [mm]
+  time_unit: decimal_year
+  frame: eurasia_fixed         # wg opisu zbioru
+  offsets: TODO                # lista dat skoków z dziennika stacji albo [] po sprawdzeniu
+  aggregation: TODO            # np. monthly_median - decyzja autora (Plan_v1_otwarte_pytania, E)
+
+egms:
+  product: L2b
+  release: TODO                # zalecane 2018_2022 (docs/evidence/F2); potwierdzić dostępność
+  tracks:
+    - {track: 117, pass: ascending}
+    - {track: 44,  pass: ascending}
+    - {track: 95,  pass: descending}
+  remove_burst_overlap_duplicates: true
+
+spatial:
+  crs_epsg: 3035
+  buffer_radii_m: [100, 200]   # 100 m: metodyka EEA; 200 m: Fabris i Nazari 2026
+  min_points: TODO             # EEA stosuje 3
+  height_filter: TODO          # decyzja autora
+  buffer_statistic: TODO       # mean | median
+
+los_projection:
+  method: vertical_only        # d_LOS = Up * los_up; ruch poziomy pomijalny wg Fabris i Nazari 2026, sekcja 3.1
+
+temporal:
+  window_start: TODO           # początek wspólnego okna
+  window_end: TODO             # koniec szeregu GNSS (wg opisu 2022-09)
+  min_overlap_fraction: 0.85   # White Paper
+  reference_date: TODO         # data wyzerowania obu szeregów
+  velocity_model: TODO         # linear | linear_plus_annual
+
+expected_from_publication:     # Fabris i Nazari 2026; do tabeli porównawczej, nie do strojenia
+  gnss_vertical_mm_yr: -5.2
+  egms_los_200m_mm_yr: {117: -4.6, 44: -4.4, 95: -3.4}
+  egms_n_points_200m: {117: 753, 44: 531, 95: 544}
+
+acceptance:                    # Plan_v1_kryteria_akceptacji; zatwierdzić przed pierwszym przebiegiem
+  velocity_difference_threshold_mm_yr: 1.5
+  timeseries_difference_std_threshold_mm: 5.0
+
+outputs:
+  dir: data/05_Final_Outputs/egmscheck

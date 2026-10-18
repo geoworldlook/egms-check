@@ -1,0 +1,45 @@
+# Przypadek B - zachodnia NRW, EGMS Ortho (pion) vs niwelacja państwowa.
+case_id: case_b_nrw
+reference_publication: "Even, Westerhaus & Kutterer 2024, doi:10.1007/s41064-024-00273-3"
+
+egms:
+  product: L3_vertical
+  release_level1: TODO         # wydanie obejmujące 2016-01..2021-12 (Plan_v1_otwarte_pytania, C4)
+  release_level2: TODO         # wydanie-"prognoza"; musi kończyć się przed epokami niwelacji użytymi do potwierdzenia
+  smoothing: TODO              # Even: RLOESS, okno 7 punktów; decyzja zespołu (Plan_v1_otwarte_pytania, E4)
+
+area:
+  bbox_lonlat: TODO            # zasięg z ryc. 14-15 artykułu (Plan_v1_otwarte_pytania, C3)
+  exclude: ["Epe"]             # ruch nieliniowy, znana porażka EGMS
+
+levelling:
+  timeseries_csv: data/raw/levelling/nrw/hfp_plzf.csv
+  points_csv: TODO             # plik z hfp_pl_csv
+  csv_separator: ";"
+  decimal: ","
+  date_format: "%d.%m.%Y"
+  height_system: DHHN2016
+  coordinates_crs_epsg: TODO   # potwierdzić w Datenformatbeschreibung.pdf (Plan_v1_otwarte_pytania, C2)
+  level1_epochs_years: [2017, 2019]
+  level2_epochs: TODO          # dwie epoki po końcu release_level2 (Plan_v1_otwarte_pytania, C1)
+  stable_reference_points: TODO  # repery poza Bodenbewegungsgebiete (Plan_v1_otwarte_pytania, C5)
+
+spatial:
+  crs_epsg: 3035
+  matching: same_grid_cell
+  grid_size_m: 50              # Even i in. 2024, sekcja 4.3
+
+temporal:
+  interpolation: pchip         # Even: kształtozachowawcza, kawałkami sześcienna
+  min_overlap_fraction: 0.85
+
+acceptance:
+  level1_bias_reference_mm_yr: 0.93
+  level1_sigma_reference_mm: 1.76
+  level1_bias_tolerance_mm_yr: TODO
+  level1_sigma_tolerance_mm: TODO
+  level2_median_abs_rate_error_mm_yr: TODO
+  level2_min_rate_for_sign_test_mm_yr: 3.0
+
+outputs:
+  dir: results/case_b_nrw

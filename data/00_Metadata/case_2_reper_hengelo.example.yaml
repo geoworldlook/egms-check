@@ -1,0 +1,58 @@
+# Przypadek 2 - repery, Hengelo (Twenthe-Rijn, sieć Strootbeekpark). Skopiuj i uzupełnij TODO.
+case_id: case_2_reper_hengelo
+
+levelling:
+  report_url: https://www.nlog.nl/sites/default/files/2025-10/20240327_487387_meetregister_strootbeekpark_jaarlijks_2023_00.pdf
+  report: "Antea Group (2024), Meetregister bij het meetplan Twenthe-Rijn - nauwkeurigheidswaterpassing Strootbeekpark 2023, projekt 0487387.100"
+  table_csv: data/02_Raw_Ground/2_levelling_hengelo/differentiestaat_2023.csv   # przepisany załącznik 5
+  coordinates_crs_epsg: 28992  # RD New - potwierdzić w załączniku 5
+  height_system: NAP
+  reference_benchmark: "000A2890"
+  epochs:                      # dokładne daty z raportu - TODO
+    - {label: baseline, date: TODO}     # grudzień 2020
+    - {label: repeat_1, date: TODO}     # czerwiec 2022
+    - {label: repeat_2, date: TODO}     # grudzień 2022 - potwierdzić, czy istnieje (Plan_v1_otwarte_pytania, A)
+    - {label: repeat_3, date: TODO}     # grudzień 2023 - styczeń 2024
+  exclude_benchmarks: []       # 300 i 301 mają niewyjaśniony wzrost - decyzja autora, czy wykluczać (z góry, nie po wyniku)
+
+egms:
+  overlay:
+    product: L3_vertical
+    release: TODO              # 2019_2023 albo 2020_2024, jeśli dostępne
+  forecast:
+    product: L3_vertical
+    release: TODO              # 2018_2022 (dane kończą się przed ostatnią epoką niwelacji)
+  auxiliary:
+    product: L2b               # obie orbity, wariant pomocniczy
+    remove_burst_overlap_duplicates: true
+
+spatial:
+  crs_epsg: 3035
+  matching_l3: containing_cell # komórka 100 m zawierająca reper
+  buffer_radii_m_l2b: [50, 100]
+  min_points: TODO
+
+reference_handling:
+  method: relative_to_reference_benchmark   # d_rel = d_P - d_ref
+  fallback_stable_group: TODO  # repery stabilne, jeśli przy 000A2890 brak punktów EGMS (decyzja autora)
+
+temporal:
+  epoch_interpolation: TODO    # jak odczytać EGMS w dacie epoki niwelacji
+  velocity_model: TODO
+
+forecast_test:
+  train_until: TODO            # koniec wydania-prognozy
+  predict_from_epoch: repeat_2 # albo repeat_1, jeśli repeat_2 nie istnieje
+  predict_to_epoch: repeat_3
+
+expected_from_report:
+  range_vs_baseline_mm: [-42, 2]
+  range_vs_previous_mm: [-13, 2]
+  max_subsidence_benchmark: "7008"
+
+acceptance:                    # Plan_v1_kryteria_akceptacji; zatwierdzić przed pierwszym przebiegiem
+  cumulative_difference_threshold_mm: TODO
+  min_signal_for_sign_test_mm: TODO
+
+outputs:
+  dir: data/05_Final_Outputs/egmscheck
