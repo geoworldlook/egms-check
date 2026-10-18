@@ -3,7 +3,7 @@
 # EGMS Check — czy radarowe dane o ruchu gruntu zgadzają się z pomiarem naziemnym
 
 > Nazwa robocza. Kod jeszcze nie istnieje: repozytorium zawiera plan, przegląd literatury,
-> wartości referencyjne i strukturę wzorowaną na `1_geoworldlook-agriscreen` (AgriWatch).
+> wartości referencyjne i strukturę wzorowaną na `agriscreen` (AgriWatch).
 > Odznaka „Open in Colab" pojawi się, gdy powstanie `notebooks/EGMS_Check.ipynb`.
 
 Sprawdzenie danych European Ground Motion Service (EGMS, Copernicus, InSAR z Sentinel-1) na dwóch
@@ -54,15 +54,15 @@ katalogi danych z prefiksem liczbowym, `docs/plans`, `docs/evidence/F*`).
 **Stan projektu, migracja i audyt:** [`docs/MIGRACJA_stan_i_audyt.md`](MIGRACJA_stan_i_audyt.md)
 
 **Walidacja EGMS na stacjach GNSS, region Groningen (2026-10-10):** [`notebooks/EGMS_Check.ipynb`](../notebooks/EGMS_Check.ipynb) —
-[Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/2_geoworldlook-egmscheck/blob/claude/dreamy-dirac-jd4vue/notebooks/EGMS_Check.ipynb)
+[Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/egms-check/blob/main/notebooks/EGMS_Check.ipynb)
 (wymaga tokenu CLMS na Dysku; pobranie EGMS po akceptacji rozmiaru w sekcji 5).
 
 **Prototyp w Colab (2026-10-10):** [`prototypes/EGMS_prototyp.ipynb`](../prototypes/EGMS_prototyp.ipynb) —
 test metody na danych syntetycznych i opis szeregu GNSS PTO1, bez tokenu.
-[Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/2_geoworldlook-egmscheck/blob/claude/dreamy-dirac-jd4vue/prototypes/EGMS_prototyp.ipynb),
+[Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/egms-check/blob/main/prototypes/EGMS_prototyp.ipynb),
 potem `Środowisko wykonawcze → Uruchom wszystko`.
 Pobranie EGMS L2B dla PTO1 (wymaga tokenu CLMS na Dysku; pobiera dopiero po potwierdzeniu listy plików):
-[Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/2_geoworldlook-egmscheck/blob/claude/dreamy-dirac-jd4vue/prototypes/EGMS_pobranie_PTO1.ipynb).
+[Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/egms-check/blob/main/prototypes/EGMS_pobranie_PTO1.ipynb).
 Plan eksperymentów: [`docs/plans/Plan_v1_eksperymenty.md`](plans/Plan_v1_eksperymenty.md).
 
 1. Przygotowanie krok po kroku: [`docs/plans/Instrukcja_startowa.md`](plans/Instrukcja_startowa.md).

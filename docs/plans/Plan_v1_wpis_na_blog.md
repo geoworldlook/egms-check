@@ -74,4 +74,4 @@ Wzorem AgriWatch zadanie `bulletin` zapisuje dla strony: `bulletin.md`, ryciny P
 1. Język tekstu wpisu (istniejący wpis testowy jest po polsku). Jak w AgriWatch: opisy i komentarze po polsku, opisy osi wykresów po angielsku.
 2. Jeden wpis z dwoma przypadkami czy dwa osobne wpisy. Proponuję zacząć od przypadku 1 jako
    samodzielnego wpisu; przypadek 2 dołączyć, gdy tabela reperów będzie gotowa.
-3. Nazwa projektu i repozytorium (robocza: `2_geoworldlook-egmscheck`, „EGMS Check").
+3. Nazwa projektu i repozytorium (od 2026-10-18: `egms-check`, „EGMS Check").

@@ -26,7 +26,7 @@ Gotowe, gdy: kontrola tabel przechodzi, a lista pytań jest u Ciebie.
 ## Sesja 1 — szkielet z AgriWatch
 
 ```text
-Obok tego repozytorium jest sklonowane ../1_geoworldlook-agriscreen. Przeczytaj w nim:
+Obok tego repozytorium jest sklonowane ../agriscreen. Przeczytaj w nim:
 step_05_colab_run.py (setup_runtime, run_task, run_history, registry_read/upsert, REGISTRY_SCHEMA, _selftest),
 build_colab_master.py i docs/ARCHITEKTURA.md.
 

@@ -2,7 +2,7 @@
 
 Status: PROPOSED, 2026-10-09. Część planu `Plan_v1_walidacja_EGMS.md`.
 Podstawa: komplet dokumentów z paczki (plany, F1–F6, tabele referencyjne), plik `PTO1.txt`, kod AgriWatch
-(`1_geoworldlook-agriscreen`, gałąź `main`, stan z 2026-10-09) oraz uzupełniający przegląd źródeł w sieci (sekcja 9).
+(`agriscreen`, gałąź `main`, stan z 2026-10-09) oraz uzupełniający przegląd źródeł w sieci (sekcja 9).
 
 Ten dokument nie zastępuje `Prompty_Claude_Code.md`, tylko go koryguje: mówi, co trzeba rozstrzygnąć i
 uruchomić **przed** sesjami 1–10, i co w nich zmienić po tym, czego dowiedziałem się z danych i ze źródeł.
@@ -330,7 +330,7 @@ potem 2" z CLAUDE.md, więc wymaga Twojej zgody.
 | ESA EO4Society, 24.06.2024: https://eo4society.esa.int/2024/06/24/new-copernicus-ground-motion-data-available-on-gep/ | L3 pion 2018–2022 na GEP | jw. |
 | B2FIND, opis zbioru PANGAEA.958598: https://b2find.eudat.eu/dataset/5475e4be-cd5f-5a1f-a69a-e09adc455deb | zakres zbioru, przetwarzanie | metadane |
 | Pintori i Serpelloni 2024, doi:10.1029/2023EA003326 | wypiętrzenie do 7 mm w 01.2021–08.2022 | abstrakt |
-| `1_geoworldlook-agriscreen`: `step_05_colab_run.py`, `build_colab_master.py` | sekcja 2.5 | kod |
+| `agriscreen`: `step_05_colab_run.py`, `build_colab_master.py` | sekcja 2.5 | kod |
 | Fernández i in. 2018, Sci. Rep. 8:14782, doi:10.1038/s41598-018-33128-0 (PDF, 14 stron) | sekcja 2.6; F1, F4 | pełny tekst |
 | Crosetto i in. 2025, Validation White Paper v3.0 (PDF, 19 stron) | sekcja 2.7; D-B; F1 | pełny tekst |
 | Hrysiewicz i in. 2024, Earth Sci. Inform. 17:3825–3837 (PDF, 13 stron) | sekcja 2.7; F1 | pełny tekst |

@@ -6,8 +6,8 @@ Logika obliczeń jest w modułach step_01..step_03; notatnik zawiera parametry, 
 import json
 from pathlib import Path
 
-REPO_URL = "https://github.com/geoworldlook/2_geoworldlook-egmscheck.git"
-BRANCH = "claude/dreamy-dirac-jd4vue"
+REPO_URL = "https://github.com/geoworldlook/egms-check.git"
+BRANCH = "main"
 
 CELLS = [
     ("md", """# Czy EGMS nadaje się do obserwacji osiadania? Walidacja na stacjach GNSS (Groningen)
