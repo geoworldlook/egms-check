@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Surowe dane EGMS i wyniki (przechowywane na Dysku Google, nie w repo)
+data/01_Raw_EGMS/*
+!data/01_Raw_EGMS/.gitkeep
+data/05_Final_Outputs/*
+!data/05_Final_Outputs/.gitkeep
+data/_selftest/
+
+# Etap B: produkty ASF HyP3 i katalogi robocze MintPy (duże; na Dysku, nie w repozytorium)
+data/01_Raw_InSAR/
+data/03_Extracts/*/mintpy_*
+
+# Rejestr gwl_* (baza danych na Dysku Google, nie w repo)
+data/registry/*
+
+# PDF-y publikacji (prawa wydawców; w repo są tylko odnośniki)
+docs/evidence/literatura_pdf/*
+!docs/evidence/literatura_pdf/.gitkeep
+
+# Pełne teksty publikacji: materiał roboczy dla Claude Code. Cztery artykuły są na CC BY, dwa dokumenty EEA
+# mają dystrybucję publiczną; przed usunięciem tej reguły sprawdź warunki ponownej publikacji.
+docs/evidence/literatura_txt/*.txt
+
+# Rozszerzenia plików ciężkich
+*.zip
+*.tif
+*.tiff
+*.gpkg
+
+# Srodowisko i klucze (token EGMS nigdy nie trafia do repo)
+.env
+.env.*
+*.token
+*.key
+*.secret
+*.jwt
+secrets*
+credentials.json
+
+# IDE / System
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+scratch/

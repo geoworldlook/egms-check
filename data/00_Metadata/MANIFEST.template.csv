@@ -1,0 +1,2 @@
+file_path,what,source_url,downloaded_on,downloaded_by,sha256,licence,egms_release,notes
+data/02_Raw_Ground/1_gnss_pangaea/PTO1.txt,GNSS daily vertical series PTO1,https://download.pangaea.de/dataset/958598/files/PTO1.txt,,,,CC BY 4.0,,
