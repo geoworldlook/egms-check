@@ -672,39 +672,39 @@ def summarize_levelling(res: pd.DataFrame, th: dict) -> pd.DataFrame:
         raise ValueError(f"{int(nonfinite.sum())} wierszy ze statusem 'ok' ma NaN w {vals}: wynik niespójny")
     rows = []
     med = robust_stats(ok["diff_mm"].abs().to_numpy())["median"]
-    rows.append(("N1 mediana |Δh_EGMS - Δh_niw|", f"{med:.1f} mm", f"<= {th['median_abs_dh_mm']} mm",
+    rows.append(("N1 median |Δh_EGMS - Δh_lev|", f"{med:.1f} mm", f"<= {th['median_abs_dh_mm']} mm",
                  med <= th["median_abs_dh_mm"], len(ok)))
     sig = ok[ok["dh_lev_mm"].abs() >= th["sign_min_signal_mm"]]
-    name = f"N2 zgodność znaku (|Δh_niw| >= {th['sign_min_signal_mm']} mm)"
+    name = f"N2 sign agreement (|Δh_lev| >= {th['sign_min_signal_mm']} mm)"
     if len(sig):
         share = float((np.sign(sig["dh_egms_mm"]) == np.sign(sig["dh_lev_mm"])).mean())
-        rows.append((name, f"{share:.0%} reperów", f">= {th['sign_agreement']:.0%}", share >= th["sign_agreement"], len(sig)))
+        rows.append((name, f"{share:.0%} of benchmarks", f">= {th['sign_agreement']:.0%}", share >= th["sign_agreement"], len(sig)))
     else:
-        rows.append((name, f"brak reperów z |Δh_niw| >= {th['sign_min_signal_mm']} mm", f">= {th['sign_agreement']:.0%}",
+        rows.append((name, f"no benchmarks with |Δh_lev| >= {th['sign_min_signal_mm']} mm", f">= {th['sign_agreement']:.0%}",
                      None, 0))
     stab = ok[ok["dh_lev_mm"].abs() <= th["stable_max_lev_mm"]]
-    name = f"N3 kontrola negatywna: repery stabilne (|Δh_niw| <= {th['stable_max_lev_mm']} mm)"
+    name = f"N3 check at stable benchmarks (|Δh_lev| <= {th['stable_max_lev_mm']} mm)"
     if len(stab):
         sm = float(stab["dh_egms_mm"].abs().median())
-        rows.append((name, f"mediana |Δh_EGMS| {sm:.1f} mm", f"<= {th['stable_abs_dh_mm']} mm",
+        rows.append((name, f"median |Δh_EGMS| {sm:.1f} mm", f"<= {th['stable_abs_dh_mm']} mm",
                      sm <= th["stable_abs_dh_mm"], len(stab)))
     else:
-        rows.append((name, f"brak reperów z |Δh_niw| <= {th['stable_max_lev_mm']} mm", f"<= {th['stable_abs_dh_mm']} mm",
+        rows.append((name, f"no benchmarks with |Δh_lev| <= {th['stable_max_lev_mm']} mm", f"<= {th['stable_abs_dh_mm']} mm",
                      None, 0))
     dv = robust_stats((ok["v_egms_dh_mm_yr"] - ok["v_lev_mm_yr"]).to_numpy())
-    rows.append(("N4 bias prędkości v_EGMS(Δh) - v_niw", f"mediana {dv['median']:+.2f} mm/rok",
-                 f"|bias| <= {th['velocity_bias_mm_yr']} mm/rok", abs(dv["median"]) <= th["velocity_bias_mm_yr"], dv["n"]))
-    rows.append(("Rozrzut różnic prędkości (informacyjnie)", f"MAD*1.4826 {dv['mad_sigma']:.2f} mm/rok", "-", None, dv["n"]))
-    name = "Nachylenie Δh_EGMS względem Δh_niw (informacyjnie)"
+    rows.append(("N4 velocity bias v_EGMS(Δh) - v_lev", f"median {dv['median']:+.2f} mm/yr",
+                 f"|bias| <= {th['velocity_bias_mm_yr']} mm/yr", abs(dv["median"]) <= th["velocity_bias_mm_yr"], dv["n"]))
+    rows.append(("Spread of velocity differences (informative)", f"MAD*1.4826 {dv['mad_sigma']:.2f} mm/yr", "-", None, dv["n"]))
+    name = "Slope of Δh_EGMS vs Δh_lev (informative)"
     x, y = ok["dh_lev_mm"].to_numpy(float), ok["dh_egms_mm"].to_numpy(float)
     sxx = float(((x - x.mean()) ** 2).sum())
     if len(ok) >= 3 and sxx > 0:
         slope, intercept = np.polyfit(x, y, 1)
         se = float(np.sqrt(((y - (slope * x + intercept)) ** 2).sum() / (len(x) - 2) / sxx))
-        rows.append((name, f"{slope:.2f}, błąd standardowy {se:.2f} (wyraz wolny {intercept:+.1f} mm)", "bliskie 1",
+        rows.append((name, f"{slope:.2f}, standard error {se:.2f} (intercept {intercept:+.1f} mm)", "close to 1",
                      None, len(ok)))
     else:
-        rows.append((name, "za mało reperów lub brak zróżnicowania Δh_niw", "bliskie 1", None, len(ok)))
+        rows.append((name, "too few benchmarks or no spread in Δh_lev", "close to 1", None, len(ok)))
     return pd.DataFrame(rows, columns=SUMMARY_COLUMNS)
 
 
@@ -769,8 +769,8 @@ def levelling_groups(res: pd.DataFrame, strong_mm_yr: float, sign_min_mm: float)
     if ok.empty:
         raise ValueError(f"Brak reperów ze statusem 'ok' (z {len(res)}): podziału nie da się policzyć")
     has_dist = "dist_station_km" in ok.columns
-    groups = [("wszystkie", ok), (f"niecki: |v_niw| >= {strong:g} mm/rok", ok[ok["v_lev_mm_yr"].abs() >= strong]),
-              (f"pozostałe: |v_niw| < {strong:g} mm/rok", ok[ok["v_lev_mm_yr"].abs() < strong])]
+    groups = [("all", ok), (f"bowls: |v_lev| >= {strong:g} mm/yr", ok[ok["v_lev_mm_yr"].abs() >= strong]),
+              (f"other: |v_lev| < {strong:g} mm/yr", ok[ok["v_lev_mm_yr"].abs() < strong])]
     rows = []
     for name, g in groups:
         row = dict.fromkeys(GROUP_COLUMNS, np.nan)
@@ -1098,9 +1098,9 @@ def _selftest() -> None:
         n_stab = int((ok_g["dh_lev_mm"].abs() <= 2.0).sum())                         # wybór po niwelacji, nie po EGMS
         assert sg.at[2, "n"] == n_stab != int((ok_g["dh_egms_mm"].abs() <= 2.0).sum()), sg
         dv_g = (ok_g["v_egms_dh_mm_yr"] - ok_g["v_lev_mm_yr"]).median()
-        assert sg.at[3, "wynik"] == f"mediana {dv_g:+.2f} mm/rok" and abs(float(sg.at[5, "wynik"].split(",")[0]) - 1) < 0.05
+        assert sg.at[3, "wynik"] == f"median {dv_g:+.2f} mm/yr" and abs(float(sg.at[5, "wynik"].split(",")[0]) - 1) < 0.05
         neg = summarize_levelling(res_g.reset_index().assign(v_egms_dh_mm_yr=res_g["v_egms_dh_mm_yr"].to_numpy() - 3.0), th)
-        assert neg.at[3, "spełnione"] is False and neg.at[3, "wynik"] == f"mediana {dv_g - 3.0:+.2f} mm/rok", neg  # |bias|
+        assert neg.at[3, "spełnione"] is False and neg.at[3, "wynik"] == f"median {dv_g - 3.0:+.2f} mm/yr", neg  # |bias|
         nan_ok = res_g.reset_index()
         nan_ok.loc[nan_ok["benchmark_id"] == "B01", "dh_egms_mm"] = np.nan
         _expect_raises(ValueError, summarize_levelling, nan_ok, th, match="NaN")
