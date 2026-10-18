@@ -50,8 +50,8 @@ Decyzje integracji (do akceptacji autora; wartości nowych kluczy CHECK_CONFIG o
     informacyjne (bez progu, 'spełnione' = None), wniosek tylko z K1;
   - K3 'abs_dv' (thresholds.gnss_l2b.k3_definition) = max |dv| na stacjach stabilnych (step_03.verdict liczy
     wariant E1 'abs_v_egms'); None = decyzja nieustalona = wyjątek;
-  - werdykt L2b bez wiersza K1 (brak par stacja osiadająca x ścieżka 'ok' z A6) = 'NIEROZSTRZYGNIĘTE' zamiast
-    step_03.overall (które bez K1 zwraca 'NIE POTWIERDZONE ... różni się ponad progi');
+  - werdykt L2b bez wiersza K1 (brak par stacja osiadająca x ścieżka 'ok' z A6) = 'INCONCLUSIVE' zamiast
+    step_03.overall (które bez K1 zwraca 'NOT CONFIRMED ... differs beyond the thresholds');
   - MIDAS: najnowsza migawka midas_*.IGS.txt z Dysku zamiast pobierania przy każdym uruchomieniu (wybór stacji
     nie zmienia się między przebiegami); nowszy stan MIDAS = decyzja autora;
   - niwelacja: okno epok = rzeczywisty zakres dat szeregów EGMS L3 (pierwsza i ostatnia data), nie daty z nazwy
@@ -1498,7 +1498,7 @@ def _k3_abs_dv(v: pd.DataFrame, res: pd.DataFrame, view: Dict[str, Any]) -> pd.D
         worst = float(stab["dv"].abs().max())
         v = v.copy()
         v.loc[idx[0], ["kryterium", "wynik", "próg", "spełnione", "n_par"]] = [
-            "K3 kontrola negatywna (stacje stabilne, |dv|)", f"max |dv| {worst:.2f} mm/rok", f"<= {th} mm/rok",
+            "K3 check at stable stations (|dv|)", f"max |dv| {worst:.2f} mm/yr", f"<= {th} mm/yr",
             worst <= th, len(stab)]
     return v
 
@@ -1569,13 +1569,13 @@ def task_compare_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> D
         v2 = s3.verdict(r2, view)
         if k3 == "abs_dv":
             v2 = _k3_abs_dv(v2, r2, view)
-        # Bez wiersza K1 step_03.overall zwraca "NIE POTWIERDZONE: ... różni się ponad progi" - fałszywy wniosek, gdy
+        # Bez wiersza K1 step_03.overall zwraca "NOT CONFIRMED: ... differs beyond the agreed thresholds" - fałszywy wniosek, gdy
         # K1 nie da się policzyć (np. reguła 'all_quality' bez stacji osiadających albo żadna para bez A6).
         if (v2["kryterium"].str[:2] == "K1").any():
             concl2 = s3.overall(v2)
         else:
-            concl2 = ("NIEROZSTRZYGNIĘTE: brak par stacja osiadająca x ścieżka L2b ze statusem 'ok' i A6 na promieniu "
-                      f"{m['radius_main_m']} m - K1 niepoliczalne, wniosek o tempie osiadania nie jest możliwy.")
+            concl2 = ("INCONCLUSIVE: there are no pairs of a subsiding station and an L2b track with status 'ok' and A6 within "
+                      f"{m['radius_main_m']} m, so K1 cannot be calculated and there is no conclusion about the subsidence rate.")
         v2.to_csv(P["verdict_l2b"], index=False)
         print(v2.to_string(index=False))
         msg.append(f"L2b: {concl2}")

@@ -51,6 +51,9 @@ There was no selection based on EGMS values.
 **Verdict:** EGMS shows *where* and *how much* the ground moves. A constant offset of about −2 mm/yr separates it from
 the levelling datum. Because the main variant was fixed in advance, its formal verdict stays a fail.
 
+Short summaries in English, with figures: [Groningen (GNSS)](notebooks/Showcase_1_GNSS_Groningen.ipynb) ·
+[North Rhine-Westphalia (levelling)](notebooks/Showcase_2_Levelling_NRW.ipynb).
+
 Detailed write-ups (in Polish): [E1 Groningen](docs/evidence/F9_E1_interpretacja_wynikow.md) ·
 [E2 NRW levelling](docs/evidence/F10_NRW_niwelacja_EGMS.md).
 
@@ -84,7 +87,7 @@ agreement in E1 is not fully independent. Levelling in E2 is.
 ├── step_07_monitoring.py        # common series format, sampling, maps and uncertainty bands
 ├── step_08_hyp3_mintpy.py       # stage B: own Sentinel-1 processing (ASF HyP3 + MintPy)
 ├── build_colab_*.py             # notebook generators (notebooks are never edited by hand)
-├── notebooks/                   # EGMS_Check (E1), EGMS_Monitoring, two short showcase notebooks
+├── notebooks/                   # two English showcase notebooks, EGMS_Monitoring, EGMS_Check (E1)
 ├── tests/                       # offline harnesses with fake Colab, GDAL and MintPy modules
 ├── data/04_Reference/           # numbers transcribed from publications for cross-checks
 └── docs/                        # plans, evidence F1–F10, architecture (in Polish)

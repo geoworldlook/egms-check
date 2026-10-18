@@ -49,17 +49,17 @@ if run_nb "$REPO/notebooks/EGMS_Monitoring.ipynb" "$WORK/out3.ipynb" > "$WORK/pa
 fi
 grep -q "Zlecenia HyP3 wstrzymane: po obejrzeniu planu ustaw CONFIRM_JOBS\['37'\]" "$WORK/out3.ipynb.txt"
 tail -3 "$WORK/pass3.log"
-echo "=== PRZEBIEG 4: notatniki pokazowe (notebooks/Pokaz_*.ipynb) na wynikach z przebiegów 1-3: tylko odczyt ==="
-run_nb "$REPO/notebooks/Pokaz_1_GNSS_Groningen.ipynb" "$WORK/out4a.ipynb" > "$WORK/pass4a.log" || { tail -20 "$WORK/pass4a.log"; exit 1; }
-grep -q "Wniosek według reguły ustalonej z góry" "$WORK/out4a.ipynb.txt" || { echo "PRZEBIEG 4: brak werdyktu GNSS"; exit 1; }
-grep -q "stacji GNSS" "$WORK/out4a.ipynb.txt" || { echo "PRZEBIEG 4: brak liczby stacji GNSS"; exit 1; }
-run_nb "$REPO/notebooks/Pokaz_2_Niwelacja_NRW.ipynb" "$WORK/out4b.ipynb" > "$WORK/pass4b.log" || { tail -20 "$WORK/pass4b.log"; exit 1; }
-grep -q "Przesunięcie EGMS względem niwelacji na" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak wyniku wariantu względnego"; exit 1; }
-grep -q "Najszybciej osiadający reper" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak podsumowania liczbowego"; exit 1; }
-grep -q "EGMS − niwelacja \[mm\]" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak tabeli rozbieżności"; exit 1; }
-grep -q "Typowa niezgodność EGMS–niwelacja jest około" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak niepewności (dwa pasy)"; exit 1; }
-grep -q "typowa niezgodność EGMS–niwelacja (repery stabilne)" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak tabeli pasów"; exit 1; }
-grep -q "Po odjęciu wspólnego przesunięcia różnica EGMS − niwelacja" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak sekcji reperu stabilnego"; exit 1; }
+echo "=== PRZEBIEG 4: notatniki pokazowe (notebooks/Showcase_*.ipynb) na wynikach z przebiegów 1-3: tylko odczyt ==="
+run_nb "$REPO/notebooks/Showcase_1_GNSS_Groningen.ipynb" "$WORK/out4a.ipynb" > "$WORK/pass4a.log" || { tail -20 "$WORK/pass4a.log"; exit 1; }
+grep -q "Result by the rule set in advance" "$WORK/out4a.ipynb.txt" || { echo "PRZEBIEG 4: brak werdyktu GNSS"; exit 1; }
+grep -q "GNSS stations" "$WORK/out4a.ipynb.txt" || { echo "PRZEBIEG 4: brak liczby stacji GNSS"; exit 1; }
+run_nb "$REPO/notebooks/Showcase_2_Levelling_NRW.ipynb" "$WORK/out4b.ipynb" > "$WORK/pass4b.log" || { tail -20 "$WORK/pass4b.log"; exit 1; }
+grep -q "EGMS offset compared with levelling, on" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak wyniku wariantu względnego"; exit 1; }
+grep -q "The fastest-subsiding benchmark" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak podsumowania liczbowego"; exit 1; }
+grep -q "EGMS − levelling \[mm\]" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak tabeli rozbieżności"; exit 1; }
+grep -q "The usual EGMS–levelling difference is about" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak niepewności (dwa pasy)"; exit 1; }
+grep -q "usual EGMS–levelling difference (stable benchmarks)" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak tabeli pasów"; exit 1; }
+grep -q "Without the common offset, the difference EGMS − levelling" "$WORK/out4b.ipynb.txt" || { echo "PRZEBIEG 4: brak sekcji reperu stabilnego"; exit 1; }
 "$PY" - "$WORK/out4a.ipynb" "$WORK/out4b.ipynb" <<'PYEOF'
 import sys, nbformat
 need = {"out4a": 2, "out4b": 5}             # GNSS: rozrzut + stacja; niwelacja: mapa + rozrzut + >= 2 repery + reper stabilny

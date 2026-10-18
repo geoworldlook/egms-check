@@ -129,21 +129,21 @@ def verdict(results: pd.DataFrame, cfg: dict) -> pd.DataFrame:
     rows = []
     if len(sub):
         share = float((sub["dv"].abs() <= th["abs_dv_mm_yr"]).mean())
-        rows.append(("K1 zgodność tempa osiadania", f"{share:.0%} par z |dv| <= {th['abs_dv_mm_yr']} mm/rok",
+        rows.append(("K1 subsidence rate agreement", f"{share:.0%} of pairs with |dv| <= {th['abs_dv_mm_yr']} mm/yr",
                      f">= {th['share_within']:.0%}", share >= th["share_within"], len(sub)))
         med = float(sub["series_diff_std"].median())
-        rows.append(("K2 zgodność szeregów czasowych", f"mediana std różnicy {med:.1f} mm",
+        rows.append(("K2 time-series agreement", f"median std of the difference {med:.1f} mm",
                      f"<= {th['series_std_mm']} mm", med <= th["series_std_mm"], len(sub)))
         bias, mad = float(sub["dv"].median()), float(1.4826 * (sub["dv"] - sub["dv"].median()).abs().median())
-        rows.append(("Bias i rozrzut dv (informacyjnie)", f"mediana {bias:+.2f}, MAD*1.4826 {mad:.2f} mm/rok", "-", None, len(sub)))
+        rows.append(("Bias and spread of dv (informative)", f"median {bias:+.2f}, MAD*1.4826 {mad:.2f} mm/yr", "-", None, len(sub)))
     if len(stab):
         worst = float(stab["v_egms"].abs().max())
-        rows.append(("K3 kontrola negatywna (stacje stabilne)", f"max |v_EGMS| {worst:.2f} mm/rok",
-                     f"<= {th['stable_abs_v_mm_yr']} mm/rok", worst <= th["stable_abs_v_mm_yr"], len(stab)))
+        rows.append(("K3 check at stable stations", f"max |v_EGMS| {worst:.2f} mm/yr",
+                     f"<= {th['stable_abs_v_mm_yr']} mm/yr", worst <= th["stable_abs_v_mm_yr"], len(stab)))
     if len(r) >= 3:
         slope, intercept = np.polyfit(r["v_gnss_los"], r["v_egms"], 1)
-        rows.append(("K4 nachylenie v_EGMS względem v_GNSS (informacyjnie)", f"{slope:.2f} (wyraz wolny {intercept:+.2f})",
-                     "bliskie 1", None, len(r)))
+        rows.append(("K4 slope of v_EGMS vs v_GNSS (informative)", f"{slope:.2f} (intercept {intercept:+.2f})",
+                     "close to 1", None, len(r)))
     return pd.DataFrame(rows, columns=["kryterium", "wynik", "próg", "spełnione", "n_par"])
 
 
@@ -151,10 +151,10 @@ def overall(verdict_table: pd.DataFrame) -> str:
     """Wniosek z kryteriów K1-K3 (reguła zapisana przed obliczeniami)."""
     p = dict(zip(verdict_table["kryterium"].str[:2], verdict_table["spełnione"]))
     if p.get("K1") and p.get("K2") and p.get("K3", True):
-        return "POTWIERDZONE: EGMS odtwarza tempo osiadania mierzone przez GNSS w granicach przyjętych progów."
+        return "CONFIRMED: EGMS shows the same subsidence rate as GNSS, within the limits."
     if p.get("K1"):
-        return "CZĘŚCIOWO: tempo osiadania zgodne, ale szeregi czasowe lub kontrola negatywna poza progiem."
-    return "NIE POTWIERDZONE: tempo osiadania z EGMS różni się od GNSS ponad przyjęte progi; najpierw sprawdzić znak, układ i okno."
+        return "PARTIAL: the subsidence rate agrees, but the time series or the check at stable stations is outside the limit."
+    return "NOT CONFIRMED: the EGMS subsidence rate is different from GNSS by more than the limits; first check the sign, the reference frame and the time window."
 
 
 # ==============================================================================
