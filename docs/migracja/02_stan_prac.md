@@ -30,8 +30,8 @@ na etapie planu: brak kodu, decyzja o miejscu (NRW czy Hengelo) otwarta.
 
 | Zasób | Miejsce | Uwagi przy migracji |
 |---|---|---|
-| Kod i dokumenty | GitHub `geoworldlook/2_geoworldlook-egmscheck`, gałąź **`claude/dreamy-dirac-jd4vue`** (nie połączona z `main`, brak PR) | nowe konto potrzebuje dostępu do repozytorium albo jego przeniesienia (`04_migracja_kroki.md`) |
-| Notatnik Colab | `https://colab.research.google.com/github/geoworldlook/2_geoworldlook-egmscheck/blob/claude/dreamy-dirac-jd4vue/notebooks/EGMS_Check.ipynb` | po zmianie właściciela lub gałęzi zmienia się adres i `BRANCH` w sekcji 0 |
+| Kod i dokumenty | GitHub `geoworldlook/egms-check`, gałąź **`claude/dreamy-dirac-jd4vue`** (nie połączona z `main`, brak PR) | nowe konto potrzebuje dostępu do repozytorium albo jego przeniesienia (`04_migracja_kroki.md`) |
+| Notatnik Colab | `https://colab.research.google.com/github/geoworldlook/egms-check/blob/main/notebooks/EGMS_Check.ipynb` | po zmianie właściciela lub gałęzi zmienia się adres i `BRANCH` w sekcji 0 |
 | Kopia robocza na Dysku | `MyDrive/GeoWorldLook/egmscheck` (klon repozytorium; tu trafiają GNSS, manifest, wycinek EGMS, wyniki) | skopiować na nowy Dysk albo pozwolić notatnikowi sklonować od nowa |
 | Klucz CLMS API | `MyDrive/GeoWorldLook/secrets/clms_token.json` | **nie kopiować**; na nowym koncie wygenerować nowy klucz (`04_migracja_kroki.md`, krok 3) |
 | Surowe pliki EGMS | dysk sesji Colab `/content/egms_raw` (ulotny) | nie migrują; pobiorą się ponownie |

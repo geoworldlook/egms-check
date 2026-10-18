@@ -8,8 +8,8 @@ Docelowy notatnik projektu (notebooks/EGMS_Check.ipynb) powstanie w sesji 1 prze
 import json
 from pathlib import Path
 
-REPO_URL = "https://github.com/geoworldlook/2_geoworldlook-egmscheck.git"
-BRANCH = "claude/dreamy-dirac-jd4vue"
+REPO_URL = "https://github.com/geoworldlook/egms-check.git"
+BRANCH = "main"
 
 CELLS_PROTOTYP = [
     ("md", """# EGMS Check — prototyp eksperymentów E1 (GNSS) i E2 (niwelacja)

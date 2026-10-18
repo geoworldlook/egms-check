@@ -2,7 +2,7 @@
 ================================================================================
 EGMS Check - KROK 5: STEROWANIE Z NOTATNIKA, REJESTR NA DYSKU I ZADANIA
 ================================================================================
-Architektura (jak AgriWatch, 1_geoworldlook-agriscreen/step_05_colab_run.py): kod na GitHub -> klon repozytorium
+Architektura (jak AgriWatch, agriscreen/step_05_colab_run.py): kod na GitHub -> klon repozytorium
 na Dysku Google (MyDrive/GeoWorldLook/egmscheck) -> obliczenia w Colab -> tabele rejestru gwl_* na Dysku.
 Interfejs według docs/plans/Plan_v2_implementacja.md (sekcje 3 i 4.5); cel: docs/plans/Plan_v2_pokaz_EGMS_monitoring.md.
 

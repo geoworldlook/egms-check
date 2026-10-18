@@ -6,8 +6,8 @@ set -euo pipefail
 PY="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"; WORK=$2   # bez readlink: symlink pythona venv musi zostać
 VENV=$(cd "$(dirname "$PY")/.." && pwd)
 REPO=$(cd "$(dirname "$0")/../.." && pwd); H=$REPO/tests/monitoring_harness
-BRANCH=claude/dreamy-dirac-jd4vue
-URL=https://github.com/geoworldlook/2_geoworldlook-egmscheck.git
+BRANCH=main
+URL=https://github.com/geoworldlook/egms-check.git
 rm -rf "$WORK"; mkdir -p "$WORK"
 chmod +x "$H/bin/smallbaselineApp.py"
 

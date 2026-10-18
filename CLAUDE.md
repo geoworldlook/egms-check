@@ -23,7 +23,7 @@ Przypadki zapasowe (`docs/evidence/F6_przypadki_zapasowe/`) tylko na wyraźną p
 
 ## Struktura: jak w AgriWatch
 
-Repozytorium ma ten sam układ co `1_geoworldlook-agriscreen`. Trzymaj się go:
+Repozytorium ma ten sam układ co `agriscreen`. Trzymaj się go:
 
 - skrypty w katalogu głównym: `step_NN_<cel>.py`; generator notatnika `build_colab_master.py`;
 - jeden notatnik `notebooks/EGMS_Check.ipynb`, generowany, nie edytowany ręcznie;

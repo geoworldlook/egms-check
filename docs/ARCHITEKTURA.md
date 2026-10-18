@@ -1,7 +1,7 @@
 # EGMS Check — architektura (docelowa)
 
 > Status: PROPOSED, 2026-10-09. Kodu jeszcze nie ma (poza `step_00_reference_check.py`).
-> Układ jest przeniesiony z AgriWatch (`1_geoworldlook-agriscreen`, `docs/ARCHITEKTURA.md`):
+> Układ jest przeniesiony z AgriWatch (`agriscreen`, `docs/ARCHITEKTURA.md`):
 > te same nazwy plików, ten sam mechanizm `run_task` i ten sam rejestr `gwl_*`.
 > Po napisaniu kodu ten dokument ma opisywać stan faktyczny, a plany zostają w `docs/plans/`.
 

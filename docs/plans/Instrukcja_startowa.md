@@ -6,8 +6,8 @@ Status: PROPOSED, 2026-10-09. Część planu `Plan_v1_walidacja_EGMS.md`.
 
 | # | Krok | Wynik |
 |---|---|---|
-| 1 | Rozpakuj paczkę do katalogu `2_geoworldlook-egmscheck` i wykonaj `git init` | lokalne repozytorium |
-| 2 | Sklonuj obok AgriWatch: `git clone https://github.com/geoworldlook/1_geoworldlook-agriscreen.git` | wzorzec struktury i mechanizmu `run_task` w sąsiednim katalogu |
+| 1 | Rozpakuj paczkę do katalogu `egms-check` i wykonaj `git init` | lokalne repozytorium |
+| 2 | Sklonuj obok AgriWatch: `git clone https://github.com/geoworldlook/agriscreen.git` | wzorzec struktury i mechanizmu `run_task` w sąsiednim katalogu |
 | 3 | Załóż konto w Copernicus Land Monitoring Service i wygeneruj token API (instrukcja: https://eea.github.io/clms-api-docs/authentication.html) | plik JSON z kluczem prywatnym |
 | 4 | Zapisz token **poza repozytorium**, np. `~/GeoWorldLook/secrets/clms_token.json` (w Colab: `MyDrive/GeoWorldLook/secrets/clms_token.json`) | ścieżka do podania w konfiguracji |
 | 5 | Pobierz `https://download.pangaea.de/dataset/958598/files/PTO1.txt` | `data/02_Raw_Ground/1_gnss_pangaea/PTO1.txt` |
@@ -19,7 +19,7 @@ Kroki 3–4 można odłożyć do sesji 2. Krok 6 jest potrzebny dopiero w sesji 
 
 ## B. Praca w Claude Code
 
-1. Otwórz katalog `2_geoworldlook-egmscheck` w Claude Code. Plik `CLAUDE.md` wczyta się sam.
+1. Otwórz katalog `egms-check` w Claude Code. Plik `CLAUDE.md` wczyta się sam.
 2. Wklejaj prompty z `docs/plans/Prompty_Claude_Code.md` po kolei, jeden na sesję lub etap.
 3. Nie przechodź do następnego promptu, dopóki nie jest spełniony warunek „Gotowe, gdy" z poprzedniego.
 4. Gdy Claude Code zada pytanie o decyzję metodyczną, odpowiedz i dopisz decyzję z datą do

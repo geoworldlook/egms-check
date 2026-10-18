@@ -8,8 +8,8 @@ Notatnik E1 (notebooks/EGMS_Check.ipynb, build_colab_master.py) zostaje bez zmia
 import json
 from pathlib import Path
 
-REPO_URL = "https://github.com/geoworldlook/2_geoworldlook-egmscheck.git"
-BRANCH = "claude/dreamy-dirac-jd4vue"
+REPO_URL = "https://github.com/geoworldlook/egms-check.git"
+BRANCH = "main"
 
 
 def _region_cells(region: str, title: str, levelling: bool) -> list:

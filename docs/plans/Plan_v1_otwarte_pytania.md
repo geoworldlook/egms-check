@@ -24,7 +24,7 @@ Stan na 2026-10-09. Kolumny: co ustalić, jak sprawdzić, co od tego zależy.
 
 | # | Pytanie | Kto rozstrzyga |
 |---|---|---|
-| S1 | Nazwa projektu i repozytorium (robocza: `2_geoworldlook-egmscheck`) | autor |
+| S1 | Nazwa projektu i repozytorium (od 2026-10-18: `egms-check`) | autor |
 | S2 | Język wpisu na blog; jeden wpis czy dwa | autor |
 | S3 | Formuła atrybucji danych Copernicus i warunki użycia danych z raportu NLOG | sprawdzić przed publikacją |
 
