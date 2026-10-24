@@ -65,7 +65,7 @@ Decyzje integracji (do akceptacji autora; wartości nowych kluczy CHECK_CONFIG o
     a dla niwelacji to samo według v_lev.
 
 Konwencje: przemieszczenia w mm, prędkości w mm/rok, ujemne = osiadanie / oddalanie od satelity; EGMS EPSG:3035,
-GNSS stopnie WGS84, niwelacja NRW w crs_epsg z konfiguracji. Ścieżki w CHECK_CONFIG są względne wobec PROJECT_DIR.
+GNSS stopnie WGS84, niwelacja NRW w crs_epsg z konfiguracji. Ścieżki w CHECK_CONFIG są względne wobec DATA_ROOT (= PROJECT_DIR w Colab).
 Parametry eksperymentu pochodzą wyłącznie z CHECK_CONFIG; sygnatury zadań nie mają wartości domyślnych.
 
 Literatura i źródła: docs/evidence/F4_metodyka.md, docs/evidence/F5_zrodla_danych.md,
@@ -195,30 +195,37 @@ def _install_missing(packages: List[str], in_colab: bool) -> List[str]:
     return missing
 
 
-def setup_runtime(project_dir: str, packages: List[str]) -> Dict[str, Any]:
+def setup_runtime(project_dir: str, packages: List[str], data_dir: str = None) -> Dict[str, Any]:
     """
     Przygotowuje środowisko i zwraca słownik `rt` przekazywany do zadań. Dysk Google montuje, a repozytorium
     klonuje / aktualizuje komórka notatnika przed importem tego modułu (kod leży na Dysku), więc tu nie ma git pull.
     Kroki: logowanie -> pakiety (instalacja brakujących tylko w Colab; poza Colab brak = ImportError) -> katalog
     rejestru -> commit kodu. Bez GEE (AgriWatch inicjalizował Earth Engine; EGMS Check go nie używa).
+    data_dir: katalog danych (z podkatalogiem data/), gdy jest inny niż katalog kodu - komputer lokalny
+    (step_09_local.py: kod w projects/egms-check, dane na Dysku Google). None = dane w katalogu kodu (Colab).
+    Ścieżki względne z CHECK_CONFIG i ścieżki w manifeście liczone są od DATA_ROOT.
     """
     if not logging.getLogger().handlers:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
     project_dir = os.path.abspath(project_dir)
     if not os.path.isdir(project_dir):
         raise FileNotFoundError(f"Brak katalogu projektu {project_dir}")
+    data_root = os.path.abspath(data_dir or project_dir)
+    if not os.path.isdir(data_root):
+        raise FileNotFoundError(f"Brak katalogu danych {data_root}")
     in_colab = "google.colab" in sys.modules
     installed = _install_missing(list(packages), in_colab)
     rt = {
         "PROJECT_DIR": project_dir,
-        "DATA_DIR": os.path.join(project_dir, "data"),
-        "REGISTRY_DIR": os.path.join(project_dir, "data", "registry"),
+        "DATA_ROOT": data_root,
+        "DATA_DIR": os.path.join(data_root, "data"),
+        "REGISTRY_DIR": os.path.join(data_root, "data", "registry"),
         "IN_COLAB": in_colab,
         "GIT_COMMIT": _git_commit(project_dir),
         "INSTALLED": installed,
     }
     os.makedirs(rt["REGISTRY_DIR"], exist_ok=True)
-    logger.info(f"Środowisko gotowe: {project_dir} (commit {rt['GIT_COMMIT']}, Colab={in_colab})")
+    logger.info(f"Środowisko gotowe: {project_dir}, dane {data_root} (commit {rt['GIT_COMMIT']}, Colab={in_colab})")
     return rt
 
 
@@ -421,7 +428,7 @@ def registry_summary(rt: Dict[str, Any]) -> pd.DataFrame:
 # II. KONFIGURACJA I ZATWIERDZENIA (Plan_v2_implementacja.md, sekcja 3)
 # ==============================================================================
 # [p] = propozycja do zatwierdzenia; None = decyzja nieustalona (wyjątek przy użyciu). Sekcja z approved = None
-# zatrzymuje każde zadanie, które jej używa (require_approved). Ścieżki względne liczone od PROJECT_DIR.
+# zatrzymuje każde zadanie, które jej używa (require_approved). Ścieżki względne liczone od DATA_ROOT (= PROJECT_DIR w Colab).
 # Klucze oznaczone "dodane" nie występują w specyfikacji: wymagają ich moduły step_04-step_08.
 CHECK_CONFIG: Dict[str, Any] = {
     "project": {
@@ -666,9 +673,14 @@ def _region(cfg: Dict[str, Any], region: str) -> Dict[str, Any]:
 # ==============================================================================
 # III. ZADANIA ETAPU A: ŚCIEŻKI, PUNKTY NAZIEMNE, WSPÓLNE POMOCNICZE
 # ==============================================================================
+def _data_root(rt: Dict[str, Any]) -> Path:
+    """Katalog danych (z podkatalogiem data/): DATA_ROOT, a gdy go nie ma (Colab, notatniki pokazowe) - PROJECT_DIR."""
+    return Path(rt.get("DATA_ROOT") or rt["PROJECT_DIR"])
+
+
 def _abs(rt: Dict[str, Any], path: str) -> Path:
     p = Path(path)
-    return p if p.is_absolute() else Path(rt["PROJECT_DIR"]) / p
+    return p if p.is_absolute() else _data_root(rt) / p
 
 
 def region_paths(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[str, Path]:
@@ -945,7 +957,7 @@ def task_select_gnss(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Di
               f"pobrania - nowszy stan MIDAS zmienia wybór stacji (decyzja autora)")
     else:
         midas_path = gdir / f"midas_{datetime.now(timezone.utc):%Y%m%d}.IGS.txt"
-    s1.download_file(g["midas_url"], midas_path, _manifest(rt, cfg), Path(rt["PROJECT_DIR"]),
+    s1.download_file(g["midas_url"], midas_path, _manifest(rt, cfg), _data_root(rt),
                      "NGL MIDAS velocities (IGS20)", s1.NGL_LICENCE, cfg["project"]["downloaded_by"])
     midas = s1.read_ngl_midas(midas_path.read_text(encoding="utf-8"))
     rule = reg["gnss_rule"]
@@ -979,7 +991,7 @@ def task_gnss_download(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> 
     rows = []
     for s in gn["site"]:
         path = _gnss_path(rt, cfg, s)
-        s1.download_file(s1.ngl_tenv3_url(s, g["frame"]), path, _manifest(rt, cfg), Path(rt["PROJECT_DIR"]),
+        s1.download_file(s1.ngl_tenv3_url(s, g["frame"]), path, _manifest(rt, cfg), _data_root(rt),
                          f"NGL IGS20 {g['frame']} daily series {s}", s1.NGL_LICENCE, cfg["project"]["downloaded_by"])
         t = s1.read_ngl_tenv3(path)
         rows.append({"site": s, "first": t["date"].min().date(), "last": t["date"].max().date(), "days": len(t)})
@@ -1010,7 +1022,7 @@ def task_levelling(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict
     files = {}
     for key, what in (("points", "Höhenfestpunkte Punktliste"), ("series", "Höhenfestpunkte Punktliste mit Zeitfolge")):
         dest = d / urls[key].rstrip("/").rsplit("/", 1)[-1]
-        s1.download_file(urls[key], dest, _manifest(rt, cfg), Path(rt["PROJECT_DIR"]), f"Geobasis NRW {what}",
+        s1.download_file(urls[key], dest, _manifest(rt, cfg), _data_root(rt), f"Geobasis NRW {what}",
                          NRW_LICENCE, cfg["project"]["downloaded_by"])
         files[key] = dest
     lev = s6.levelling_long(s6.read_nrw_points(files["points"], enc), s6.read_nrw_timeseries(files["series"], enc),
@@ -1185,7 +1197,7 @@ def _egms_download_impl(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, q:
     if not token.is_file() and q["ready"]:
         return {"skipped": True, "message": f"brak tokenu CLMS ({token}): używam istniejących wycinków"}
     plan = _read_plan({"plan": q["plan"]})
-    raw, man, proj = q["raw"], _manifest(rt, cfg), Path(rt["PROJECT_DIR"])
+    raw, man, proj = q["raw"], _manifest(rt, cfg), _data_root(rt)
     registered = _in_manifest(man, [s1.manifest_path_of(raw / f, proj) for f in plan["filename"]])
     if (plan["need_bytes"] == 0).all() and all(registered) and all((raw / f).exists() for f in plan["filename"]):
         return {"skipped": True, "message": f"wszystkie {len(plan)} pliki z planu są na Dysku i w manifeście"}
@@ -2277,7 +2289,7 @@ def task_hyp3_download(rt: Dict[str, Any], cfg: Dict[str, Any], region: str, tra
     plan = _hyp3_plan_json(rt, cfg, region, track)
     hp = hyp3_paths(rt, cfg, region, track)
     hy = s8.hyp3_client(s8.load_earthdata_credentials(cfg["project"]["earthdata_path"]))
-    dl = s8.download_succeeded(hy, plan["name"], hp["raw"], _manifest(rt, cfg), Path(rt["PROJECT_DIR"]),
+    dl = s8.download_succeeded(hy, plan["name"], hp["raw"], _manifest(rt, cfg), _data_root(rt),
                                cfg["project"]["downloaded_by"])
     hp["download"].parent.mkdir(parents=True, exist_ok=True)
     dl.to_csv(hp["download"], index=False, date_format="%Y-%m-%d")
@@ -2435,6 +2447,7 @@ def task_summary(rt: Dict[str, Any], cfg: Dict[str, Any]) -> Dict[str, Any]:
     runs = run_history(rt, 25)
     summary = {
         "generated_utc": _utc_now(), "git_commit": rt.get("GIT_COMMIT", ""), "project_dir": rt["PROJECT_DIR"],
+        "data_root": str(_data_root(rt)),
         "egms_release": cfg["egms"]["release"], "versions": _versions(), "config": cfg,
         "approvals": approvals.to_dict(orient="records"),
         "regions": {k: {kk: (vv.to_dict(orient="records") if isinstance(vv, pd.DataFrame) else vv) for kk, vv in v.items()}
@@ -2507,6 +2520,16 @@ def _selftest() -> None:
         proj.mkdir()
         rt = setup_runtime(str(proj), [])
         assert rt["GIT_COMMIT"] == "no-git" and Path(rt["REGISTRY_DIR"]).is_dir() and rt["INSTALLED"] == []
+        assert _abs(rt, "data/03_Extracts") == proj / "data" / "03_Extracts", "bez data_dir dane w katalogu kodu (Colab)"
+        # Kod i dane osobno (komputer lokalny): rejestr i ścieżki względne w katalogu danych, katalog kodu bez zmian.
+        droot = tmp / "dane"
+        _expect(FileNotFoundError, setup_runtime, str(proj), [], str(droot), match="katalogu danych")
+        droot.mkdir()
+        rt_l = setup_runtime(str(proj), [], str(droot))
+        assert rt_l["DATA_ROOT"] == str(droot) and Path(rt_l["REGISTRY_DIR"]) == droot / "data" / "registry"
+        assert _abs(rt_l, "data/03_Extracts") == droot / "data" / "03_Extracts" and _data_root(rt_l) == droot
+        assert _abs(rt_l, str(tmp / "abs.csv")) == tmp / "abs.csv"
+        assert _data_root({"PROJECT_DIR": str(proj)}) == proj, "notatniki pokazowe: rt bez DATA_ROOT"
         _expect(ImportError, _install_missing, ["pakiet_ktorego_nie_ma_xyz"], False, match="pip install")
         old_path = os.environ.get("PATH", "")
         try:                                   # git niedostępny -> jawny napis, bez wyjątku

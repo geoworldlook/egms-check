@@ -86,9 +86,10 @@ agreement in E1 is not fully independent. Levelling in E2 is.
 ├── step_06_ground.py            # ground data: GNSS in an area, NRW levelling, relative-to-stable variant
 ├── step_07_monitoring.py        # common series format, sampling, maps and uncertainty bands
 ├── step_08_hyp3_mintpy.py       # stage B: own Sentinel-1 processing (ASF HyP3 + MintPy)
+├── step_09_local.py             # runs everything on your own computer (no Colab): run, selftest, test
 ├── build_colab_*.py             # notebook generators (notebooks are never edited by hand)
 ├── notebooks/                   # two English showcase notebooks, EGMS_Monitoring, EGMS_Check (E1)
-├── tests/                       # offline harnesses with fake Colab, GDAL and MintPy modules
+├── tests/                       # offline harnesses: Colab notebooks (Linux) and local runs (local_harness/)
 ├── data/04_Reference/           # numbers transcribed from publications for cross-checks
 └── docs/                        # plans, evidence F1–F10, architecture (in Polish)
 ```
@@ -100,8 +101,15 @@ agreement in E1 is not fully independent. Levelling in E2 is.
   service key, and the EGMS download (about 4.4 GB for Groningen) runs only after its size is approved in section 5.
   Raw data and extracts stay on Drive, not in the repository.
 
+- **Running on your own computer (no Colab):** create the conda environment from `environment.yml`, point
+  `local_settings.json` at the data folder, then run `python step_09_local.py run`. It runs the same tasks in the same
+  order as `notebooks/EGMS_Monitoring.ipynb`. Code and data stay in separate folders. Guide (in Polish):
+  [docs/URUCHOMIENIE_LOKALNE.md](docs/URUCHOMIENIE_LOKALNE.md).
+
 ```bash
 python step_00_reference_check.py   # offline check of the reference tables
+python step_09_local.py selftest    # offline tests of all modules
+python step_09_local.py test        # full offline test: fake servers, synthetic data with a known answer
 ```
 
 **Dependencies:** `numpy pandas scipy geopandas pyproj shapely matplotlib requests pyjwt`.

@@ -6,11 +6,11 @@
 #  3. CONFIRM_JOBS = {ścieżka: 3 n - 6} (n dat burstów w [hyp3.start, koniec testu], sąsiedzi 3, odstęp 12 dni <= 48);
 #  4. na końcu komórka kontroli znanej odpowiedzi (asserty).
 # Użycie: python prepare_notebook.py <notatnik wejściowy> <notatnik wyjściowy> <katalog_fx>
+# APPROVE, check_code() i confirm_values() używa też test lokalny (tests/local_harness/run_local_test.py): ta sama
+# konfiguracja testowa i ta sama kontrola znanej odpowiedzi bez notatnika.
 import json
 import sys
 from pathlib import Path
-
-import nbformat
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE / "fake"))
@@ -18,18 +18,22 @@ sys.path.insert(0, str(HERE.parents[1]))
 import egms_harness_lib as L  # noqa: E402
 from step_05_colab_run import CHECK_CONFIG  # noqa: E402
 
-src, dst, fx = Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3])
-nb = nbformat.read(src, as_version=4)
-index = json.loads((fx / "egms" / "index.json").read_text())
-mb = {r: int(round(sum(v["size"] for v in index.values() if v["region"] == r and v["release"] == L.RELEASE) / 1e6))
-      for r in L.REGIONS}
-mb_lev = {L.L3_CHECK["region"]: int(round(sum(v["size"] for v in index.values() if v["release"] == L.RELEASE_CHECK) / 1e6))}
-start = CHECK_CONFIG["hyp3"]["start"]
-jobs = {}
-for track in L.REGIONS[CHECK_CONFIG["hyp3"]["region"]]["tracks"]:
-    d = L.burst_dates(CHECK_CONFIG["hyp3"]["region"], track)
-    n = int(((d >= start) & (d <= L.HYP3_END_TEST)).sum())
-    jobs[str(track)] = 3 * n - 6
+
+def confirm_values(fx: Path):
+    """(CONFIRM_MB {region: MB}, CONFIRM_MB _LEVELLING {region: MB}, CONFIRM_JOBS {ścieżka: liczba}) z plików atrapy."""
+    index = json.loads((fx / "egms" / "index.json").read_text())
+    mb = {r: int(round(sum(v["size"] for v in index.values() if v["region"] == r and v["release"] == L.RELEASE) / 1e6))
+          for r in L.REGIONS}
+    mb_lev = {L.L3_CHECK["region"]: int(round(sum(v["size"] for v in index.values()
+                                                  if v["release"] == L.RELEASE_CHECK) / 1e6))}
+    start = CHECK_CONFIG["hyp3"]["start"]
+    jobs = {}
+    for track in L.REGIONS[CHECK_CONFIG["hyp3"]["region"]]["tracks"]:
+        d = L.burst_dates(CHECK_CONFIG["hyp3"]["region"], track)
+        n = int(((d >= start) & (d <= L.HYP3_END_TEST)).sum())
+        jobs[str(track)] = 3 * n - 6
+    return mb, mb_lev, jobs
+
 
 APPROVE = f'''# HARNESS (test): zatwierdzenia i decyzje w KOPII cfg; wartości testowe, nie decyzje autora.
 def _approve(node):
@@ -48,7 +52,19 @@ cfg['hyp3']['mintpy'].update(deramp='no', solid_earth_tides=False)
 assert CHECK_CONFIG['hyp3']['tracks'] == ['37', '88'], 'kopia testowa nie może zmieniać CHECK_CONFIG'
 display(approvals_table(cfg))'''
 
-CHECK = f'''# HARNESS (test): kontrola znanej odpowiedzi na danych syntetycznych (egms_harness_lib); wartości testowe, nie wynik.
+
+def check_code(jobs: dict, stage_b: bool = True) -> str:
+    """
+    Kod kontroli znanej odpowiedzi (wykonywany po pełnym przebiegu: rt, cfg, PROJECT_DIR = katalog danych).
+    stage_b=False: bez kontroli etapu B (test lokalny na Windows bez długich ścieżek; notatnik zawsze z etapem B).
+    """
+    src_b = ", 'S1_HYP3_MINTPY'" if stage_b else ""
+    block_b = f"""for f in sorted(G['outputs'].glob('hyp3_align_groningen_*.csv')):
+    a = pd.read_csv(f)
+    assert len(a) == 7 and (a['status'] == 'ok').all() and (a['std_diff_mm'] < 2.5).all(), (f.name, a)
+assert len(list(G['outputs'].glob('hyp3_align_groningen_*.csv'))) == {len(jobs)}
+""" if stage_b else ""
+    return f'''# HARNESS (test): kontrola znanej odpowiedzi na danych syntetycznych (egms_harness_lib); wartości testowe, nie wynik.
 import json
 import egms_harness_lib as Lh
 from step_05_colab_run import registry_read
@@ -118,42 +134,47 @@ stable = sorted(Cn['figure'].parent.glob('nrw_west_levelling_stable_2019_2023_*.
 assert len(stable) == 1 and stable[0].stat().st_size > 10000, [f.name for f in stable]
 assert 'EGMS_L3U_2019_2023' in set(registry_read(rt, 'gwl_validation_metrics')['product'])
 lg, ln_ = read_long(G['long']), read_long(N['long'])
-assert {{'EGMS_L2b_2020_2024', 'EGMS_L3U_2020_2024', 'GNSS_NGL_LOS', 'GNSS_NGL_U', 'S1_HYP3_MINTPY'}} <= set(lg['source']), set(lg['source'])
+assert {{'EGMS_L2b_2020_2024', 'EGMS_L3U_2020_2024', 'GNSS_NGL_LOS', 'GNSS_NGL_U'{src_b}}} <= set(lg['source']), set(lg['source'])
 assert 'LEVELLING_NRW' in set(ln_['source']), set(ln_['source'])
 tt = pd.read_csv(G['ttd'], dtype={{'site': str, 'track': str}})
 s1 = tt[(tt['site'] == 'S001') & (tt['source'] == 'EGMS_L2b_2020_2024') & (tt['start'] == '2020-01-01')]
 assert len(s1) == 2 and s1['ttd_months'].notna().all() and (s1['ttd_months'] <= 24).all(), s1
-for f in sorted(G['outputs'].glob('hyp3_align_groningen_*.csv')):
-    a = pd.read_csv(f)
-    assert len(a) == 7 and (a['status'] == 'ok').all() and (a['std_diff_mm'] < 2.5).all(), (f.name, a)
-assert len(list(G['outputs'].glob('hyp3_align_groningen_*.csv'))) == {len(jobs)}
-assert len(list(G['figures'].glob('*.png'))) >= 6 and len(list(N['figures'].glob('*.png'))) >= 6
+{block_b}assert len(list(G['figures'].glob('*.png'))) >= 6 and len(list(N['figures'].glob('*.png'))) >= 6
 assert Path(PROJECT_DIR, cfg['project']['outputs_dir'], 'run_summary.md').stat().st_size > 2000
 print('HARNESS: znana odpowiedź OK')'''
 
-cells, done = [], {"cfg": False, "mb": set(), "mb_lev": set(), "jobs": False}
-for c in nb.cells:
-    if c.cell_type == "code":
-        for region, v in mb_lev.items():
-            line = f"CONFIRM_MB_{region.upper()}_LEVELLING = None"
-            if line in c.source:
-                c.source = c.source.replace(line, f"CONFIRM_MB_{region.upper()}_LEVELLING = {v}  # HARNESS: kafel 2019-2023")
-                done["mb_lev"].add(region)
-        for region, v in mb.items():
-            line = f"CONFIRM_MB_{region.upper()} = None"
-            if line in c.source:
-                c.source = c.source.replace(line, f"CONFIRM_MB_{region.upper()} = {v}  # HARNESS: suma plików atrapy")
-                done["mb"].add(region)
-        if "CONFIRM_JOBS = None" in c.source:
-            c.source = c.source.replace("CONFIRM_JOBS = None", f"CONFIRM_JOBS = {jobs!r}  # HARNESS: 3 n - 6")
-            done["jobs"] = True
-    cells.append(c)
-    if c.cell_type == "code" and "cfg = copy.deepcopy(CHECK_CONFIG)" in c.source:
-        cells.append(nbformat.v4.new_code_cell(APPROVE))
-        done["cfg"] = True
-cells.append(nbformat.v4.new_code_cell(CHECK))
-assert done["cfg"] and done["mb"] == set(mb) and done["mb_lev"] == set(mb_lev) and done["jobs"], done
-nb.cells = cells
-nb.metadata["kernelspec"] = {"display_name": "colab313", "language": "python", "name": "colab313"}
-nbformat.write(nb, dst)
-print(f"Zapisano {dst}: CONFIRM_MB {mb}, CONFIRM_JOBS {jobs}")
+
+def main(src: Path, dst: Path, fx: Path) -> None:
+    import nbformat
+    nb = nbformat.read(src, as_version=4)
+    mb, mb_lev, jobs = confirm_values(fx)
+    cells, done = [], {"cfg": False, "mb": set(), "mb_lev": set(), "jobs": False}
+    for c in nb.cells:
+        if c.cell_type == "code":
+            for region, v in mb_lev.items():
+                line = f"CONFIRM_MB_{region.upper()}_LEVELLING = None"
+                if line in c.source:
+                    c.source = c.source.replace(line, f"CONFIRM_MB_{region.upper()}_LEVELLING = {v}  # HARNESS: kafel 2019-2023")
+                    done["mb_lev"].add(region)
+            for region, v in mb.items():
+                line = f"CONFIRM_MB_{region.upper()} = None"
+                if line in c.source:
+                    c.source = c.source.replace(line, f"CONFIRM_MB_{region.upper()} = {v}  # HARNESS: suma plików atrapy")
+                    done["mb"].add(region)
+            if "CONFIRM_JOBS = None" in c.source:
+                c.source = c.source.replace("CONFIRM_JOBS = None", f"CONFIRM_JOBS = {jobs!r}  # HARNESS: 3 n - 6")
+                done["jobs"] = True
+        cells.append(c)
+        if c.cell_type == "code" and "cfg = copy.deepcopy(CHECK_CONFIG)" in c.source:
+            cells.append(nbformat.v4.new_code_cell(APPROVE))
+            done["cfg"] = True
+    cells.append(nbformat.v4.new_code_cell(check_code(jobs)))
+    assert done["cfg"] and done["mb"] == set(mb) and done["mb_lev"] == set(mb_lev) and done["jobs"], done
+    nb.cells = cells
+    nb.metadata["kernelspec"] = {"display_name": "colab313", "language": "python", "name": "colab313"}
+    nbformat.write(nb, dst)
+    print(f"Zapisano {dst}: CONFIRM_MB {mb}, CONFIRM_JOBS {jobs}")
+
+
+if __name__ == "__main__":
+    main(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]))

@@ -1,0 +1,32 @@
+# Środowisko EGMS Check dla conda / Miniforge (Windows, macOS, Linux), obliczenia na własnym komputerze.
+#   conda env create -f environment.yml          (aktualizacja: conda env update -n egmscheck -f environment.yml)
+# conda 26.9 na Windows ("Could not find 'share/conda-launchers/cli-64.exe'"): najpierw
+#   conda create -n egmscheck -y python=3.11 conda-launchers, potem conda env update -n egmscheck -f environment.yml
+name: egmscheck
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11            # MintPy na Windows: pysolid z conda-forge jest tylko dla Pythona <= 3.11
+  # etap A: EGMS kontra GNSS i niwelacja
+  - numpy
+  - pandas
+  - scipy
+  - pyproj
+  - shapely
+  - geopandas
+  - matplotlib
+  - requests
+  - pyjwt
+  - cryptography
+  # etap B: ASF HyP3 + MintPy (GDAL dla Pythona instaluje conda; pip go nie daje)
+  - gdal
+  - rasterio
+  - h5py
+  - mintpy
+  - hyp3_sdk
+  - asf_search
+  # notatniki i narzędzia
+  - ipykernel
+  - nbformat
+  - git
+  - pip

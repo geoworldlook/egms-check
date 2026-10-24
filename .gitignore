@@ -52,3 +52,7 @@ credentials.json
 Thumbs.db
 .DS_Store
 scratch/
+
+# Obliczenia lokalne (step_09_local.py): ustawienia tego komputera, logi i blokada przebiegu
+local_settings.json
+data/logs/

@@ -4,6 +4,11 @@
 > Układ jest przeniesiony z AgriWatch (`agriscreen`, `docs/ARCHITEKTURA.md`):
 > te same nazwy plików, ten sam mechanizm `run_task` i ten sam rejestr `gwl_*`.
 > Po napisaniu kodu ten dokument ma opisywać stan faktyczny, a plany zostają w `docs/plans/`.
+>
+> **2026-10-24: obliczenia lokalne.** Oprócz Colab projekt liczy się na własnym komputerze: `step_09_local.py`
+> (ta sama kolejność zadań co `notebooks/EGMS_Monitoring.ipynb`), kod i dane w osobnych katalogach
+> (`setup_runtime(..., data_dir)`, `rt["DATA_ROOT"]`; w Colab bez zmian: dane w katalogu kodu na Dysku).
+> Instrukcja: `docs/URUCHOMIENIE_LOKALNE.md`; pełny test: `tests/local_harness/`.
 
 ## 1. Przepływ
 
