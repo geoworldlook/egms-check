@@ -124,6 +124,12 @@ python step_09_local.py test        # full offline test: fake servers, synthetic
   - Fabris & Nazari 2026 (Front. Earth Sci. 14:1781404);
   - Even et al. 2024.
 
+## How it is built
+
+I build this project with help from Claude, an AI assistant made by Anthropic. Claude helps with code, analysis runs
+and documentation. I set the goals and the methods, review the results and make the decisions. Every result is
+checked against ground measurements, as described above.
+
 ## License
 
 Code: [MIT](LICENSE). Data remain under their providers' licences.
