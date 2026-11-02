@@ -27,7 +27,7 @@ PATH=$PWD/colab313/bin:$PATH PYTHONPATH=$H/fake NBTEST_FX=/tmp/fx NBTEST_PUBKEY=
   colab313/bin/python $H/run_nb.py /tmp/main_dl.ipynb /tmp/main_out.ipynb /tmp
 ```
 
-Oczekiwany wynik (stan 2026-10-10, commit `fe368e8`): 4 stacje osiadające i 3 stabilne (jedna spoza
+Oczekiwany wynik (stan 2026-10-10, commit `cc3bc93`): 4 stacje osiadające i 3 stabilne (jedna spoza
 regionu, 92 km), 5 punktów usuniętych jako duplikaty, K1 100%, K2 1,6 mm, K3 0,78 mm/rok, nachylenie 1,00,
 wniosek POTWIERDZONE, `STATUS: OK`.
 

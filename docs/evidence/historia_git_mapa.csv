@@ -1,0 +1,89 @@
+stary_commit,nowy_commit,data,opis
+51a914e46fb8991c4b7a8b50e072f8ba3c5a4926,e00bd44f83efc4a8e923113e3ca3c608282d0c4a,2026-10-09,Initial commit
+6810c8d31c59360c994b0f5faaf783ae47a0c930,8fb67aa51e292363d5331c7b3e5f867eaa110e12,2026-10-09,"docs(plan): import project package, add PTO1 series and implementation plan"
+4839fccf8be8ea98633a88cf7ef979b84055b33a,1e9ba78c7a3914c4b0df9788374f2ed1a22d4c2a,2026-10-09,docs(evidence): add findings from Fernandez et al. 2018 full text
+1e6f79014babacc0b1da7488ec4b34f90d2e5040,6612e1cb4eba1b79e533526a160ebd74877268f9,2026-10-09,docs(evidence): add findings from White Paper and EGMS-toolkit full texts
+a2c762db407d7386c9fa3ac3b0dfd903b72b83d2,f17c058b94b2cf8bfb29038db6d7abbf41ee0541,2026-10-10,docs(plan): literature review and two-experiment plan with Python prototype
+98e7c99e1fcfd037557a6e64d30996988a214a29,96760b34890715fe3d393fee5fab3d91d4ffd3ed,2026-10-10,feat(prototypes): add Colab notebook for the E1/E2 prototype
+c2149c3ae487f14ac4e31d939117185c222e6b68,5c1509ebe1da04f9cd23d2b25f6f83a8e8024918,2026-10-10,"feat(ingest): EGMS API access, search and confirmed download for PTO1"
+831b442b9c58c6ad257f70925228828ea2ab1d17,2b71855fcc62a3cb8fbaff0b6c82a6206061249b,2026-10-10,fix(ingest): expect the CLMS service key as clms_token.json
+45955c6858b7c14e987d084b5fcc2566e9485f6a,c1a3bed15337a0b65d55dd635f605dc88a328c1d,2026-10-10,feat(prototypes): NGL tenv3 span check for PTO1; record API search results
+036bf7fe0ce2f4af1386753bcf0948cba20ee933,8793d7fdab6e052a813a1fa57382694f0476b6c4,2026-10-10,feat(ingest): screen NGL GNSS stations by explicit criteria and EGMS coverage
+999c9ef51dddee1e8a9f4c4c57546893711eaac5,f0473718bb6453b33014737672aa367ba485820d,2026-10-10,fix(prototypes): read only .tenv3 links in the NGL check; record PTO1 NGL span
+8e1a435877402db83068b61a7d46e6962a84f8f6,1dfe910f0f5233d7ff1617e65191a3a68761b0f1,2026-10-10,feat(ingest): read CLMS key from an environment variable; CLI for API lists and point search
+3a557248e5899b40a1fed9abf1eb921f68ad14c0,bd4def266b9c391f81f7fc8f6306ab0737faddb6,2026-10-10,fix(prototypes): autoreload modules in the PTO1 notebook
+a2f44661521dba907f8582eb078306697a75d479,fd1bbdc6a3b70681d338a6a31277b8b6cc21a9c2,2026-10-10,fix(prototypes): screening cell finds the current MIDAS file and stops clearly
+34de6e469cf8abc755990d86296df754d294bd34,c6b34541e0048f0d977733bf11f34751384dda99,2026-10-10,"fix(prototypes): drop autoreload, use NGL midas.IGS.txt, self-contained cells"
+e294885180bb1fbb56f5ce7b41277bf2fca36787,38e7436d635643b45ed62a1802df9215c5963579,2026-10-10,fix(prototypes): screening end-of-data criterion follows the 85% rule
+2fa33dda42d63fc29589e9bc5f9fc3f1ec5f89c0,72efd53aac64c5f7989fc6184b8b0c1ff66b4345,2026-10-10,refactor(ingest): move NGL screening logic from the notebook into step_01_ingest
+a746ae6436c2cb42abb12ddcd4d8ae9b3087c161,5e0fd2d8e52865eca1d972aaa316a93aa003bf04,2026-10-10,feat: GNSS validation of EGMS L2b in the Groningen region (notebook + steps 1-3)
+614d23d3d5698ba10e7c0cbd3e20e5199d271c0a,dc296ef17e461df0869a541dfd379bc24ddddcf0,2026-10-10,fix(figures): visible stable-station markers; English group names in titles
+f6f737e2bc3e9b16f0149abef33d9a0daa4b39d9,c3ad463a5355a97917e146f5de743595edc74f63,2026-10-10,docs: link the Groningen validation notebook; record 2026-10-10 decisions
+9fb0d8f035f138126b8d1b9951d412e235eab755,c989121c4df3277bfe5e77c415e46e0951619b7f,2026-10-10,feat(stations): add nearby stable GNSS stations as negative control
+fe368e845207f0ea53b51bb153c5fa6cdb0fa9eb,cc3bc9321ac64b4afb7a31c3dc210885e6d59462,2026-10-10,docs(plan): record nearby stable-station rule
+2e781c9fcbde99b806903db8705d68d5836c39e2,05546939aee85f13feef97963f9ae8d428879558,2026-10-10,Utworzono za pomocą Colab
+f60d52b1c85f2d1a72eed8600bb701109ddf263e,44134693af998fecaa810689f6406be5d28e592a,2026-10-10,docs: project handover with status and audit; add offline notebook test harness
+809bb85d5165ab35a332232e9c47eb0359c1b1bc,effc295ef8280b740fef5fcb595e9ab833f3f070,2026-10-10,docs(handover): split the handover document into per-topic markdown files
+6102de5fb79472b0aba3dafb34a9e69bad488346,8ec858233dc2f1bb7311369a0575ddd90214100a,2026-10-10,docs(migration): post-migration audit; record first real E1 run (PARTIAL)
+61d753cdf16322f3e279bb162a7de0a68ff63c21,8475b5adc9ee087d9e39e986b5cc0c89ad800f14,2026-10-10,docs(migration): explain K3 failure and track-88 bias; flag silently dropped stations
+663e22a21a0b5e076bfc24672e00bd65d507fbbb,0513709419edded7019e7360ac59b937a3a8ae85,2026-10-10,docs(migration): independent recomputation of E1 criteria; correct run timestamps
+4c0ee527ec5311a44aa62bf29ff68a33cffb03dc,a90fadd8e01505a86b1910f4589526af94348fd6,2026-10-10,docs(evidence): overview of candidate cases with subsidence cause and status
+299b1025c8d7037d485bf93175adca87dbad45da,e389ba5432101af4da4cdbba494b48da270900a9,2026-10-11,"docs(plan): EGMS showcase for Groningen and western NRW, path to 6/12-day monitoring"
+fc942f9a8b326871f9a4151c4185c04c0eaf6ff4,701e6a5b4226028dd674ead74e4d41ab83055704,2026-10-11,"docs(plan): interface spec for EGMS 2020-2024 AOI, levelling, monitoring and HyP3/MintPy modules"
+8ad90c989603fda00ffae52ba6456cdbbed65606,69fd3bc3b84b73651655c48a83f24611aaa6b21d,2026-10-11,"feat: EGMS AOI/L3, ground data, monitoring and HyP3/MintPy modules (WIP, review pending)"
+f2a84b6823c3f7dda93849f980c5beb9bb731cf3,fb5fbf076be4d73c175e33c757a3a1b86d280a29,2026-10-11,"fix: apply independent review findings to ground, monitoring and HyP3/MintPy modules"
+de8dd58e9af20894a7662b44997e6534047b92ad,be6dc26e9a5fce773b9362230b06ba00012228a0,2026-10-11,"feat: notebook controller (CHECK_CONFIG, run_task, gwl registry) and EGMS_Monitoring notebook with offline harness"
+2e5231449875fc2380a13fb90d6c35471dab368b,c8495092deb7cc65f96ccf25ca67a599dd0d4446,2026-10-11,"fix(controller): idempotent re-runs, MIDAS snapshot reuse, text-typed registry keys, gate coverage"
+f1ddab58ed37b45cd6f529707f01c17f26ee504e,790445ea49997915183d63d52249956a90abcc9c,2026-10-12,"chore(config): record author approvals 2026-10-12 (NRW AOI, GNSS rule, method, thresholds)"
+959814f402b44c0bd396a56ca768a50bdf271273,5acac5a0612d3f0ecb77dc84c005342e876324f9,2026-10-12,chore(config): K3 as max |dv| on stable stations; absolute reference for NRW levelling (author 2026-10-12)
+4e24f3780e111cca014f3fd2834685a0841875ae,1b0a4bee18d9aa2f15726e5022ab85673794d559,2026-10-12,"feat(levelling): NRW HFP files as officially described (no header, UTF-8, EPSG:4647 zone-prefixed easting)"
+ff3cf03b45d8ce1841aa34cd982ab36468fa8249,8c4224fc777157c2e71e08e6d9410749159e4418,2026-10-12,"chore(config): approve monitoring and HyP3 stage (Groningen, tracks 37/88, 2024-01..2026-09) - author 2026-10-12"
+8a2c962fc4ec087df073b5d9543534d1ff410b6a,5a99ec2d5eb0fd8dc837aa814757560f5103ee82,2026-10-12,Utworzono za pomocą Colab
+a3b7264a6c4523f4653f664132d7571d474dffb0,97fc38c47662e547ff52b91ca5352d611ad57309,2026-10-12,Utworzono za pomocą Colab
+160a0ee09adc572ce685b5f337f3876320f464f3,d1bf7d9b3dcdf5268d3be3f60c544a857d7ee0a4,2026-10-12,fix(extract): EGMS 2020-2024 L2b files have no 'height' column - require only used columns
+a7b13b9c073ac700892e07188561a5f187faca99,97a673ce517ae6ff7272afc9bda5836a9e7c34b6,2026-10-12,Utworzono za pomocą Colab. Zapis wyników przebiegu testu.
+29ea831277dd3efe21b1dc287410b7f0de09df64,a147a1217598313017a1126c6865a1ad955ee1e5,2026-10-12,"docs(evidence): E1 Groningen - how to read the figures, sources, numbers and meeting readiness"
+29f5b9878f7e09cab98bba72b5954948b6ae110b,8dd1fec211f8f9de0ec05c577219bcc2f0d264db,2026-10-12,Utworzono za pomocą Colab
+36f4386441bff7793b442d5c7832972e11061d82,d008b4181194def4d0ce1a198e27f5afb8ce8e1a,2026-10-12,"fix(controller): retry transient 502/503/504 from CLMS token and EGMS search (bounded, logged, then raise)"
+941628169f02e3a599d56239ea56e552f6f9b359,3e67d22a2551975cd15a6fe703db9b87437f2d89,2026-10-12,Utworzono za pomocą Colab
+a818453afe79cdd9a4079bbecbaff2cd54ad9436,56ff98ee4e82888409b25ee536dd3c83ec2f3940,2026-10-12,fix(ground): parse NRW Punktliste records with unescaped quotes inside the point name
+86b887ff3c66ff38c9906785d610240111bb83dc,862e7824f712db32058a0899db09b20bac91f4d8,2026-10-12,Merge branch 'claude/dreamy-dirac-jd4vue' of https://github.com/geoworldlook/2_geoworldlook-egmscheck into claude/dreamy-dirac-jd4vue
+5fdc2f58be20e691ac260eb318a9eafd30aaab8b,3afc54ae1abda4dd0ccc79e059d98a94ea445659,2026-10-12,Utworzono za pomocą Colab
+3a7c1ed9aac2fcb75d2772bfbb2abb064d4a47b7,c679a7c2e1825f987fba71e1b043574a780664fc,2026-10-12,"fix(controller): extract L2b only around GNSS sites, not all levelling benchmarks"
+ea7fbb09720a307a589326955243ac51a1abaf89,0f71adf91e0adc3433978c2a6f6fcba49ba2ab37,2026-10-12,Utworzono za pomocą Colab
+f4b15e708de2e59610265c64c611dba3768a8e9c,10f3f63fadbac49ccfa5fc95daa7af8a2ecd3624,2026-10-12,Utworzono za pomocą Colab
+4ffea557abf4bbab6621a3a4432c97b3df164b59,6b4d5049c1c572e8b5fe9e9f31a0fbd7a636e851,2026-10-12,Utworzono za pomocą Colab
+8c4c2dc778ce988e338f2c30451862b643d17ae4,454c4fe85034053f508452e53c897cf493139482,2026-10-12,"feat(levelling): compare NRW levelling with a second EGMS release (2019-2023, L3 vertical only)"
+1afb1da68b80f43b92d6239199042274bcaebbbf,562fb85c0c47be950bda5f1007fa2abe2c583498,2026-10-12,Merge remote-tracking branch 'origin/claude/dreamy-dirac-jd4vue' into claude/dreamy-dirac-jd4vue
+ace4313a13a6d40aa1243421b00b7b03c2eb89f3,be6048154935cefbbed3f74b9d6c64e0e00ce8c1,2026-10-13,Utworzono za pomocą Colab. Obliczenia na niwelacji 2018-2023
+b28009df03b6f812e7a818dc072b319bd43aae84,f5367d52bcc1358b18b4cd7d267888c80d817eca,2026-10-13,feat(levelling): additional relative variant vs levelling-stable benchmarks; F10 verified case summary
+da72a7714f98d7d837b82cf0539645d33797be19,beea3ec19404a064aefde45caf38e4e41d55072d,2026-10-13,docs(evidence): verify Even et al. 2024 against full text; correct F4 section 10
+0fc76cf1264855b18fbc6a332edce2102bcfa808,5b8dcad1a388a9862656390386960daafc3a0620,2026-10-13,Utworzono za pomocą Colab
+529e79fea545496f803c46db02750871ba40f6f6,8ac5aca79f8e817054a92350a5de972289d85213,2026-10-13,feat(levelling): time-series figures at rule-selected benchmarks; F10 relative-variant results
+2974d96e89a12acbcd3f9d38f29d989cd4143536,ac3abec13a87472cbb9c0679b809a7ab4e364604,2026-10-13,Utworzono za pomocą Colab
+353d7beb6515ee7d98c861c67a88635e763c7fec,2c7a80498cd53bfca120591e9571abe193496df5,2026-10-13,Utworzono za pomocą Colab
+42d355a3dd315f87e3c8701be76846bd68300285,a9a2129958a1eae1dc7466e061a72f1c27dc368f,2026-10-13,feat(notebook): short read-only showcase notebook EGMS_Pokaz for the meeting
+ba6c03e812e2990eeea26698253f28f8d57ee051,e369c45056bc26ec8a54a5559f091ea12b654058,2026-10-13,Utworzono za pomocą Colab
+25102ecf8af0f2f6a6ca2aa309ca9ebfcce67338,92d034a90ee873033fe98c3a896be7f5b5ab386e,2026-10-13,"fix(figures): levelling-check map on the 2019-2023 release, readable series figures, outlier table in showcase"
+b0eba800c26ac6c9b495c83d47bc03e7312b8ea5,3d56dc9455cf3a7a7b5d10719c235c602c7e3fd5,2026-10-13,fix(notebook): ignore file-mode changes in the Drive clone so git pull does not stop
+6aff036aa0b44a4c1f4105d8ded91a2f9e155f2d,43df08254c1847e49db5f71913ea67b054e41b8f,2026-10-13,Utworzono za pomocą Colab
+667633f4fabb4b364e6ddedefedfff36e1dac9e8,0a681ec32cb1f9c3b12e5a309bef3ce6e872c702,2026-10-13,Utworzono za pomocą Colab
+b4b471a03e22331ded55865c456defd6538dcfa7,4cbe27c1075d798a8530891301dae50fd7341695,2026-10-15,"feat(notebook): two short meeting notebooks (GNSS Groningen, levelling NRW) with hidden code"
+7456e2320bf898ef06b9e65221336af7c6bd9b9d,83972b87ab6f1368cb31221811a227a78fb5997f,2026-10-15,feat(levelling): EGMS uncertainty bands and stable-benchmark figure; unit-safe zeroing of series
+21905dd1a26491502fc93dcb1081c898d7632a70,3b9b4f2fb8c497ba4d3b5315efd0331901b1566f,2026-10-15,fix(notebook): showcase notebooks say what to run when Drive code or results are older than the notebook
+809249e93e9a828ed767cf83b1ff2267be484266,7dc434a6f4520bd21d4326a872560c10c217ed21,2026-10-15,Utworzono za pomocą Colab
+2a326ec2d74e5bfd7e506dac78f8b5d2d783bce8,06eeefcedea10280d1b4ff010d8c52a99371a51a,2026-10-15,feat(levelling): second uncertainty band from the stable-benchmark spread; clearer stable-benchmark figure
+88f4e7ecae039ade2067c073a5b7d4a2e9420b76,a08be478495223074b9b9241205627b4d2944583,2026-10-16,Utworzono za pomocą Colab
+9311d4b2414414d60a430cd0f4869e889c20d445,f3176c437ffe274663816ea8f08728d77ba5e1e5,2026-10-16,Utworzono za pomocą Colab
+49c05fb2440dd4f31d680d308c47d662ee61b4be,655fed4d43a0c89f4612386a92693d8995179f75,2026-10-16,"docs(report): meeting report as .docx (results, experiment, Deutsche Bahn case, sources)"
+c2470e245476c0aaddaa01d25a01f86a40c49c85,7d01baf91cf0e0706de6f1ee13a3599732882a21,2026-10-16,docs(report): add AME1 time-series figure to the GNSS section
+64d6d96f88eb2f7a1c2338aa8531213a58859479,bc133d67860f1bf3b82247d6cbd7c1033d04d287,2026-10-16,docs(report): shorter impersonal meeting report based on author's edits
+ca25f2d2a7ac0caf0cf76259513c25a016707d44,93225989a66ad733a0d7b9d2e613fd035aec291a,2026-10-16,Utworzono za pomocą Colab
+680f181b33805b2d5e582c45cb5dc21668df9c5e,d0f62dd26d3e85cc3a0e9707f0359b0792a61b43,2026-10-17,docs(raport): add table of EGMS infrastructure pilots and commercial uses
+9bda81450e6990f9785519a5d166f77ac9d5a521,887a21c63289cef9b6ec0a8517736639d6138fb7,2026-10-17,Merge branch 'claude/dreamy-dirac-jd4vue' of https://github.com/geoworldlook/2_geoworldlook-egmscheck into claude/dreamy-dirac-jd4vue
+a13c0818caea96a780f5ceaca58c9df25984e0c1,130fcf19eddb3046eb6f32d2360313be091af951,2026-10-17,docs: add context handoff note for a parallel session
+6f91835dfc79d41e2f59853b3afb7317886cbf0e,0d3e5768678415dba25a05a46efae8c546cf401e,2026-10-18,Merge working branch claude/dreamy-dirac-jd4vue into main
+349f91843cef32f12fce73f16502094240cd637c,86fafa5fef1d0240416860d0001adac3565edca2,2026-10-18,"chore: point notebooks, harness and docs at renamed repo egms-check on main"
+44b3487c001d138095170d5b7d30798b2e9fb182,cf8e04af9de81ffa06e097d06858fd1c9d848777,2026-10-18,feat(showcase): English showcase notebooks and result labels
+db36507ad6c2beec2d76fe641ab3f73146d742bf,2004af03e56aeeb0c4895c217023b87593238197,2026-10-24,feat(local): run the whole pipeline on your own computer (no Colab)
+ec0552e222beb2a13bac0e93b24da85b4b57c5bc,96eb3b3e518875c33a0b21da4f548ea572032e04,2026-11-01,docs(readme): note that the project is built with help from Claude (Anthropic)

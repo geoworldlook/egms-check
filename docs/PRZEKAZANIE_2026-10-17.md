@@ -36,8 +36,7 @@ K1 99% ✔, K2 4,7 ✔, K3 1,62 ✘ → werdykt CZĘŚCIOWO. Stacja AME1: sezono
   `step_07_monitoring.py` (mapa L3, wykresy z pasami, rycina reperu stabilnego A/B/C).
 - Notatniki pokazowe: `notebooks/Showcase_1_GNSS_Groningen.ipynb`, `notebooks/Showcase_2_Levelling_NRW.ipynb` (do 2026-10-17: Pokaz_1_*, Pokaz_2_*)
   (generator `build_colab_pokaz.py`; tylko czytają wyniki z Dysku). Testy: `tests/monitoring_harness/`.
-- Raport na spotkanie: `docs/raport/EGMS_raport_spotkanie_2026-10-16.docx` (krótki, bezosobowy, 7 rycin).
-- Tabela pilotaży i wdrożeń komercyjnych: `docs/raport/EGMS_pilotaze_i_komercyjne_2026-10-17.docx`.
+- Materiały prywatne (dokumenty .docx) są poza repozytorium.
 - Decyzje: `docs/plans/Plan_v2_implementacja.md`, `docs/evidence/F10_NRW_niwelacja_EGMS.md`.
 
 ## Ustalenia merytoryczne spoza kodu

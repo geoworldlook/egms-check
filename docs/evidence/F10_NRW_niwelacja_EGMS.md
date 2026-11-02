@@ -1,7 +1,7 @@
 # F10 — Zachodnia NRW: EGMS L3 (pion) kontra niwelacja, wydanie 2019–2023
 
 > **Data:** 2026-10-13 · **Status:** `Draft` — wariant główny i dodatkowy (względny) policzone; ryciny szeregów reperów czekają na przebieg w Colab.
-> **Wyniki:** `notebooks/EGMS_Monitoring.ipynb`, zapis z Colab w commicie `ace4313` (kod `1afb1da`).
+> **Wyniki:** `notebooks/EGMS_Monitoring.ipynb`, zapis z Colab w commicie `be60481` (kod `562fb85`).
 > **Źródło porównawcze:** Even i in. 2024 — pełny tekst przeczytany 2026-10-13 (PDF od autora projektu; tekst w
 > `docs/evidence/literatura_txt/even2024_bbd_vs_egms.txt`, katalog poza gitem).
 > **Decyzje autora:** 2026-10-12 (wydanie 2019–2023 tylko do niwelacji, wszystkie repery, kryteria N1–N4 bez zmian, podział
@@ -89,7 +89,7 @@ Rycina: `data/05_Final_Outputs/egmscheck/nrw_west/figures/nrw_west_levelling_sca
 - **Status:** wariant **dodatkowy**. Policzony po obejrzeniu wyniku `absolute`, więc raportowany obok niego, bez zmiany werdyktu.
   N4 w tym wariancie sprawdza, czy przesunięcie jest jednakowe w całym obszarze (grupa stabilna kontra pozostałe repery).
   N3 jest tu mało informatywne, bo repery stabilne tworzą grupę odniesienia.
-- **Wynik** (Colab, kod `da72a77`, zapis `0fc76cf`):
+- **Wynik** (Colab, kod `beea3ec`, zapis `5b8dcad`):
   - grupa odniesienia: 307 reperów stabilnych według niwelacji; ich mediana prędkości: niwelacja +0,00, EGMS −1,22 mm/rok;
     **przesunięcie EGMS − niwelacja w strefie stabilnej: −1,22 ± 0,05 mm/rok** (błąd standardowy mediany; rozrzut w grupie
     MAD·1,48 = 0,73 mm/rok);
@@ -139,8 +139,8 @@ Rycina: `data/05_Final_Outputs/egmscheck/nrw_west/figures/nrw_west_levelling_sca
 
 | # | Informacja | Stan | Źródło / uwaga |
 |---|---|---|---|
-| 1 | Liczby z sekcji 2 (1216, 559, 307, 54, 6,0 mm, 77%, −1,97, 0,96 ± 0,01, 8,5 km) | **zweryfikowane** | wyjścia notatnika, commit `ace4313` |
-| 2 | 1491 reperów z parą epok 2019–2023; 13 w 2020–2024; epoki głównie 05.2019 → 05.2022 | **zweryfikowane** | komórka diagnostyczna i log `epochs_in_release` (`ace4313`) |
+| 1 | Liczby z sekcji 2 (1216, 559, 307, 54, 6,0 mm, 77%, −1,97, 0,96 ± 0,01, 8,5 km) | **zweryfikowane** | wyjścia notatnika, commit `be60481` |
+| 2 | 1491 reperów z parą epok 2019–2023; 13 w 2020–2024; epoki głównie 05.2019 → 05.2022 | **zweryfikowane** | komórka diagnostyczna i log `epochs_in_release` (`be60481`) |
 | 3 | „Stacje GNSS w obszarze nie osiadają” | **poprawione** | W obszarze jest 17 stacji NGL; regułę jakości spełnia 6, z vu od −1,28 do +1,98 mm/rok (MIDAS, cały szereg). O pozostałych 11 nie wiemy nic; nie wiemy też, które stacje wchodzą do modelu kalibracji EGMS. Zdanie wycofane; argument niezależności = skala przestrzenna (sekcja 3). |
 | 4 | Kalibracja L2b/L3 modelem GNSS (A-EPND) w siatce ok. 50 km | zweryfikowane w dokumentach projektu | F4 (tabela produktów), F1 (Koudogbo i in. 2025, krok 4); pełne teksty nie są w repozytorium |
 | 5 | „Najbliższa stacja GNSS 8,5 km” | **doprecyzowane** | liczone do wszystkich stacji NGL z migawki MIDAS (`midas_20261012.IGS.txt`), także tych spoza modelu EGMS; poprawnie: „najbliższa stacja NGL” |

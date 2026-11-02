@@ -1,6 +1,6 @@
 # Plan v2 — implementacja: EGMS 2020–2024 (Groningen, zachodnia NRW) + monitoring HyP3/MintPy
 
-> **Status:** ZAIMPLEMENTOWANE I PRZETESTOWANE OFFLINE, 2026-10-11 (commity `8ad90c9`…). Specyfikacja interfejsów dla modułów `step_04`–`step_08`.
+> **Status:** ZAIMPLEMENTOWANE I PRZETESTOWANE OFFLINE, 2026-10-11 (commity `69fd3bc`…). Specyfikacja interfejsów dla modułów `step_04`–`step_08`.
 > Stan: każdy moduł po niezależnej recenzji; `step_0N --selftest` (N = 1, 4–8) przechodzi; `tests/monitoring_harness/run_harness.sh`
 > — 3 przebiegi zgodne z oczekiwaniem. **Na prawdziwych danych nieuruchomione** (serwery niedostępne ze środowiska Claude). Sekcja 6: decyzje.
 > Decyzje autora z 2026-10-11: wydanie **2020–2024**; produkty **L2b i L3 pion**; NRW **bez Epe**;

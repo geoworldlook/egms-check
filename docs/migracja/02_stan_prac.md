@@ -22,7 +22,7 @@ na etapie planu: brak kodu, decyzja o miejscu (NRW czy Hengelo) otwarta.
 | E1 Groningen — wybór stacji | **wykonany na prawdziwych danych**: 27 osiadających (−2,3 do −6,8 mm/rok) + 8 stabilnych z okolicy (8–28 km) | wynik sekcji 2 w Colab (`03_metoda_i_decyzje.md`, 3.2) |
 | E1 — szeregi GNSS | **pobrane** (35 stacji, NGL IGS20, płyta euroazjatycka odjęta) | sekcja 3 w Colab; manifest na Dysku |
 | E1 — pliki EGMS | **zidentyfikowane**: 31 plików L2B 2019–2023, 4443 MB, ścieżki 15, 88 (wst.), 37, 110, 139 (zst.) | sekcja 4 w Colab |
-| E1 — pobranie, kontrole, porównanie, werdykt | **wykonane na prawdziwych danych** (kod `fe368e8`); wniosek CZĘŚCIOWO: K1 91%, K2 4,7 mm, K3 2,22 mm/rok (niespełnione) | zapis notatnika z wynikami na `main` (commit `2e781c9`); `09_audyt_po_migracji.md` |
+| E1 — pobranie, kontrole, porównanie, werdykt | **wykonane na prawdziwych danych** (kod `cc3bc93`); wniosek CZĘŚCIOWO: K1 91%, K2 4,7 mm, K3 2,22 mm/rok (niespełnione) | zapis notatnika z wynikami na `main` (commit `0554693`); `09_audyt_po_migracji.md` |
 | E2 | plan; brak kodu | `docs/evidence/F6_przypadki_zapasowe/zapas_nrw_niwelacja.md`, `F3_przypadek_repery_Hengelo.md` |
 | Wpis na blog | plan | `docs/plans/Plan_v1_wpis_na_blog.md` |
 
@@ -47,5 +47,5 @@ na etapie planu: brak kodu, decyzja o miejscu (NRW czy Hengelo) otwarta.
 | `step_01_ingest.py` | klucz CLMS → token; wyszukanie i pobranie EGMS z manifestem SHA-256; NGL: MIDAS, tenv3; reguła wyboru stacji | `--selftest` — przechodzi (atrapa serwera) |
 | `step_02_checks_extract.py` | wycinek punktów EGMS wokół stacji; kontrole A1–A3, A5 (duplikaty) | tylko przez test notatnika |
 | `step_03_compare_gnss.py` | GNSS → LOS, dopasowanie dat, prędkości, metryki, werdykt K1–K4, wykresy | tylko przez test notatnika |
-| `build_colab_master.py` → `notebooks/EGMS_Check.ipynb` | notatnik E1 (sekcje 0–10); generowany, nie edytować ręcznie | `tests/colab_harness/` — przechodzi (commit `fe368e8`) |
+| `build_colab_master.py` → `notebooks/EGMS_Check.ipynb` | notatnik E1 (sekcje 0–10); generowany, nie edytować ręcznie | `tests/colab_harness/` — przechodzi (commit `cc3bc93`) |
 | `prototypes/` | wcześniejsze notatniki PTO1 i prototyp E1/E2 | `egms_simple_check.py --selftest` — przechodzi |

@@ -1,8 +1,8 @@
 # F9 — E1 Groningen: co pokazują wykresy i liczby, i czy wynik się obroni
 
 > **Data:** 2026-10-12 · **Dotyczy:** `notebooks/EGMS_Check.ipynb` (eksperyment E1, EGMS L2b 2019–2023, 35 stacji GNSS)
-> **Przebieg:** Colab, kod `160a0ee`, zapis z wynikami w commicie `a7b13b9`. Liczby **identyczne** z pierwszym przebiegiem
-> z 2026-10-10 (kod `fe368e8`): wynik jest powtarzalny.
+> **Przebieg:** Colab, kod `d1bf7d9`, zapis z wynikami w commicie `97a673c`. Liczby **identyczne** z pierwszym przebiegiem
+> z 2026-10-10 (kod `cc3bc93`): wynik jest powtarzalny.
 > **Ryciny:** `docs/evidence/figures/e1_*.png` (kopie wyjść notatnika).
 > Poziom weryfikacji: liczby przeliczone niezależnie z tabeli wyników (`docs/migracja/09_audyt_po_migracji.md`, 9.3);
 > interpretacje oznaczone „hipoteza” nie były osobno testowane.
