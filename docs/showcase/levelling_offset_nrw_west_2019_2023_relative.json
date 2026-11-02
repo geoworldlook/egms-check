@@ -1,0 +1,11 @@
+{
+ "variant": "stable_group_median",
+ "source": "EGMS_L3U_2019_2023",
+ "n_group": 307,
+ "group_rule": "|Δh_niw| <= 2 mm (status 'ok')",
+ "median_v_lev_group_mm_yr": 0.0,
+ "median_v_egms_group_mm_yr": -1.216460290350127,
+ "offset_egms_minus_lev_mm_yr": -1.216460290350127,
+ "offset_se_mm_yr": 0.05223160608087899,
+ "group_mad_dv_mm_yr": 0.7302095832606822
+}

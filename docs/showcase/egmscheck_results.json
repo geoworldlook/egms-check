@@ -1,0 +1,515 @@
+{
+ "project": "EGMS Check",
+ "version": "1.0.0",
+ "published": "2026-11-02",
+ "language_note": "criterion and verdict texts are copied from the result files (Polish); codes K1-K4 and N1-N4 are explained in README.md and docs/evidence/karta_wynikow.md",
+ "notice": "Generated using European Union's Copernicus Land Monitoring Service information (European Ground Motion Service; modified: extracts, comparisons, figures). GNSS: Nevada Geodetic Laboratory (Blewitt et al. 2018, doi:10.1029/2018EO104623). Levelling: Geobasis NRW, Datenlizenz Deutschland - Zero - Version 2.0.",
+ "results": [
+  {
+   "id": "groningen_verdict_l2b",
+   "region": "groningen",
+   "comparison": "EGMS L2b Calibrated (line of sight) vs GNSS",
+   "release": "2020-2024",
+   "verdict": "CZĘŚCIOWO: tempo osiadania zgodne, ale szeregi czasowe lub kontrola negatywna poza progiem.",
+   "criteria": [
+    {
+     "code": "K1",
+     "criterion": "K1 zgodność tempa osiadania",
+     "result": "99% par z |dv| <= 1.5 mm/rok",
+     "threshold": ">= 80%",
+     "passed": true,
+     "n": 93
+    },
+    {
+     "code": "K2",
+     "criterion": "K2 zgodność szeregów czasowych",
+     "result": "mediana std różnicy 4.7 mm",
+     "threshold": "<= 5.0 mm",
+     "passed": true,
+     "n": 93
+    },
+    {
+     "code": null,
+     "criterion": "Bias i rozrzut dv (informacyjnie)",
+     "result": "mediana -0.00, MAD*1.4826 0.81 mm/rok",
+     "threshold": "-",
+     "passed": null,
+     "n": 93
+    },
+    {
+     "code": "K3",
+     "criterion": "K3 kontrola negatywna (stacje stabilne, |dv|)",
+     "result": "max |dv| 1.62 mm/rok",
+     "threshold": "<= 1.5 mm/rok",
+     "passed": false,
+     "n": 32
+    },
+    {
+     "code": "K4",
+     "criterion": "K4 nachylenie v_EGMS względem v_GNSS (informacyjnie)",
+     "result": "0.94 (wyraz wolny -0.14)",
+     "threshold": "bliskie 1",
+     "passed": null,
+     "n": 125
+    }
+   ],
+   "file": "verdict_gnss_l2b_groningen.csv",
+   "task": "compare_gnss_groningen"
+  },
+  {
+   "id": "groningen_verdict_l3u",
+   "region": "groningen",
+   "comparison": "EGMS L3 Ortho (vertical) vs GNSS (up)",
+   "release": "2020-2024",
+   "verdict": "L3 (pion): K1 spełnione - tempo osiadania z EGMS L3 zgodne z GNSS (U) w granicach progu.",
+   "criteria": [
+    {
+     "code": "K1",
+     "criterion": "K1 zgodność tempa osiadania",
+     "result": "96% par z |dv| <= 1.5 mm/rok",
+     "threshold": ">= 80%",
+     "passed": true,
+     "n": 24
+    },
+    {
+     "code": "K2",
+     "criterion": "K2 zgodność szeregów czasowych",
+     "result": "mediana std różnicy 5.6 mm",
+     "threshold": "brak progu w CHECK_CONFIG['thresholds']['gnss_l3u'] (informacyjnie)",
+     "passed": null,
+     "n": 24
+    },
+    {
+     "code": null,
+     "criterion": "Bias i rozrzut dv (informacyjnie)",
+     "result": "mediana -0.21, MAD*1.4826 0.54 mm/rok",
+     "threshold": "-",
+     "passed": null,
+     "n": 24
+    },
+    {
+     "code": "K3",
+     "criterion": "K3 kontrola negatywna (stacje stabilne)",
+     "result": "max |v_EGMS| 2.53 mm/rok",
+     "threshold": "brak progu w CHECK_CONFIG['thresholds']['gnss_l3u'] (informacyjnie)",
+     "passed": null,
+     "n": 8
+    },
+    {
+     "code": "K4",
+     "criterion": "K4 nachylenie v_EGMS względem v_GNSS (informacyjnie)",
+     "result": "0.96 (wyraz wolny -0.20)",
+     "threshold": "bliskie 1",
+     "passed": null,
+     "n": 32
+    }
+   ],
+   "file": "verdict_gnss_l3u_groningen.csv",
+   "task": "compare_gnss_groningen"
+  },
+  {
+   "id": "nrw_west_verdict_l2b",
+   "region": "nrw_west",
+   "comparison": "EGMS L2b Calibrated (line of sight) vs GNSS",
+   "release": "2020-2024",
+   "verdict": "NIEROZSTRZYGNIĘTE: brak par stacja osiadająca x ścieżka L2b ze statusem 'ok' i A6 na promieniu 100 m - K1 niepoliczalne, wniosek o tempie osiadania nie jest możliwy.",
+   "criteria": [
+    {
+     "code": "K3",
+     "criterion": "K3 kontrola negatywna (stacje stabilne, |dv|)",
+     "result": "max |dv| 1.46 mm/rok",
+     "threshold": "<= 1.5 mm/rok",
+     "passed": true,
+     "n": 3
+    },
+    {
+     "code": "K4",
+     "criterion": "K4 nachylenie v_EGMS względem v_GNSS (informacyjnie)",
+     "result": "0.02 (wyraz wolny -0.52)",
+     "threshold": "bliskie 1",
+     "passed": null,
+     "n": 18
+    }
+   ],
+   "file": "verdict_gnss_l2b_nrw_west.csv",
+   "task": "compare_gnss_nrw_west"
+  },
+  {
+   "id": "nrw_west_verdict_l3u",
+   "region": "nrw_west",
+   "comparison": "EGMS L3 Ortho (vertical) vs GNSS (up)",
+   "release": "2020-2024",
+   "verdict": "L3: brak par stacja osiadająca x L3 ze statusem 'ok' i A6 - K1 niepoliczalne.",
+   "criteria": [
+    {
+     "code": "K3",
+     "criterion": "K3 kontrola negatywna (stacje stabilne)",
+     "result": "max |v_EGMS| 1.03 mm/rok",
+     "threshold": "brak progu w CHECK_CONFIG['thresholds']['gnss_l3u'] (informacyjnie)",
+     "passed": null,
+     "n": 1
+    },
+    {
+     "code": "K4",
+     "criterion": "K4 nachylenie v_EGMS względem v_GNSS (informacyjnie)",
+     "result": "0.14 (wyraz wolny -0.82)",
+     "threshold": "bliskie 1",
+     "passed": null,
+     "n": 6
+    }
+   ],
+   "file": "verdict_gnss_l3u_nrw_west.csv",
+   "task": "compare_gnss_nrw_west"
+  },
+  {
+   "id": "nrw_west_levelling_2020_2024",
+   "region": "nrw_west",
+   "comparison": "EGMS L3 Ortho (vertical) vs levelling",
+   "release": "2020-2024",
+   "criteria": [
+    {
+     "code": "N1",
+     "criterion": "N1 mediana |Δh_EGMS - Δh_niw|",
+     "result": "1.0 mm",
+     "threshold": "<= 5.0 mm",
+     "passed": true,
+     "n": 13
+    },
+    {
+     "code": "N2",
+     "criterion": "N2 zgodność znaku (|Δh_niw| >= 6.0 mm)",
+     "result": "brak reperów z |Δh_niw| >= 6.0 mm",
+     "threshold": ">= 90%",
+     "passed": null,
+     "n": 0
+    },
+    {
+     "code": "N3",
+     "criterion": "N3 kontrola negatywna: repery stabilne (|Δh_niw| <= 2.0 mm)",
+     "result": "mediana |Δh_EGMS| 0.0 mm",
+     "threshold": "<= 5.0 mm",
+     "passed": true,
+     "n": 1
+    },
+    {
+     "code": "N4",
+     "criterion": "N4 bias prędkości v_EGMS(Δh) - v_niw",
+     "result": "mediana -0.91 mm/rok",
+     "threshold": "|bias| <= 1.5 mm/rok",
+     "passed": true,
+     "n": 13
+    },
+    {
+     "code": null,
+     "criterion": "Rozrzut różnic prędkości (informacyjnie)",
+     "result": "MAD*1.4826 0.75 mm/rok",
+     "threshold": "-",
+     "passed": null,
+     "n": 13
+    },
+    {
+     "code": null,
+     "criterion": "Nachylenie Δh_EGMS względem Δh_niw (informacyjnie)",
+     "result": "1.07, błąd standardowy 0.24 (wyraz wolny -0.7 mm)",
+     "threshold": "bliskie 1",
+     "passed": null,
+     "n": 13
+    }
+   ],
+   "file": "levelling_summary_nrw_west.csv",
+   "task": "compare_levelling_nrw_west"
+  },
+  {
+   "id": "nrw_west_levelling_2019_2023",
+   "region": "nrw_west",
+   "release": "2019-2023",
+   "comparison": "EGMS L3 Ortho (vertical) vs levelling, main variant (absolute)",
+   "criteria": [
+    {
+     "code": "N1",
+     "criterion": "N1 mediana |Δh_EGMS - Δh_niw|",
+     "result": "6.0 mm",
+     "threshold": "<= 5.0 mm",
+     "passed": false,
+     "n": 1216
+    },
+    {
+     "code": "N2",
+     "criterion": "N2 zgodność znaku (|Δh_niw| >= 6.0 mm)",
+     "result": "77% reperów",
+     "threshold": ">= 90%",
+     "passed": false,
+     "n": 559
+    },
+    {
+     "code": "N3",
+     "criterion": "N3 kontrola negatywna: repery stabilne (|Δh_niw| <= 2.0 mm)",
+     "result": "mediana |Δh_EGMS| 3.7 mm",
+     "threshold": "<= 5.0 mm",
+     "passed": true,
+     "n": 307
+    },
+    {
+     "code": "N4",
+     "criterion": "N4 bias prędkości v_EGMS(Δh) - v_niw",
+     "result": "mediana -1.97 mm/rok",
+     "threshold": "|bias| <= 1.5 mm/rok",
+     "passed": false,
+     "n": 1216
+    },
+    {
+     "code": null,
+     "criterion": "Rozrzut różnic prędkości (informacyjnie)",
+     "result": "MAD*1.4826 1.04 mm/rok",
+     "threshold": "-",
+     "passed": null,
+     "n": 1216
+    },
+    {
+     "code": null,
+     "criterion": "Nachylenie Δh_EGMS względem Δh_niw (informacyjnie)",
+     "result": "0.96, błąd standardowy 0.01 (wyraz wolny -6.0 mm)",
+     "threshold": "bliskie 1",
+     "passed": null,
+     "n": 1216
+    }
+   ],
+   "groups": [
+    {
+     "grupa": "wszystkie",
+     "n": 1216.0,
+     "median_abs_diff_mm": 5.999999999999999,
+     "sign_agreement": 0.7710196779964222,
+     "n_sign": 559.0,
+     "bias_v_mm_yr": -1.9743982358369165,
+     "mad_v_mm_yr": 1.04241991370931,
+     "slope": 0.9586408762660077,
+     "dist_station_km_median": 10.654279147507776,
+     "dist_station_km_min": 0.9620519120054037
+    },
+    {
+     "grupa": "niecki: |v_niw| >= 10 mm/rok",
+     "n": 54.0,
+     "median_abs_diff_mm": 5.074999999999985,
+     "sign_agreement": 1.0,
+     "n_sign": 54.0,
+     "bias_v_mm_yr": -1.5441320877078315,
+     "mad_v_mm_yr": 1.0497078820523187,
+     "slope": 0.976458512183284,
+     "dist_station_km_median": 8.548862615124355,
+     "dist_station_km_min": 3.699187985340701
+    },
+    {
+     "grupa": "pozostałe: |v_niw| < 10 mm/rok",
+     "n": 1162.0,
+     "median_abs_diff_mm": 6.016666666666671,
+     "sign_agreement": 0.7465346534653465,
+     "n_sign": 505.0,
+     "bias_v_mm_yr": -1.9781624510887683,
+     "mad_v_mm_yr": 1.0441698035216087,
+     "slope": 0.8896313945399827,
+     "dist_station_km_median": 10.807313562522545,
+     "dist_station_km_min": 0.9620519120054037
+    }
+   ],
+   "file": "levelling_summary_nrw_west_2019_2023.csv",
+   "task": "compare_levelling_check_nrw_west"
+  },
+  {
+   "id": "nrw_west_levelling_2019_2023_relative",
+   "region": "nrw_west",
+   "release": "2019-2023",
+   "comparison": "EGMS L3 Ortho (vertical) vs levelling, additional variant relative to levelling-stable benchmarks (computed after the main variant)",
+   "criteria": [
+    {
+     "code": "N1",
+     "criterion": "N1 mediana |Δh_EGMS - Δh_niw|",
+     "result": "3.4 mm",
+     "threshold": "<= 5.0 mm",
+     "passed": true,
+     "n": 909
+    },
+    {
+     "code": "N2",
+     "criterion": "N2 zgodność znaku (|Δh_niw| >= 6.0 mm)",
+     "result": "94% reperów",
+     "threshold": ">= 90%",
+     "passed": true,
+     "n": 559
+    },
+    {
+     "code": "N3",
+     "criterion": "N3 kontrola negatywna: repery stabilne (|Δh_niw| <= 2.0 mm)",
+     "result": "brak reperów z |Δh_niw| <= 2.0 mm",
+     "threshold": "<= 5.0 mm",
+     "passed": null,
+     "n": 0
+    },
+    {
+     "code": "N4",
+     "criterion": "N4 bias prędkości v_EGMS(Δh) - v_niw",
+     "result": "mediana -1.00 mm/rok",
+     "threshold": "|bias| <= 1.5 mm/rok",
+     "passed": true,
+     "n": 909
+    },
+    {
+     "code": null,
+     "criterion": "Rozrzut różnic prędkości (informacyjnie)",
+     "result": "MAD*1.4826 1.05 mm/rok",
+     "threshold": "-",
+     "passed": null,
+     "n": 909
+    },
+    {
+     "code": null,
+     "criterion": "Nachylenie Δh_EGMS względem Δh_niw (informacyjnie)",
+     "result": "0.96, błąd standardowy 0.01 (wyraz wolny -2.8 mm)",
+     "threshold": "bliskie 1",
+     "passed": null,
+     "n": 909
+    }
+   ],
+   "groups": [
+    {
+     "grupa": "wszystkie",
+     "n": 909.0,
+     "median_abs_diff_mm": 3.369769427839458,
+     "sign_agreement": 0.9373881932021467,
+     "n_sign": 559.0,
+     "bias_v_mm_yr": -0.9986978214738884,
+     "mad_v_mm_yr": 1.0508639981472836,
+     "slope": 0.9567847757903173,
+     "dist_station_km_median": 10.835026844417392,
+     "dist_station_km_min": 0.9620519120054037
+    },
+    {
+     "grupa": "niecki: |v_niw| >= 10 mm/rok",
+     "n": 54.0,
+     "median_abs_diff_mm": 2.5699971534301227,
+     "sign_agreement": 1.0,
+     "n_sign": 54.0,
+     "bias_v_mm_yr": -0.3276717973577039,
+     "mad_v_mm_yr": 1.0497078820523187,
+     "slope": 0.976364686996043,
+     "dist_station_km_median": 8.548862615124355,
+     "dist_station_km_min": 3.699187985340701
+    },
+    {
+     "grupa": "pozostałe: |v_niw| < 10 mm/rok",
+     "n": 855.0,
+     "median_abs_diff_mm": 3.403216623968122,
+     "sign_agreement": 0.9306930693069307,
+     "n_sign": 505.0,
+     "bias_v_mm_yr": -1.0240020076750074,
+     "mad_v_mm_yr": 1.0429973200944451,
+     "slope": 0.9006536106150987,
+     "dist_station_km_median": 11.184786097980638,
+     "dist_station_km_min": 0.9620519120054037
+    }
+   ],
+   "offset": {
+    "variant": "stable_group_median",
+    "source": "EGMS_L3U_2019_2023",
+    "n_group": 307,
+    "group_rule": "|Δh_niw| <= 2 mm (status 'ok')",
+    "median_v_lev_group_mm_yr": 0.0,
+    "median_v_egms_group_mm_yr": -1.216460290350127,
+    "offset_egms_minus_lev_mm_yr": -1.216460290350127,
+    "offset_se_mm_yr": 0.05223160608087899,
+    "group_mad_dv_mm_yr": 0.7302095832606822
+   },
+   "file": "levelling_summary_nrw_west_2019_2023_relative.csv",
+   "task": "compare_levelling_check_nrw_west"
+  },
+  {
+   "id": "nrw_west_levelling_2019_2023_uncertainty",
+   "region": "nrw_west",
+   "release": "2019-2023",
+   "comparison": "share of benchmarks inside the EGMS uncertainty bands (informative, no threshold)",
+   "uncertainty": {
+    "k_sigma": 2.0,
+    "note": "informacyjnie, bez progu; niwelacja bez własnej niepewności (rejestr NRW jej nie podaje)",
+    "noise": {
+     "rule": "sqrt(2) * rmse komórki EGMS L3 (różnica dwóch odczytów)",
+     "median_rmse_mm": 0.7,
+     "median_sigma_mm": 0.9899494936611666,
+     "n_without_sigma": 0,
+     "share_within_absolute": 0.11513157894736842,
+     "share_within_relative": 0.36633663366336633
+    },
+    "empirical": {
+     "rule": "group_mad_dv x Δt; grupa 307 reperów |Δh_niw| <= 2 mm (status 'ok')",
+     "group_mad_dv_mm_yr": 0.7302095832606822,
+     "median_sigma_mm": 2.2071221900610354,
+     "share_within_absolute": 0.31661184210526316,
+     "share_within_relative": 0.6677667766776678
+    },
+    "n_absolute": 1216,
+    "n_relative": 909
+   },
+   "file": "levelling_uncertainty_nrw_west_2019_2023.json",
+   "task": "compare_levelling_check_nrw_west"
+  }
+ ],
+ "runs": {
+  "compare_gnss_groningen": {
+   "finished_at": "2026-10-15T12:51:52Z",
+   "git_commit": "2a326ec+dirty",
+   "git_commit_current_history": "06eeefc+dirty"
+  },
+  "compare_gnss_nrw_west": {
+   "finished_at": "2026-10-15T12:52:57Z",
+   "git_commit": "2a326ec+dirty",
+   "git_commit_current_history": "06eeefc+dirty"
+  },
+  "compare_levelling_check_nrw_west": {
+   "finished_at": "2026-10-15T12:56:02Z",
+   "git_commit": "2a326ec+dirty",
+   "git_commit_current_history": "06eeefc+dirty"
+  },
+  "compare_levelling_nrw_west": {
+   "finished_at": "2026-10-15T12:54:19Z",
+   "git_commit": "2a326ec+dirty",
+   "git_commit_current_history": "06eeefc+dirty"
+  },
+  "figures_groningen": {
+   "finished_at": "2026-10-15T12:57:26Z",
+   "git_commit": "2a326ec+dirty",
+   "git_commit_current_history": "06eeefc+dirty"
+  },
+  "figures_nrw_west": {
+   "finished_at": "2026-10-15T13:11:53Z",
+   "git_commit": "2a326ec+dirty",
+   "git_commit_current_history": "06eeefc+dirty"
+  }
+ },
+ "files": [
+  "groningen_l3_velocity_map.png",
+  "groningen_velocity_scatter.png",
+  "levelling_groups_nrw_west_2019_2023.csv",
+  "levelling_groups_nrw_west_2019_2023_relative.csv",
+  "levelling_offset_nrw_west_2019_2023_relative.json",
+  "levelling_summary_nrw_west.csv",
+  "levelling_summary_nrw_west_2019_2023.csv",
+  "levelling_summary_nrw_west_2019_2023_relative.csv",
+  "levelling_uncertainty_nrw_west_2019_2023.json",
+  "nrw_west_l3_velocity_map.png",
+  "nrw_west_l3_velocity_map_2019_2023.png",
+  "nrw_west_levelling_scatter_2019_2023.png",
+  "nrw_west_levelling_scatter_2019_2023_relative.png",
+  "nrw_west_velocity_scatter.png",
+  "verdict_gnss_l2b_groningen.csv",
+  "verdict_gnss_l2b_groningen.txt",
+  "verdict_gnss_l2b_nrw_west.csv",
+  "verdict_gnss_l2b_nrw_west.txt",
+  "verdict_gnss_l3u_groningen.csv",
+  "verdict_gnss_l3u_groningen.txt",
+  "verdict_gnss_l3u_nrw_west.csv",
+  "verdict_gnss_l3u_nrw_west.txt"
+ ],
+ "missing_optional": [
+  "run_summary.json",
+  "run_summary.md"
+ ]
+}

@@ -1,0 +1,21 @@
+{
+ "k_sigma": 2.0,
+ "note": "informacyjnie, bez progu; niwelacja bez własnej niepewności (rejestr NRW jej nie podaje)",
+ "noise": {
+  "rule": "sqrt(2) * rmse komórki EGMS L3 (różnica dwóch odczytów)",
+  "median_rmse_mm": 0.7,
+  "median_sigma_mm": 0.9899494936611666,
+  "n_without_sigma": 0,
+  "share_within_absolute": 0.11513157894736842,
+  "share_within_relative": 0.36633663366336633
+ },
+ "empirical": {
+  "rule": "group_mad_dv x Δt; grupa 307 reperów |Δh_niw| <= 2 mm (status 'ok')",
+  "group_mad_dv_mm_yr": 0.7302095832606822,
+  "median_sigma_mm": 2.2071221900610354,
+  "share_within_absolute": 0.31661184210526316,
+  "share_within_relative": 0.6677667766776678
+ },
+ "n_absolute": 1216,
+ "n_relative": 909
+}

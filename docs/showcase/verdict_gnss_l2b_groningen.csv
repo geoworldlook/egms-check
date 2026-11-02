@@ -1,0 +1,6 @@
+kryterium,wynik,próg,spełnione,n_par
+K1 zgodność tempa osiadania,99% par z |dv| <= 1.5 mm/rok,>= 80%,True,93
+K2 zgodność szeregów czasowych,mediana std różnicy 4.7 mm,<= 5.0 mm,True,93
+Bias i rozrzut dv (informacyjnie),"mediana -0.00, MAD*1.4826 0.81 mm/rok",-,,93
+"K3 kontrola negatywna (stacje stabilne, |dv|)",max |dv| 1.62 mm/rok,<= 1.5 mm/rok,False,32
+K4 nachylenie v_EGMS względem v_GNSS (informacyjnie),0.94 (wyraz wolny -0.14),bliskie 1,,125

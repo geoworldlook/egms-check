@@ -1,0 +1,7 @@
+kryterium,wynik,próg,spełnione,n
+N1 mediana |Δh_EGMS - Δh_niw|,3.4 mm,<= 5.0 mm,True,909
+N2 zgodność znaku (|Δh_niw| >= 6.0 mm),94% reperów,>= 90%,True,559
+N3 kontrola negatywna: repery stabilne (|Δh_niw| <= 2.0 mm),brak reperów z |Δh_niw| <= 2.0 mm,<= 5.0 mm,,0
+N4 bias prędkości v_EGMS(Δh) - v_niw,mediana -1.00 mm/rok,|bias| <= 1.5 mm/rok,True,909
+Rozrzut różnic prędkości (informacyjnie),MAD*1.4826 1.05 mm/rok,-,,909
+Nachylenie Δh_EGMS względem Δh_niw (informacyjnie),"0.96, błąd standardowy 0.01 (wyraz wolny -2.8 mm)",bliskie 1,,909

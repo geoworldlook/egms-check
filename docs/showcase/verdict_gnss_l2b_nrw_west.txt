@@ -1,0 +1,1 @@
+NIEROZSTRZYGNIĘTE: brak par stacja osiadająca x ścieżka L2b ze statusem 'ok' i A6 na promieniu 100 m - K1 niepoliczalne, wniosek o tempie osiadania nie jest możliwy.

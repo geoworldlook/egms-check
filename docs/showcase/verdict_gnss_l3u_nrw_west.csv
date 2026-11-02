@@ -1,0 +1,3 @@
+kryterium,wynik,próg,spełnione,n_par
+K3 kontrola negatywna (stacje stabilne),max |v_EGMS| 1.03 mm/rok,brak progu w CHECK_CONFIG['thresholds']['gnss_l3u'] (informacyjnie),,1
+K4 nachylenie v_EGMS względem v_GNSS (informacyjnie),0.14 (wyraz wolny -0.82),bliskie 1,,6
