@@ -32,7 +32,7 @@ dopasowanie czasowe, metryki, wykresy. Różne: czytnik danych naziemnych i spos
 
 - **Zadania `task_*`** uruchamiane z notatnika przez `run_task`: wczytanie plików z Dysku, kontrole, wycinki, porównania, raport.
 - **Notatnik `notebooks/EGMS_Check.ipynb`** generowany przez `build_colab_master.py`. To on trafia na blog
-  (`docs/plans/Plan_v1_wpis_na_blog.md`).
+  (`docs/archive/plans/Plan_v1_wpis_na_blog.md`).
 
 Logika obliczeń jest w modułach `step_NN`, importowanych z notatnika; notatnik nie zawiera własnych obliczeń.
 

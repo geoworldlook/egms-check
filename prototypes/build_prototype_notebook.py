@@ -21,7 +21,7 @@ Co robi ten notatnik:
 3. opisuje **prawdziwy szereg GNSS stacji PTO1** (PANGAEA, CC BY 4.0) i rysuje go.
 
 Czego jeszcze nie robi: porównania z prawdziwymi danymi EGMS. Wymaga to pobrania plików EGMS
-i zatwierdzenia progów (`docs/plans/Plan_v1_eksperymenty.md`, sekcja 6)."""),
+i zatwierdzenia progów (`docs/archive/plans/Plan_v1_eksperymenty.md`, sekcja 6)."""),
     ("md", "## 1. Kod z GitHub"),
     ("code", f"""import os, sys
 REPO_URL = '{REPO_URL}'
@@ -72,7 +72,7 @@ ax.legend(loc='lower left')
 ax.grid(alpha=0.3)
 plt.show()"""),
     ("md", """## 5. Co dalej
-- Decyzje autora: `docs/plans/Plan_v1_eksperymenty.md`, sekcja 6 (wydanie EGMS, definicja pokrycia 85%, przypadek 2: NRW czy Hengelo).
+- Decyzje autora: `docs/archive/plans/Plan_v1_eksperymenty.md`, sekcja 6 (wydanie EGMS, definicja pokrycia 85%, przypadek 2: NRW czy Hengelo).
 - Dane EGMS: token CLMS (API) albo wniosek do CLMS Helpdesk o wydania archiwalne.
 - Źródła: Pintori i Serpelloni (2023), PANGAEA, doi:10.1594/PANGAEA.958598 (CC BY 4.0);
   Fabris i Nazari (2026), Front. Earth Sci. 14:1781404; Even i in. (2024), PFG 92:253–270."""),
@@ -168,7 +168,7 @@ hits.drop(columns=[c for c in ('poly', 'bbox') if c in hits.columns]).to_csv(csv
 print('Zapisano', csv)"""),
     ("md", """## 5. STOP — decyzja przed pobraniem
 Prześlij do Claude Code wynik kroków 3 i 4 (lista wydań, tabela, łączny rozmiar). Rozstrzygamy:
-- wydanie (D-A, `docs/plans/Plan_v1_wdrozenie.md`): 2018–2022 i 2015–2021 są w archiwum CLMS; jeśli API ich nie zwraca,
+- wydanie (D-A, `docs/archive/plans/Plan_v1_wdrozenie.md`): 2018–2022 i 2015–2021 są w archiwum CLMS; jeśli API ich nie zwraca,
   zostaje wniosek do CLMS Helpdesk albo wydanie 2019–2023 z jawnym odstępstwem od progu 85%,
 - lista plików do pobrania (trzy ścieżki, bursty pokrywające stację)."""),
     ("md", "## 6. Pobranie (po decyzji): wpisz wydanie i nazwy plików z tabeli wyżej"),

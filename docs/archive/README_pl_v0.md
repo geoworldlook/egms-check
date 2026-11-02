@@ -1,4 +1,5 @@
-> English version: [README.md](../README.md)
+> **Archiwum:** polski opis projektu z początku prac (2026-10-09/10), sprzed wersji 1.0.0. Aktualny opis:
+> [README.md](../../README.md) (EN) i [`docs/STAN_I_PLAN.md`](../STAN_I_PLAN.md).
 
 # EGMS Check — czy radarowe dane o ruchu gruntu zgadzają się z pomiarem naziemnym
 
@@ -14,11 +15,11 @@ otwartych zbiorach pomiarów naziemnych. Każdy przypadek kończy się wykresem 
 | 1. GNSS | stacja PTO1, delta Padu (Włochy) | dobowy szereg wysokości, PANGAEA (CC BY 4.0) | ok. 5 mm/rok | szereg GNSS w kierunku patrzenia radaru i szereg EGMS z bufora wokół stacji |
 | 2. Repery | Hengelo, pole solne Twenthe-Rijn (Holandia) | niwelacja precyzyjna 2020–2023, rejestr na portalu NLOG | do −42 mm w 3 lata | obniżenie reperów i EGMS (pion), także prognoza sprzed pomiaru |
 
-Test i reguła decyzji: [`docs/plans/Plan_v1_test_EGMS.md`](plans/Plan_v1_test_EGMS.md).
-Wynik trafi na blog GeoWorldLook: [`docs/plans/Plan_v1_wpis_na_blog.md`](plans/Plan_v1_wpis_na_blog.md).
+Test i reguła decyzji: [`docs/archive/plans/Plan_v1_test_EGMS.md`](plans/Plan_v1_test_EGMS.md).
+Wynik trafi na blog GeoWorldLook: [`docs/archive/plans/Plan_v1_wpis_na_blog.md`](plans/Plan_v1_wpis_na_blog.md).
 
 **Architektura (jak w AgriWatch):** kod na GitHub → obliczenia w Google Colab → Dysk Google jako baza danych
-(`MyDrive/GeoWorldLook/egmscheck`, tabele CSV `data/registry/gwl_*`). Szczegóły: [`docs/ARCHITEKTURA.md`](ARCHITEKTURA.md).
+(`MyDrive/GeoWorldLook/egmscheck`, tabele CSV `data/registry/gwl_*`). Szczegóły: [`docs/ARCHITEKTURA.md`](../ARCHITEKTURA.md).
 
 ## Struktura repozytorium
 
@@ -51,22 +52,22 @@ katalogi danych z prefiksem liczbowym, `docs/plans`, `docs/evidence/F*`).
 
 ## Uruchomienie (stan obecny)
 
-**Stan projektu, migracja i audyt:** [`docs/MIGRACJA_stan_i_audyt.md`](MIGRACJA_stan_i_audyt.md)
+**Stan projektu, migracja i audyt:** [`docs/archive/MIGRACJA_stan_i_audyt.md`](MIGRACJA_stan_i_audyt.md)
 
-**Walidacja EGMS na stacjach GNSS, region Groningen (2026-10-10):** [`notebooks/EGMS_Check.ipynb`](../notebooks/EGMS_Check.ipynb) —
+**Walidacja EGMS na stacjach GNSS, region Groningen (2026-10-10):** [`notebooks/EGMS_Check.ipynb`](../../notebooks/EGMS_Check.ipynb) —
 [Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/egms-check/blob/main/notebooks/EGMS_Check.ipynb)
 (wymaga tokenu CLMS na Dysku; pobranie EGMS po akceptacji rozmiaru w sekcji 5).
 
-**Prototyp w Colab (2026-10-10):** [`prototypes/EGMS_prototyp.ipynb`](../prototypes/EGMS_prototyp.ipynb) —
+**Prototyp w Colab (2026-10-10):** [`prototypes/EGMS_prototyp.ipynb`](../../prototypes/EGMS_prototyp.ipynb) —
 test metody na danych syntetycznych i opis szeregu GNSS PTO1, bez tokenu.
 [Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/egms-check/blob/main/prototypes/EGMS_prototyp.ipynb),
 potem `Środowisko wykonawcze → Uruchom wszystko`.
 Pobranie EGMS L2B dla PTO1 (wymaga tokenu CLMS na Dysku; pobiera dopiero po potwierdzeniu listy plików):
 [Otwórz w Colab](https://colab.research.google.com/github/geoworldlook/egms-check/blob/main/prototypes/EGMS_pobranie_PTO1.ipynb).
-Plan eksperymentów: [`docs/plans/Plan_v1_eksperymenty.md`](plans/Plan_v1_eksperymenty.md).
+Plan eksperymentów: [`docs/archive/plans/Plan_v1_eksperymenty.md`](plans/Plan_v1_eksperymenty.md).
 
-1. Przygotowanie krok po kroku: [`docs/plans/Instrukcja_startowa.md`](plans/Instrukcja_startowa.md).
-2. Otwórz folder w Claude Code i wklejaj prompty z [`docs/plans/Prompty_Claude_Code.md`](plans/Prompty_Claude_Code.md), po jednym na sesję.
+1. Przygotowanie krok po kroku: [`docs/archive/plans/Instrukcja_startowa.md`](plans/Instrukcja_startowa.md).
+2. Otwórz folder w Claude Code i wklejaj prompty z [`docs/archive/plans/Prompty_Claude_Code.md`](plans/Prompty_Claude_Code.md), po jednym na sesję.
 3. Kontrola tabel referencyjnych (bez danych, bez sieci):
 
 ```bash

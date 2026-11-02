@@ -16,7 +16,7 @@ na etapie planu: brak kodu, decyzja o miejscu (NRW czy Hengelo) otwarta.
 | Element | Stan | Dowód |
 |---|---|---|
 | Przegląd literatury | gotowy | `docs/evidence/F1`, `F4`, `F7`; pełne teksty 6 publikacji w `docs/evidence/literatura_txt/` (poza gitem) |
-| Plan wdrożenia i eksperymentów | gotowy, częściowo nieaktualny (przypadek PTO1 zastąpiony przez Groningen) | `docs/plans/Plan_v1_wdrozenie.md`, `Plan_v1_eksperymenty.md` |
+| Plan wdrożenia i eksperymentów | gotowy, częściowo nieaktualny (przypadek PTO1 zastąpiony przez Groningen) | `docs/archive/plans/Plan_v1_wdrozenie.md`, `Plan_v1_eksperymenty.md` |
 | Dostęp do API EGMS | **działa z prawdziwym kluczem** (Colab, 2026-10-10) | wyszukania i rozmiary plików z API; `Plan_v1_otwarte_pytania.md` A2 |
 | Przypadek PTO1 (delta Padu) | **wstrzymany**: GNSS (PANGAEA) kończy się 2021-04, NGL 2019-07; wspólne okno z wydaniami dostępnymi w API to 46% (2019–2023) i 26% (2020–2024), poniżej progu 85% | `Plan_v1_otwarte_pytania.md` A1, A2, B5 |
 | E1 Groningen — wybór stacji | **wykonany na prawdziwych danych**: 27 osiadających (−2,3 do −6,8 mm/rok) + 8 stabilnych z okolicy (8–28 km) | wynik sekcji 2 w Colab (`03_metoda_i_decyzje.md`, 3.2) |
@@ -24,7 +24,7 @@ na etapie planu: brak kodu, decyzja o miejscu (NRW czy Hengelo) otwarta.
 | E1 — pliki EGMS | **zidentyfikowane**: 31 plików L2B 2019–2023, 4443 MB, ścieżki 15, 88 (wst.), 37, 110, 139 (zst.) | sekcja 4 w Colab |
 | E1 — pobranie, kontrole, porównanie, werdykt | **wykonane na prawdziwych danych** (kod `cc3bc93`); wniosek CZĘŚCIOWO: K1 91%, K2 4,7 mm, K3 2,22 mm/rok (niespełnione) | zapis notatnika z wynikami na `main` (commit `0554693`); `09_audyt_po_migracji.md` |
 | E2 | plan; brak kodu | `docs/evidence/F6_przypadki_zapasowe/zapas_nrw_niwelacja.md`, `F3_przypadek_repery_Hengelo.md` |
-| Wpis na blog | plan | `docs/plans/Plan_v1_wpis_na_blog.md` |
+| Wpis na blog | plan | `docs/archive/plans/Plan_v1_wpis_na_blog.md` |
 
 ### 2.3 Co jest gdzie
 

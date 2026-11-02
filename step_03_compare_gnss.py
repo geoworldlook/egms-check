@@ -9,7 +9,7 @@ Metoda według oficjalnej walidacji EGMS (Koudogbo i in. 2025, rozdz. 2.3.1.1) i
   3. GNSS w datach EGMS: mediana dób w oknie +-k dni; wspólne okno; wspólna data odniesienia (oba szeregi = 0),
   4. prędkość obu szeregów tym samym modelem (trend liniowy + sinusoida roczna) w tym samym oknie,
   5. metryki: dv = v_GNSS,LOS - v_EGMS (konwencja Fabris i Nazari 2026), odchylenie różnicy szeregów, korelacja.
-Kryteria i progi: CONFIG w notatniku (docs/plans/Plan_v1_kryteria_akceptacji.md, sekcja B).
+Kryteria i progi: CONFIG w notatniku (docs/archive/plans/Plan_v1_kryteria_akceptacji.md, sekcja B).
 
 Jednostki: mm, mm/rok. Ujemne = osiadanie / oddalanie od satelity.
 ================================================================================
@@ -177,11 +177,13 @@ def plot_velocity_scatter(results: pd.DataFrame, cfg: dict):
         ax.scatter(g["v_gnss_los"], g["v_egms"], s=40, marker="o" if direction == "ascending" else "s",
                    facecolors=c if grp == "osiadająca" else "white", edgecolors=c, linewidths=1.5,
                    label=f"{GROUP_EN[grp]} station, {direction}")
-    ax.set_xlim(lim); ax.set_ylim(lim)
+    ax.set_xlim(lim)
+    ax.set_ylim(lim)
     ax.set_xlabel("GNSS velocity projected to LOS [mm/yr]")
     ax.set_ylabel("EGMS L2b velocity, median within buffer [mm/yr]")
     ax.set_title(f"EGMS vs GNSS, buffer {cfg['radius_main_m']} m, {len(r)} station-track pairs")
-    ax.grid(alpha=0.3); ax.legend(fontsize=8, loc="upper left")
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8, loc="upper left")
     return fig
 
 
@@ -193,6 +195,9 @@ def plot_series(series: pd.DataFrame, title: str):
                     label="EGMS interquartile range")
     ax.plot(series.index, series["egms"], color="tab:orange", lw=1.5, label="EGMS L2b (median)")
     ax.plot(series.index, series["gnss"], ".", ms=3, color="tab:blue", label="GNSS in LOS (median ±6 days)")
-    ax.set_xlabel("Date"); ax.set_ylabel("LOS displacement [mm]")
-    ax.set_title(title); ax.grid(alpha=0.3); ax.legend(fontsize=8, loc="lower left")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("LOS displacement [mm]")
+    ax.set_title(title)
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8, loc="lower left")
     return fig

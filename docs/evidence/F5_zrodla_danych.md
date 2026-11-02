@@ -1,7 +1,7 @@
 # F5 — Źródła danych
 
 > **Data:** 2026-10-09 · **Status:** `Draft` — pliki danych niepobrane; sprawdzone strony źródłowe
-> **Powiązane:** `docs/plans/Plan_v1_dane_do_pobrania.md`
+> **Powiązane:** `docs/archive/plans/Plan_v1_dane_do_pobrania.md`
 
 Status weryfikacji na **2026-10-09**. „Zweryfikowane" = sprawdzone na stronie źródłowej lub
 w publikacji. Plików danych nie pobierałem (brak tokenu EGMS; serwery danych niedostępne

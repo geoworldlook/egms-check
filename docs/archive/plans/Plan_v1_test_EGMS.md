@@ -34,7 +34,7 @@ Wynik niczego nie mówi o:
 
 ## Przed obliczeniami (zamrożenie)
 
-1. Autor zatwierdza progi z `docs/plans/Plan_v1_kryteria_akceptacji.md` i decyzje z `Plan_v1_otwarte_pytania`, sekcja D.
+1. Autor zatwierdza progi z `docs/archive/plans/Plan_v1_kryteria_akceptacji.md` i decyzje z `Plan_v1_otwarte_pytania`, sekcja D.
    Data zapisana w tym pliku, w sekcji „Protokół".
 2. Lista reperów, ścieżek i buforów jest ustalona z góry. Niczego nie usuwamy po zobaczeniu wyniku.
 3. Konfiguracje `data/00_Metadata/case_*.example.yaml` trafiają do repozytorium przed pierwszym przebiegiem.

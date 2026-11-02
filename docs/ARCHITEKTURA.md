@@ -1,110 +1,118 @@
-# EGMS Check — architektura (docelowa)
+# EGMS Check — architektura
 
-> Status: PROPOSED, 2026-10-09. Kodu jeszcze nie ma (poza `step_00_reference_check.py`).
-> Układ jest przeniesiony z AgriWatch (`agriscreen`, `docs/ARCHITEKTURA.md`):
-> te same nazwy plików, ten sam mechanizm `run_task` i ten sam rejestr `gwl_*`.
-> Po napisaniu kodu ten dokument ma opisywać stan faktyczny, a plany zostają w `docs/plans/`.
->
-> **2026-10-24: obliczenia lokalne.** Oprócz Colab projekt liczy się na własnym komputerze: `step_09_local.py`
-> (ta sama kolejność zadań co `notebooks/EGMS_Monitoring.ipynb`), kod i dane w osobnych katalogach
-> (`setup_runtime(..., data_dir)`, `rt["DATA_ROOT"]`; w Colab bez zmian: dane w katalogu kodu na Dysku).
-> Instrukcja: `docs/URUCHOMIENIE_LOKALNE.md`; pełny test: `tests/local_harness/`.
+Stan: 2026-11-02, wersja 1.0.0 (D-095). Opis kodu, który jest w repozytorium; plany i historia w `docs/plans/`
+i `docs/archive/`. Wzór układu: AgriScreen (mechanizm `run_task`, rejestr `gwl_*`, kod i dane w osobnych katalogach).
 
 ## 1. Przepływ
 
 ```text
-GitHub (kod) ──git pull──▶ Dysk Google: MyDrive/GeoWorldLook/egmscheck ◀──── Colab
-                                     │
-notebooks/EGMS_Check.ipynb ──▶ step_05.setup_runtime ──▶ run_task(...) dla każdego zadania
-                                                                   │
- ingest_egms ─▶ ingest_ground ─▶ checks ─▶ extract ─▶ compare_gnss ─▶ compare_levelling ─▶ forecast ─▶ bulletin
- (step_01)      (step_01)       (step_02)  (step_02)  (step_03)       (step_04)            (step_04)   (step_06)
-                                                                   │
-                                     data/registry/gwl_*.csv  +  data/05_Final_Outputs/egmscheck/
+dane otwarte: API EGMS (Copernicus, klucz CLMS) · NGL (GNSS) · Geobasis NRW (niwelacja)
+        │
+        ▼
+python -m egmscheck run  (albo notatnik notebooks/EGMS_Monitoring.ipynb w Colab)
+        │   step_09_local.run → step_05.setup_runtime(kod, dane) → run_task(...) dla każdego zadania
+        ▼
+katalog danych na Dysku Google (Pulpit\GeoWorldLook\data\egms-check = Mój dysk\GeoWorldLook\egmscheck)
+        data/01_Raw_EGMS, 02_Raw_Ground   surowe pliki (tylko do odczytu, wpis w data/00_Metadata/MANIFEST.csv)
+        data/03_Extracts/<region>/        wycinki wokół punktów naziemnych, szeregi w formacie długim
+        data/05_Final_Outputs/egmscheck/  tabele kryteriów, werdykty, ryciny, run_summary.md
+        data/registry/gwl_*.csv           rejestr uruchomień, punktów i metryk
+        │
+        ▼
+python -m egmscheck publish → docs/showcase/ (stały wybór plików + egmscheck_results.json) → README, strona
 ```
 
-Pliki EGMS pobiera zadanie `ingest_egms` przez oficjalne API (`https://egms.land.copernicus.eu/insar-api/archive`):
-zapytanie `search` dla punktu lub prostokąta, potem `download` do `data/01_Raw_EGMS/` na Dysku, przyrostowo
-(plik już pobrany nie jest pobierany ponownie; każdy trafia do manifestu). Token CLMS API leży na Dysku poza
-katalogiem repozytorium (`MyDrive/GeoWorldLook/secrets/clms_token.json`). Bez tokenu zadanie kończy się statusem
-„pominięte: brak tokenu" zapisanym w `gwl_runs`, a dalsze zadania czytają wycinki z `data/03_Extracts/` w repozytorium.
-Dzięki temu czytelnik wpisu odtwarza wykresy bez konta w CLMS.
+Kod i dane są rozdzielone: kod w klonie repozytorium (`projects/egms-check`), dane w katalogu z ustawień
+(`local_settings.json`, `EGMSCHECK_DATA_DIR` albo `--data-dir`). W Colab dane leżą w klonie na Dysku
+(`DATA_ROOT` = katalog projektu). Klucze tylko w katalogu `secrets` na Dysku, nigdy w repozytorium ani w logach.
 
-## 2. Moduły (plan)
+## 2. Moduły
 
-| Moduł | Odpowiedzialność | Główne funkcje (propozycja) |
+| Moduł | Odpowiedzialność |
+|---|---|
+| `step_00_reference_check.py` | spójność tabel przepisanych z publikacji (`data/04_Reference/`); bez sieci |
+| `step_01_ingest.py` | API EGMS: token z klucza CLMS (JWT RS256), wyszukanie, pobranie przyrostowe z SHA-256 i manifestem; NGL: MIDAS, szeregi `tenv3`, reguła wyboru stacji E1 |
+| `step_02_checks_extract.py` | wycinek punktów L2b wokół stacji (plik czytany fragmentami); kontrole konwencji A1–A3, A5 (duplikaty z zakładek burstów) |
+| `step_03_compare_gnss.py` | E1: rzut GNSS na kierunek satelity, wspólne daty (±6 dni), prędkość tym samym modelem, dv, kryteria K1–K4, ryciny |
+| `step_04_egms_aoi.py` | EGMS dla obszaru: wyszukanie L2b i L3, plan pobrania z kontrolą miejsca, czytnik L3, komórka L3 przy punkcie, mapa prędkości |
+| `step_05_colab_run.py` | sterowanie: `CHECK_CONFIG` (jedyne miejsce parametrów, klucze `approved`), `setup_runtime`, `run_task`, rejestr `gwl_*`, zadania `task_*`, `run_summary` |
+| `step_06_ground.py` | pomiar naziemny: stacje GNSS w obszarze, czytniki niwelacji NRW, epoki w oknie wydania, porównanie z EGMS pion (N1–N4), wariant względem grupy stabilnej |
+| `step_07_monitoring.py` | wspólny format długi szeregów, próbkowanie 6/12 dni, czas do wykrycia trendu, ryciny pokazu i pasy niepewności |
+| `step_08_hyp3_mintpy.py` | etap B: bursty Sentinel-1 (asf_search), sieć par SBAS, zlecenia ASF HyP3, przycięcie, MintPy, szeregi w punktach i dowiązanie do EGMS |
+| `step_09_local.py` | obliczenia na własnym komputerze: ustawienia, plan zadań w kolejności notatnika, blokada, log, `last_run.json`; parser poleceń |
+| `egmscheck/` | pakiet: `python -m egmscheck …` (ten sam parser co `step_09_local.py`), `publish.py` (publikacja do `docs/showcase/`), `__version__` |
+| `build_colab_*.py` | generatory notatników (`EGMS_Check`, `EGMS_Monitoring`, `Showcase_*`); notatników nie edytuje się ręcznie |
+
+Moduły `step_0N` leżą w katalogu głównym, bo importują je notatniki Colab (zapas) i klon repozytorium na Dysku;
+pakiet ich nie kopiuje, tylko wywołuje (D-095). Nagłówek każdego modułu opisuje metodę i literaturę.
+
+## 3. Zadania (kolejność z `step_09_local.plan_tasks`, taka sama jak w `notebooks/EGMS_Monitoring.ipynb`)
+
+Dla każdego regionu (`groningen`, `nrw_west`):
+
+1. `egms_search_<r>` → `egms_download_<r>` (po potwierdzeniu rozmiaru `CONFIRM_MB_<R>`);
+2. `select_gnss_<r>` → `gnss_download_<r>`; w regionie z niwelacją `levelling_<r>`;
+3. `egms_search_sites_<r>` → `egms_download_sites_<r>` (pliki dla punktów spoza obszaru);
+4. `extract_<r>` → `checks_<r>` (błąd kontroli zatrzymuje przebieg) → `compare_gnss_<r>` (werdykty L2b i L3);
+5. w regionie z niwelacją: `compare_levelling_<r>`, potem drugie wydanie tylko do niwelacji (`levelling_egms_search`,
+   `levelling_egms_download`, `levelling_extract`, `compare_levelling_check`).
+
+Potem dla każdego regionu `monitoring_archive_<r>` i `figures_<r>`; z `--stage-b` etap B (`hyp3_plan`, zlecenia,
+pobranie, `mintpy`, `hyp3_compare` dla każdej ścieżki, po potwierdzeniu liczby zleceń `CONFIRM_JOBS`); na końcu
+`summary` (`run_summary.md` i `.json`: wersje bibliotek, commit, konfiguracja, zatwierdzenia, werdykty).
+
+Każde zadanie idzie przez `run_task`: zapis w `gwl_runs` (czas, status, commit, parametry). Błąd zadania jest zapisany
+i zgłoszony dalej — pierwszy błąd zatrzymuje przebieg; wynik zadania, które się nie powiodło, nie może wyglądać jak
+prawdziwy (`CLAUDE.md`, zasada 3). Bez klucza CLMS przebieg czyta istniejące wycinki z `data/03_Extracts/`.
+
+## 4. Konfiguracja i decyzje
+
+`CHECK_CONFIG` w `step_05_colab_run.py`: `project` (ścieżki), `egms` (wydanie 2020–2024, L2b i L3 pion), `regions`
+(obszary, reguła stacji, niwelacja NRW i drugie wydanie 2019–2023), `gnss`, `method`, `thresholds` (K1–K4, N1–N4),
+`monitoring`, `hyp3`. Każda sekcja eksperymentu ma klucz `approved` (data decyzji autora); `require_approved`
+zatrzymuje zadanie, gdy sekcja nie jest zatwierdzona. Funkcje nie mają wartości domyślnych dla parametrów
+eksperymentu. Lokalnie zmieniają się tylko ścieżki kluczy (`step_09_local.make_config`). Stan zatwierdzeń:
+`python -m egmscheck approvals`.
+
+## 5. Rejestr `gwl_*` (katalog danych, `data/registry/`)
+
+| Tabela | Klucz | Zawartość |
 |---|---|---|
-| `step_00_reference_check.py` | spójność tabel przepisanych z publikacji | istnieje; uruchamiany także z `--selftest` |
-| `step_01_ingest.py` | pobranie EGMS przez API, wczytanie danych, manifest | `get_access_token`, `search_egms`, `sync_egms` (przyrostowo), `read_egms_l2`, `read_egms_l3`, `read_pangaea_gnss`, `read_levelling_table`, `update_manifest` |
-| `step_02_checks_extract.py` | kontrole konwencji, duplikaty, wycinki | `check_los_vector`, `check_sign`, `drop_overlap_duplicates`, `extract_buffer`, `extract_cells` |
-| `step_03_compare_gnss.py` | przypadek 1 | `project_to_los`, `aggregate_gnss`, `common_window`, `fit_velocity`, `compare_series` |
-| `step_04_compare_levelling.py` | przypadek 2 | `relative_to_reference`, `read_at_epochs`, `compare_height_changes`, `forecast_test` |
-| `step_05_colab_run.py` | sterowanie i rejestr | `setup_runtime`, `run_task`, `registry_read/upsert`, `CHECK_CONFIG`, zadania `task_*`, `--selftest` |
-| `step_06_figures_bulletin.py` | wykresy i raport | `plot_gnss_overlay`, `plot_levelling_overlay`, `plot_scatter`, `build_bulletin`, `run_summary` |
-| `build_colab_master.py` | generator `notebooks/EGMS_Check.ipynb` | `create_check_notebook` |
+| `gwl_runs` | `run_id` | uruchomienia zadań: czas, status (`ok` / `skipped` / `error`), commit kodu, parametry, komunikat |
+| `gwl_sites` | `region, site` | punkty naziemne: stacje GNSS (grupa osiadająca / stabilna), repery |
+| `gwl_validation_metrics` | `region, product, reference, site, track, radius_m, metric` | metryki porównań (prędkości, różnice, liczby punktów) |
 
-Nagłówek każdego modułu jak w AgriWatch: blok opisowy „EGMS Check - KROK N: …" po polsku, z metodą
-i literaturą; `logger`; sekcje numerowane rzymsko.
+Upsert po kluczu (nowe / zmienione / bez zmian), zapis atomowy. Schemat `gwl_runs` jak w AgriScreen.
 
-## 3. Zadania (`step_05`)
+## 6. Publikacja (`egmscheck/publish.py`)
 
-| Zadanie | Wejście | Wyjście |
-|---|---|---|
-| `task_ingest_egms` | token CLMS, położenia stacji i reperów, wydania i produkty z `CHECK_CONFIG` | pliki w `data/01_Raw_EGMS/`, wpisy w manifeście (nazwa, rozmiar, wydanie, data) |
-| `task_ingest_ground` | `PTO1.txt`, tabela reperów | `gwl_sites`, `gwl_observations` (produkty naziemne) |
-| `task_checks` | punkty EGMS | raport kontroli A1–A7; błąd zatrzymuje dalsze zadania tego przypadku |
-| `task_extract` | punkty EGMS, położenia stacji i reperów | `data/03_Extracts/*.csv`, `gwl_observations` (produkty EGMS) |
-| `task_compare_gnss` | wycinki, szereg GNSS | `gwl_validation_metrics` (przypadek 1) |
-| `task_compare_levelling` | wycinki, tabela reperów | `gwl_validation_metrics` (przypadek 2, poziom 1) |
-| `task_forecast` | wydanie EGMS sprzed epoki, tabela reperów | `gwl_validation_metrics` (przypadek 2, poziom 2) |
-| `task_bulletin` | metryki, szeregi | `bulletin.md`, wykresy PNG, `egmscheck_latest.json` |
-| `task_summary` | wszystko | `run_summary.md`: wersje, konfiguracja, kontrole, wynik progów, błędy |
+Stały wybór plików z `data/05_Final_Outputs/egmscheck/` → `docs/showcase/` (te same nazwy) i `egmscheck_results.json`:
+tabele kryteriów z kodami K1…/N1…, werdykty, podział na grupy, przesunięcie, pasy niepewności oraz zadanie, czas
+i commit kodu każdego wyniku z `gwl_runs` (z odpowiednikiem w historii po D-094 z `docs/evidence/historia_git_mapa.csv`).
+Brak pliku wymaganego = wyjątek; pliki opcjonalne (rycina rozrzutu, mapy, `run_summary`) są kopiowane, gdy istnieją,
+a ich brak trafia do JSON. Commit tylko `docs/showcase/`; push systemowym Gitem bez okien logowania; `--no-git`
+= samo kopiowanie.
 
-## 4. Metoda
+## 7. Testy
 
-Opis i wzory: `docs/evidence/F4_metodyka.md`. Progi: `docs/plans/Plan_v1_kryteria_akceptacji.md`.
+| Polecenie | Co sprawdza |
+|---|---|
+| `python -m egmscheck selftest` | testy bez sieci wszystkich modułów (`step_00`, `step_0N --selftest`, `step_09_local`, publikacja); tak samo w CI |
+| `python -m egmscheck test` | pełny test lokalny: atrapy serwerów, dane o znanej odpowiedzi, trzy przebiegi (`tests/local_harness/`) |
+| `tests/colab_harness/`, `tests/monitoring_harness/` | notatniki Colab na atrapach (Linux, uruchamiane ręcznie) |
+| CI (`.github/workflows/selftest.yml`) | ruff i selftest przy każdej zmianie kodu (Linux, Python 3.12) |
 
-## 5. Rejestr `gwl_*` (Dysk Google, `data/registry/`)
-
-Te same tabele i klucze co w AgriWatch, żeby oba projekty miały jeden schemat bazy.
-
-| Tabela | Klucz | Użycie w EGMS Check |
-|---|---|---|
-| `gwl_sites` | `site_id` | `PTO1` (`site_type = gnss_station`), repery `HENGELO_<nr>` (`levelling_benchmark`) |
-| `gwl_observations` | `site_id, product, variable, time_utc, orbit` | `product`: `EGMS_L2b_<wydanie>`, `EGMS_L3_<wydanie>`, `GNSS_PANGAEA`, `LEVELLING_NLOG`; `variable`: `los_displacement`, `up_displacement`, `height_nap`; `orbit`: numer ścieżki; `n_pixels`: liczba punktów w buforze |
-| `gwl_validation_metrics` | `site_id, product, reference, segment, period, subset, metric` | `reference`: `GNSS_PANGAEA` lub `LEVELLING_NLOG`; `segment`: `overlay`, `forecast`; `subset`: bufor lub ścieżka; `metric`: `velocity_diff`, `series_diff_std`, `height_change_diff`, `corr` |
-| `gwl_runs` | `run_id` | jak w AgriWatch: czas, status, commit, parametry |
-
-`gwl_anomalies`, `gwl_status` i `gwl_calibrations` nie są używane.
-Schemat tabel trzeba skopiować z `REGISTRY_SCHEMA` w AgriWatch, nie odtwarzać z pamięci.
-
-## 6. Konfiguracja
-
-Jak w AgriWatch: jedno miejsce, słownik `CHECK_CONFIG` w `step_05_colab_run.py`. Zawartość do przeniesienia
-z szablonów `data/00_Metadata/case_1_gnss_pto1.example.yaml` i `case_2_reper_hengelo.example.yaml`.
-Parametry eksperymentu (wydanie EGMS, ścieżki, bufory, okno, model prędkości, progi) nie mają wartości
-domyślnych w sygnaturach funkcji; brak klucza w konfiguracji zatrzymuje zadanie.
-
-## 7. Testy offline
-
-```bash
-python step_00_reference_check.py        # już działa
-python step_05_colab_run.py --selftest   # [plan] dane syntetyczne EGMS + prawdziwe tabele referencyjne
-```
+Na Windows bez długich ścieżek test etapu B (`step_08`) jest pomijany z komunikatem (nazwy produktów HyP3 mają
+ok. 80 znaków); w CI na Linuksie działa.
 
 ## 8. Dokumenty
 
-| Dokument | Status |
+| Dokument | Treść |
 |---|---|
-| `docs/plans/Plan_v1_walidacja_EGMS.md` | `PROPOSED` (2026-10-09) — plan główny |
-| `docs/plans/Plan_v1_test_EGMS.md` | `PROPOSED` — trzy twierdzenia, progi, reguła decyzji |
-| `docs/plans/Plan_v1_potok.md` | `PROPOSED` — etapy, testy, kolejność |
-| `docs/plans/Plan_v1_dane_do_pobrania.md` | `PROPOSED` — zamknięta lista plików |
-| `docs/plans/Plan_v1_kryteria_akceptacji.md` | `PROPOSED` — do zatwierdzenia przed pierwszym przebiegiem |
-| `docs/plans/Plan_v1_otwarte_pytania.md` | lista robocza |
-| `docs/plans/Plan_v1_wpis_na_blog.md` | `PROPOSED` |
-| `docs/plans/Instrukcja_startowa.md`, `Prompty_Claude_Code.md` | instrukcje pracy w Claude Code |
-| `docs/evidence/F1_przeglad_literatury_EGMS.md` | `Draft` — sześć publikacji w pełnym tekście |
-| `docs/evidence/F2…`, `F3…` | `Draft` — specyfikacje przypadków |
-| `docs/evidence/F4_metodyka.md`, `F5_zrodla_danych.md` | `Draft` |
-| `docs/evidence/F6_przypadki_zapasowe/` | archiwum rozważanych wariantów (NRW, Lorca, odtworzenie tabel artykułu) |
+| `docs/STAN_I_PLAN.md` | stan i plan na jednej stronie |
+| `docs/URUCHOMIENIE_LOKALNE.md` | uruchomienie na własnym komputerze |
+| `docs/evidence/karta_wynikow.md` | wszystkie wyniki w jednej tabeli |
+| `docs/evidence/F1`–`F10` | literatura, metodyka (F4), źródła danych (F5), przypadki, wyniki E1 (F9) i E2 (F10) |
+| `docs/evidence/zrodla/README.md` | dokumenty innych wydawców: odnośniki i sumy SHA-256 |
+| `docs/plans/Plan_v3_produkt.md` | plan aktywny (D-095) |
+| `docs/archive/` | plany v1–v2, przekazanie z migracji, notatki |

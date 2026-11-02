@@ -4,7 +4,7 @@ EGMS Check - KROK 5: STEROWANIE Z NOTATNIKA, REJESTR NA DYSKU I ZADANIA
 ================================================================================
 Architektura (jak AgriWatch, agriscreen/step_05_colab_run.py): kod na GitHub -> klon repozytorium
 na Dysku Google (MyDrive/GeoWorldLook/egmscheck) -> obliczenia w Colab -> tabele rejestru gwl_* na Dysku.
-Interfejs według docs/plans/Plan_v2_implementacja.md (sekcje 3 i 4.5); cel: docs/plans/Plan_v2_pokaz_EGMS_monitoring.md.
+Interfejs według docs/archive/plans/Plan_v2_implementacja.md (sekcje 3 i 4.5); cel: docs/archive/plans/Plan_v2_pokaz_EGMS_monitoring.md.
 
   I.   Środowisko i rejestr (przeniesione z AgriWatch): setup_runtime (bez GEE; instalacja brakujących pakietów
        tylko w Colab), ensure_packages (etap B: hyp3_sdk, asf_search, mintpy, rasterio, h5py + kontrola GDAL/osgeo),
@@ -69,7 +69,7 @@ GNSS stopnie WGS84, niwelacja NRW w crs_epsg z konfiguracji. Ścieżki w CHECK_C
 Parametry eksperymentu pochodzą wyłącznie z CHECK_CONFIG; sygnatury zadań nie mają wartości domyślnych.
 
 Literatura i źródła: docs/evidence/F4_metodyka.md, docs/evidence/F5_zrodla_danych.md,
-docs/plans/Plan_v1_kryteria_akceptacji.md, docs/migracja/09_audyt_po_migracji.md (cicho pominięte pary N3b);
+docs/archive/plans/Plan_v1_kryteria_akceptacji.md, docs/archive/migracja/09_audyt_po_migracji.md (cicho pominięte pary N3b);
 Koudogbo i in. 2025 (walidacja EGMS), Even i in. 2024 (EGMS kontra niwelacja NRW).
 ================================================================================
 """
@@ -1256,7 +1256,6 @@ def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
     Bez planu lub plików surowych: pominięte, gdy
     wycinki istnieją (tryb bez tokenu), inaczej FileNotFoundError. Zero punktów L2b / komórek L3 = RuntimeError.
     """
-    import step_02_checks_extract as s2
     import step_04_egms_aoi as s4
     e = require_approved(cfg, "egms")
     reg = _region(cfg, region)
@@ -1275,7 +1274,6 @@ def task_extract(rt: Dict[str, Any], cfg: Dict[str, Any], region: str) -> Dict[s
             return {"skipped": True, "message": f"{len(absent)} plików surowych brak (bez tokenu): używam wycinków"}
         raise FileNotFoundError(f"{len(absent)} plików z planu brak w {raw} (np. {absent[:3]}): uruchom task_egms_download")
     sites = _read_sites(P)
-    pts_xy = sites[["site", "x_3035", "y_3035"]]
     # L2b przy punkcie czyta tylko porównanie z GNSS (task_compare_gnss); repery porównuje się z L3 (komórka przy
     # reperze). Wycinek L2b wokół wszystkich reperów NRW (13 476 x promień 200 m = ok. 1 mln punktów z pełnymi
     # szeregami na plik) przepełniał pamięć Colab (2026-10-12), dlatego L2b tylko wokół site_type z L2B_SITE_TYPES.
@@ -1986,7 +1984,7 @@ def task_monitoring_archive(rt: Dict[str, Any], cfg: Dict[str, Any], region: str
     # +-gnss_half_window_days wokół daty odniesienia szeregu EGMS (jak step_03.gnss_at_dates), ref_date = data EGMS:
     # pojedyncza pierwsza doba (step_07.gnss_to_long) niosłaby szum dobowy jako stałe przesunięcie na rycinie.
     hw = m["gnss_half_window_days"]
-    for (source, site, track), g in egms_long.groupby(["source", "site", "track"], sort=True):
+    for (_source, site, track), g in egms_long.groupby(["source", "site", "track"], sort=True):
         if site not in gnss:
             continue
         lo, hi, ref = g["date"].min(), g["date"].max(), g["ref_date"].iat[0]
@@ -2688,7 +2686,8 @@ def _selftest() -> None:
                    task_hyp3_plan):
             _expect(RuntimeError, fn, rt, cfg_e, "groningen", match="CHECK_CONFIG['egms']")
         _expect(RuntimeError, task_hyp3_compare, rt, cfg_e, "groningen", "37", match="CHECK_CONFIG['egms']")
-        cfg_g = copy.deepcopy(CHECK_CONFIG); cfg_g["gnss"]["approved"] = None
+        cfg_g = copy.deepcopy(CHECK_CONFIG)
+        cfg_g["gnss"]["approved"] = None
         _expect(RuntimeError, _read_gnss, rt, cfg_g, ["A"], match="CHECK_CONFIG['gnss']")
         assert _read_gnss(rt, cfg_g, []) == {}
         # Metryka bez kolumny: błąd przy wierszu 'ok', jawny NaN przy wierszu z powodem.
@@ -2732,7 +2731,8 @@ def _selftest() -> None:
     # 401 i ostatnie 503 idą dalej bez zmian (błąd głośny). time.sleep podmieniony na czas testu.
     import requests
     def _http(code):
-        r = requests.models.Response(); r.status_code = code
+        r = requests.models.Response()
+        r.status_code = code
         return requests.HTTPError(f"{code} test", response=r)
     calls, real_sleep = [], time.sleep
     time.sleep = lambda s: calls.append(s)

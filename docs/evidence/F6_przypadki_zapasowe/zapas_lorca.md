@@ -47,7 +47,7 @@ i jednej stabilnej (np. CARG). Kandydaci do sprawdzenia: Nevada Geodetic Laborat
 produkty szeregów czasowych EPN / EPN Densification, hiszpańska sieć ERGNSS (IGN).
 Żadnego z nich nie zweryfikowałem dla tych stacji.
 
-## Wątek „radar pokazał, pomiar potwierdził" (do slajdu, nie do przeliczenia)
+## Wątek „radar pokazał, pomiar potwierdził" (do opisu, nie do przeliczenia)
 
 - InSAR wcześniej wykrył i zmapował nieckę (maks. 16 cm/rok w latach 2006–2011 według prac cytowanych przez Fernández 2018).
 - Sieć GNSS z 2015 r. zaprojektowano na podstawie map InSAR; pomiary potwierdziły tempo i wzór osiadań.

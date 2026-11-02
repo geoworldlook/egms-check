@@ -1,7 +1,7 @@
 # F4 — Metodyka
 
 > **Data:** 2026-10-09 · **Status:** `Draft`
-> **Powiązane:** `docs/evidence/F1_przeglad_literatury_EGMS.md`, `docs/plans/Plan_v1_kryteria_akceptacji.md`
+> **Powiązane:** `docs/evidence/F1_przeglad_literatury_EGMS.md`, `docs/archive/plans/Plan_v1_kryteria_akceptacji.md`
 
 Wszystkie wzory i konwencje potrzebne w pipeline. Przy każdym podane jest źródło i status.
 

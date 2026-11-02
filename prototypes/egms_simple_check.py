@@ -2,7 +2,7 @@
 ================================================================================
 EGMS Check - PROTOTYP: PROSTY EKSPERYMENT E1 (GNSS) I E2 (NIWELACJA)
 ================================================================================
-Prototyp metody z docs/plans/Plan_v1_eksperymenty.md. Jeden kod dla obu eksperymentów
+Prototyp metody z docs/archive/plans/Plan_v1_eksperymenty.md. Jeden kod dla obu eksperymentów
 (CLAUDE.md, zasada 11): wczytanie EGMS, kontrole konwencji, wybór przestrzenny, dopasowanie
 czasowe, prędkości i metryki są wspólne; różni się tylko czytnik pomiaru naziemnego
 i sposób odniesienia (E1: rzut GNSS na LOS; E2: różnice względem reperu odniesienia).

@@ -1,5 +1,7 @@
 # EGMS Check — przekazanie projektu: cel, stan prac, audyt
 
+> **Archiwum (D-095, 2026-11-02):** stan z 2026-10-10. Aktualny stan: [`docs/STAN_I_PLAN.md`](../STAN_I_PLAN.md).
+>
 > Status: AKTUALNY, 2026-10-10. Gałąź `claude/dreamy-dirac-jd4vue`.
 > Dokument startowy dla nowego konta (GitHub, Google, Claude). Czytaj go przed `CLAUDE.md`:
 > część zapisów w `CLAUDE.md` i `docs/ARCHITEKTURA.md` opisuje stan planowany z 2026-10-09, a nie obecny

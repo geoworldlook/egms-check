@@ -9,4 +9,4 @@
 3. Ocena wyniku zgodnie z regułą zapisaną przed obliczeniami; rozbieżność raportować tak samo jak zgodność.
 4. Uzupełnić C1/C2 (`run_summary.md`) i D1–D3.
 5. E2 według decyzji 4.
-6. Wpis na blog (`docs/plans/Plan_v1_wpis_na_blog.md`).
+6. Wpis na blog (`docs/archive/plans/Plan_v1_wpis_na_blog.md`).

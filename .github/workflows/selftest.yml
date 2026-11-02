@@ -1,0 +1,31 @@
+# CI: every push and pull request runs the linter and the offline tests of all modules (no network, no keys).
+# The real pipeline needs a CLMS key and Google Drive; it runs on demand on the author's computer or in Colab.
+name: selftest
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["docs/showcase/**"]   # published results only
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[stage-b]" ruff
+      - name: Lint (ruff)
+        run: ruff check .
+      - name: Offline tests (all modules)
+        env:
+          MPLBACKEND: Agg
+        run: python -m egmscheck selftest

@@ -2,8 +2,8 @@
 ================================================================================
 EGMS Check - KROK 4: EGMS DLA OBSZARU: WYSZUKANIE L2B I L3, PLAN POBRANIA, CZYTNIK L3, MAPA PRĘDKOŚCI
 ================================================================================
-Pokaz EGMS dla obszaru (Groningen, zachodnia NRW; docs/plans/Plan_v2_pokaz_EGMS_monitoring.md),
-interfejs według docs/plans/Plan_v2_implementacja.md, sekcja 4.1. Kontynuacja kodu E1: wyszukanie, manifest
+Pokaz EGMS dla obszaru (Groningen, zachodnia NRW; docs/archive/plans/Plan_v2_pokaz_EGMS_monitoring.md),
+interfejs według docs/archive/plans/Plan_v2_implementacja.md, sekcja 4.1. Kontynuacja kodu E1: wyszukanie, manifest
 i SHA-256 z step_01_ingest, wycinek i kolumny dat z step_02_checks_extract; wynik komórki L3 przechodzi
 bez zmian przez step_03_compare_gnss.compare_station_track.
 
@@ -65,7 +65,7 @@ import pandas as pd
 
 from step_01_ingest import (EGMS_LICENCE, MANIFEST_COLUMNS, hits_table, manifest_path_of, search_egms, sha256_file,
                             update_manifest)
-from step_02_checks_extract import DATE_COL, L2_REQUIRED, date_columns, extract_points
+from step_02_checks_extract import DATE_COL, date_columns, extract_points
 
 logger = logging.getLogger("EGMSCheck_AOI")
 

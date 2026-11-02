@@ -2,7 +2,7 @@
 ================================================================================
 EGMS Check - KROK 6: POMIARY NAZIEMNE: STACJE GNSS W OBSZARZE I NIWELACJA NRW
 ================================================================================
-Pomiar naziemny dla pokazu EGMS 2020-2024 (docs/plans/Plan_v2_implementacja.md, sekcja 4.2):
+Pomiar naziemny dla pokazu EGMS 2020-2024 (docs/archive/plans/Plan_v2_implementacja.md, sekcja 4.2):
 
   I.   Stacje GNSS w obszarze, reguła 'all_quality': wszystkie stacje NGL (prędkości MIDAS z
        step_01.read_ngl_midas) w prostokącie obszaru, spełniające warunki jakości identyczne z
@@ -45,7 +45,6 @@ odniesienie, sposób odczytu, progi) pochodzą z CHECK_CONFIG; sygnatury nie maj
 import argparse
 import csv
 import re
-import io
 import json
 import tempfile
 import unicodedata
@@ -1059,7 +1058,8 @@ def _selftest() -> None:
         for b, r in ok_g.iterrows():
             dt = years_since([r["t2"]], r["t1"])[0]
             k1, k2 = epochs[b].index(r["t1"]), epochs[b].index(r["t2"])
-            day = lambda s, t: float(np.interp((t - t_egms0).days, (s.index - t_egms0).days.to_numpy(float), s.to_numpy()))
+            def day(s, t):
+                return float(np.interp((t - t_egms0).days, (s.index - t_egms0).days.to_numpy(float), s.to_numpy()))
             ref_lev = np.mean([day(h_mm[g], r["t2"]) - day(h_mm[g], r["t1"]) for g in ids])  # niezależnie: np.interp po dniach
             assert abs(r["ref_dh_egms_mm"] - common_mm_yr * dt) < 1e-6 and abs(r["dh_egms_mm"] - rate[b] * dt) < 1e-6, b
             assert abs(r["ref_dh_lev_mm"] - ref_lev) < 1e-6, b
@@ -1119,8 +1119,11 @@ def _selftest() -> None:
         assert va[0] < 0 < vd[0]                     # A3: przeciwne znaki los_east
         t_ref = pd.Timestamp("2020-01-01")
         da_dates, dd_dates = pd.date_range("2020-01-05", "2024-12-30", freq="12D"), pd.date_range("2020-01-09", "2024-12-30", freq="12D")
-        E = lambda d: 2.0 * years_since(d, t_ref)
-        U = lambda d: -8.0 * years_since(d, t_ref)
+        def E(d):
+            return 2.0 * years_since(d, t_ref)
+
+        def U(d):
+            return -8.0 * years_since(d, t_ref)
         los_a = pd.Series(va[0] * E(da_dates) + va[2] * U(da_dates), index=da_dates)
         los_d = pd.Series(vd[0] * E(dd_dates) + vd[2] * U(dd_dates), index=dd_dates)
         eps = pd.DatetimeIndex(["2020-06-15", "2022-06-15", "2024-06-20"])

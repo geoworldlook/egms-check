@@ -17,7 +17,7 @@
     (3 lata). W nieckach (54 repery, |v| ≥ 10 mm/rok według niwelacji) znak ruchu zgadza się w **100%**, nachylenie wynosi 0,98.
   - Oba zbiory dzieli **stałe przesunięcie** ok. **−2 mm/rok** (EGMS pokazuje więcej osiadania). Przez nie wariant główny
     nie spełnia 3 z 4 kryteriów (N1, N2, N4). Werdykt zostaje, bo kryteria i odniesienie ustalono przed obliczeniami.
-- **Zdanie na slajd:** „Na 1216 reperach niwelacji NRW (05.2019–05.2022) pomiar naziemny potwierdza niecki osiadania widoczne
+- **Jedno zdanie:** „Na 1216 reperach niwelacji NRW (05.2019–05.2022) pomiar naziemny potwierdza niecki osiadania widoczne
   w EGMS — ten sam znak i ta sama skala ruchu, do −140 mm w 3 lata. Poziom bezwzględny różni się o stałe ok. 2 mm/rok.”
 
 ---

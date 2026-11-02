@@ -1,7 +1,7 @@
 # F2 — Przypadek 1: GNSS (stacja PTO1, delta Padu)
 
 > **Data:** 2026-10-09 · **Status:** `Draft` — pliku danych GNSS jeszcze nie otwierano
-> **Powiązane:** `docs/plans/Plan_v1_test_EGMS.md` (T1), `docs/plans/Plan_v1_dane_do_pobrania.md`
+> **Powiązane:** `docs/archive/plans/Plan_v1_test_EGMS.md` (T1), `docs/archive/plans/Plan_v1_dane_do_pobrania.md`
 
 **Cel:** na jednym wykresie nałożyć szereg czasowy stacji GNSS i szereg EGMS z jej otoczenia
 i pokazać, że oba pomiary dają to samo tempo osiadania.

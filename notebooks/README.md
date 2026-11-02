@@ -15,4 +15,5 @@ Colab forms, and every number in their summaries is read from the result files.
 The two technical notebooks (`EGMS_Monitoring`, `EGMS_Check`) are in Polish.
 
 Rules: run notebooks from top to bottom; the calculations live in the `step_NN` modules, and the figures are saved in
-`data/05_Final_Outputs/egmscheck/`.
+`data/05_Final_Outputs/egmscheck/`. On your own computer, `python -m egmscheck run` runs the same tasks in the same
+order as `EGMS_Monitoring.ipynb`, and `python -m egmscheck publish` copies the main results to `docs/showcase/`.

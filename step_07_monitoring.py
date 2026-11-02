@@ -2,7 +2,7 @@
 ================================================================================
 EGMS Check - KROK 7: MONITORING: WSPÓLNY FORMAT SZEREGÓW, PRÓBKOWANIE 6/12 DNI, CZAS DO WYKRYCIA OSIADANIA, WYKRESY POKAZU
 ================================================================================
-Interfejs według docs/plans/Plan_v2_implementacja.md (sekcje 2.2 i 4.3); cel: docs/plans/Plan_v2_pokaz_EGMS_monitoring.md
+Interfejs według docs/archive/plans/Plan_v2_implementacja.md (sekcje 2.2 i 4.3); cel: docs/archive/plans/Plan_v2_pokaz_EGMS_monitoring.md
 (etap A, ryciny 1-4, i pomost do etapu B). Kontynuacja kodu E1: prędkość i jej odchylenie formalne liczy
 step_03_compare_gnss.fit_velocity (bez zmian), mediana punktów w dacie jak w step_03.compare_station_track,
 wzorzec kolumn dat z step_02_checks_extract.
@@ -15,7 +15,7 @@ wzorzec kolumn dat z step_02_checks_extract.
          (Koudogbo i in. 2025, rozdz. 2.3.1.1; jak E1); wektor LOS = średnia punktów; odniesienie = pierwsza data
          z wartością (zapisana w ref_date). Odniesienie 'absolute' tylko dla produktów kalibrowanych (L2b, L3 U).
          Para z oczekiwanej listy (punkt x ścieżka) z mniej niż N punktami NIE daje szeregu, ale ma wiersz w tabeli
-         statusów z liczbą punktów i powodem (poprawka cichego pominięcia N3b, docs/migracja/09_audyt_po_migracji.md).
+         statusów z liczbą punktów i powodem (poprawka cichego pominięcia N3b, docs/archive/migracja/09_audyt_po_migracji.md).
          GNSS: dobowe E, N, U [mm] rzutowane na LOS: d_LOS = E * los_east + N * los_north + U * los_up (F4, sekcja 3),
          albo sama składowa U (wektor 0, 0, 1).
   III. Próbkowanie: odstęp do poprzedniej akwizycji; liczba odstępów 6 dni (Sentinel-1A + 1B), 12 dni (jeden satelita)
@@ -996,7 +996,8 @@ def plot_stable_benchmark(long_df: pd.DataFrame, site: str, site_dh_egms_mm: flo
         raise ValueError(f"n3_threshold_mm musi być dodatnie, jest {n3_threshold_mm}")
     e, lv, t1 = _levelling_parts(long_df, site)
     ve, vl = float(group_info["median_v_egms_group_mm_yr"]), float(group_info["median_v_lev_group_mm_yr"])
-    yr = lambda dates: (pd.DatetimeIndex(dates) - t1).days.to_numpy(float) / 365.25
+    def yr(dates):
+        return (pd.DatetimeIndex(dates) - t1).days.to_numpy(float) / 365.25
     ce, cl = _source_color("EGMS"), _source_color("LEVELLING")
     fig = plt.figure(figsize=(13, 7.2), facecolor=SURFACE)
     gs = fig.add_gridspec(2, 2, width_ratios=[1.7, 1.0])

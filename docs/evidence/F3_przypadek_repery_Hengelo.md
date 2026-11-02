@@ -1,7 +1,7 @@
 # F3 — Przypadek 2: osiadanie z reperów (Hengelo, pole solne Twenthe-Rijn)
 
 > **Data:** 2026-10-09 · **Status:** `Draft` — tabela reperów (załącznik 5) nieodczytana
-> **Powiązane:** `docs/plans/Plan_v1_test_EGMS.md` (T2), `docs/plans/Plan_v1_dane_do_pobrania.md`
+> **Powiązane:** `docs/archive/plans/Plan_v1_test_EGMS.md` (T2), `docs/archive/plans/Plan_v1_dane_do_pobrania.md`
 
 **Cel:** pokazać, że obniżenie reperów zmierzone niwelacją precyzyjną zgadza się z osiadaniem
 widocznym w EGMS, w tym z prognozą zrobioną z danych sprzed pomiaru.
@@ -21,7 +21,7 @@ raportowana potwierdza jego wielkość i zasięg.
 | Adres | https://www.nlog.nl/sites/default/files/2025-10/20240327_487387_meetregister_strootbeekpark_jaarlijks_2023_00.pdf | zweryfikowane |
 
 NLOG to holenderski portal informacji o podziemiu; według mojej wiedzy prowadzi go służba
-geologiczna TNO na zlecenie ministerstwa. Potwierdź sformułowanie przed slajdem.
+geologiczna TNO na zlecenie ministerstwa. Potwierdź sformułowanie przed publikacją.
 
 ## Co zmierzono
 

@@ -5,7 +5,7 @@
 
 Sprawdzić na otwartych danych, czy EGMS (European Ground Motion Service, Copernicus) wiarygodnie pokazuje
 **powolne osiadanie terenu**, czyli czy nadaje się do jego monitorowania z kosmosu. Wynik ma posłużyć jako
-przykład zastosowania na blogu GeoWorldLook i do prezentacji na spotkaniu.
+przykład zastosowania na blogu GeoWorldLook.
 
 Dwa eksperymenty:
 

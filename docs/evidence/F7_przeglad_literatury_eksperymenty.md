@@ -1,7 +1,7 @@
 # F7 — Przegląd literatury pod dwa eksperymenty (GNSS i osiadanie zmierzone naziemnie)
 
 > **Data:** 2026-10-10 · **Status:** `Draft`
-> **Powiązane:** `docs/plans/Plan_v1_eksperymenty.md`, `docs/evidence/F1_przeglad_literatury_EGMS.md`, `docs/evidence/F4_metodyka.md`
+> **Powiązane:** `docs/archive/plans/Plan_v1_eksperymenty.md`, `docs/evidence/F1_przeglad_literatury_EGMS.md`, `docs/evidence/F4_metodyka.md`
 
 **Poziomy weryfikacji:**
 - `pełny tekst (PDF)` — przeczytane w całości z PDF z Dysku Google (`/drive/EGMS`, 6 plików, stan 2026-10-10),

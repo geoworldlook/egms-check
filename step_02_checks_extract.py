@@ -5,7 +5,7 @@ EGMS Check - KROK 2: WYCINKI EGMS WOKÓŁ STACJI I KONTROLE KONWENCJI
   I.   Wycinek: z pliku EGMS L2b (zip z CSV, często > 1 GB po rozpakowaniu) czytamy fragmentami
        tylko punkty w promieniu od stacji; wynik jest mały i trafia do data/03_Extracts/.
   II.  Kontrole przed porównaniem (docs/evidence/F4_metodyka.md, sekcja 2;
-       docs/plans/Plan_v1_kryteria_akceptacji.md, sekcja A):
+       docs/archive/plans/Plan_v1_kryteria_akceptacji.md, sekcja A):
          A1 norma wektora LOS = 1;  A2 los_up = cos(kąt padania);  A3 los_east ma przeciwny znak
          na orbicie wstępującej i zstępującej;  A5 duplikaty punktów z zakładek burstów.
        Niespełniona kontrola zatrzymuje dalsze obliczenia.
@@ -76,7 +76,7 @@ def check_conventions(points: pd.DataFrame, tol: float) -> pd.DataFrame:
     points musi mieć kolumny track i direction. Zwraca tabelę kontroli z kolumną 'pass'.
     """
     rows = []
-    for (track, direction), p in points.groupby(["track", "direction"]):
+    for (track, _direction), p in points.groupby(["track", "direction"]):
         norm = np.sqrt(p["los_east"] ** 2 + p["los_north"] ** 2 + p["los_up"] ** 2)
         a1 = float(np.max(np.abs(norm - 1.0)))
         a2 = float(np.max(np.abs(p["los_up"] - np.cos(np.deg2rad(p["incidence_angle"])))))

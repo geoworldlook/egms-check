@@ -1,7 +1,9 @@
 # Przekazanie kontekstu — stan na 2026-10-17
 
+> **Archiwum (D-095, 2026-11-02).** Aktualny stan: [`docs/STAN_I_PLAN.md`](../STAN_I_PLAN.md).
+
 Notatka dla nowej sesji, która kontynuuje projekt EGMS Check w osobnym wątku. Najpierw przeczytaj `CLAUDE.md`
-i `docs/MIGRACJA_stan_i_audyt.md`; ta notatka streszcza ustalenia z rozmowy, których nie ma w kodzie.
+i `docs/archive/MIGRACJA_stan_i_audyt.md`; ta notatka streszcza ustalenia z rozmowy, których nie ma w kodzie.
 
 ## Gałąź i sposób pracy
 
@@ -37,7 +39,7 @@ K1 99% ✔, K2 4,7 ✔, K3 1,62 ✘ → werdykt CZĘŚCIOWO. Stacja AME1: sezono
 - Notatniki pokazowe: `notebooks/Showcase_1_GNSS_Groningen.ipynb`, `notebooks/Showcase_2_Levelling_NRW.ipynb` (do 2026-10-17: Pokaz_1_*, Pokaz_2_*)
   (generator `build_colab_pokaz.py`; tylko czytają wyniki z Dysku). Testy: `tests/monitoring_harness/`.
 - Materiały prywatne (dokumenty .docx) są poza repozytorium.
-- Decyzje: `docs/plans/Plan_v2_implementacja.md`, `docs/evidence/F10_NRW_niwelacja_EGMS.md`.
+- Decyzje: `docs/archive/plans/Plan_v2_implementacja.md`, `docs/evidence/F10_NRW_niwelacja_EGMS.md`.
 
 ## Ustalenia merytoryczne spoza kodu
 
@@ -52,7 +54,7 @@ K1 99% ✔, K2 4,7 ✔, K3 1,62 ✘ → werdykt CZĘŚCIOWO. Stacja AME1: sezono
 
 ## Otwarte wątki (zaproponowane, niepotwierdzone przez autora)
 
-- dopisać tabelę pilotaży do raportu,
+- zebrać w jednej tabeli pilotaże EGMS w infrastrukturze (przykłady w sekcji wyżej),
 - przeczytać w całości prace szwedzką i irlandzką,
 - rycina |różnica| względem tempa ruchu dla niwelacji,
 - sprawdzić art. 5 dyrektywy CER i przetargi PLK/GDDKiA na monitoring satelitarny.

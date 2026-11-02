@@ -6,11 +6,14 @@ Układ jak w AgriScreen 1.1 (agriscreen/local.py): kod w klonie repozytorium (np
 egms-check), dane w osobnym katalogu danych - zwykle zsynchronizowany Dysk Google (Mój dysk\\GeoWorldLook\\egmscheck,
 ten sam układ data/... co w Colab, więc Colab dalej działa jako zapas). Klucze tylko w katalogu secrets na Dysku.
 
-Polecenia (środowisko conda `egmscheck`, environment.yml):
+Polecenia (środowisko conda `egmscheck`, environment.yml); `python -m egmscheck <polecenie>` robi to samo (D-095):
     python step_09_local.py run [--region R] [--stage-b] [--confirm NAZWA=WARTOŚĆ] [--data-dir DIR] [--dry-run]
+    python step_09_local.py publish [--data-dir DIR] [--no-git] [--message TEKST]
+                                            wybrane wyniki do docs/showcase/ i egmscheck_results.json, commit i push
+                                            (egmscheck/publish.py)
     python step_09_local.py settings        ustawienia po scaleniu (plik, zmienne środowiskowe, argumenty)
     python step_09_local.py approvals       stan zatwierdzeń CHECK_CONFIG
-    python step_09_local.py selftest        testy bez sieci wszystkich modułów step_0N (--selftest)
+    python step_09_local.py selftest        testy bez sieci wszystkich modułów step_0N (--selftest) i publikacji
     python step_09_local.py test [--work DIR] [--keep]
                                             pełny test: atrapy serwerów, dane o znanej odpowiedzi, trzy przebiegi
                                             (tests/local_harness/run_local_test.py)
@@ -62,8 +65,8 @@ CODE_DIR = Path(__file__).resolve().parent
 SETTINGS_FILE = "local_settings.json"
 DEFAULTS: Dict[str, Any] = {"data_dir": None, "secrets_dir": None, "regions": None, "stage_b": False, "confirm": {}}
 TOKEN_FILES = {"token_path": "clms_token.json", "earthdata_path": "earthdata.json"}   # nazwy jak w CHECK_CONFIG
-SELFTEST_MODULES = ["step_01_ingest", "step_04_egms_aoi", "step_05_colab_run", "step_06_ground", "step_07_monitoring",
-                    "step_08_hyp3_mintpy"]
+SELFTEST_MODULES = ["step_00_reference_check", "step_01_ingest", "step_04_egms_aoi", "step_05_colab_run",
+                    "step_06_ground", "step_07_monitoring", "step_08_hyp3_mintpy"]
 LOCK_NAME = ".egmscheck_local.lock"
 LOCK_MAX_HOURS = 24
 _CONFIRM_RE = re.compile(r"^\s*(CONFIRM_MB_[A-Z0-9_]+|CONFIRM_JOBS\[['\"]?(\w+)['\"]?\])\s*=\s*(\S+)\s*$")
@@ -321,7 +324,10 @@ def run(settings: Dict[str, Any], cfg: Optional[Dict[str, Any]] = None, dry_run:
 
 
 def selftest_all(python: str = sys.executable) -> Dict[str, str]:
-    """`python step_0N.py --selftest` dla każdego modułu z testem offline i test tego modułu. Zwraca {moduł: ok/błąd}."""
+    """
+    `python step_0N.py --selftest` dla każdego modułu z testem offline (step_00 to kontrola tabel referencyjnych,
+    argument pomija), potem test tego modułu i publikacji (egmscheck.publish). Zwraca {moduł: ok/błąd}.
+    """
     res = {}
     for mod in SELFTEST_MODULES:
         if mod == "step_08_hyp3_mintpy" and not long_paths_enabled():
@@ -335,6 +341,10 @@ def selftest_all(python: str = sys.executable) -> Dict[str, str]:
     _selftest()
     res["step_09_local"] = "ok"
     print("[OK] step_09_local selftest")
+    from egmscheck import publish
+    publish._selftest()
+    res["egmscheck.publish"] = "ok"
+    print("[OK] egmscheck.publish selftest")
     return res
 
 
@@ -447,8 +457,8 @@ def _selftest() -> None:
 # ==============================================================================
 # Wiersz poleceń
 # ==============================================================================
-def main(argv: Optional[List[str]] = None) -> int:
-    ap = argparse.ArgumentParser(prog="python step_09_local.py", description="EGMS Check - KROK 9: obliczenia lokalne")
+def main(argv: Optional[List[str]] = None, prog: str = "python step_09_local.py") -> int:
+    ap = argparse.ArgumentParser(prog=prog, description="EGMS Check - KROK 9: obliczenia lokalne")
     sub = ap.add_subparsers(dest="cmd", required=True)
     for name in ("run", "settings"):
         p = sub.add_parser(name)
@@ -459,6 +469,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         p.add_argument("--confirm", action="append", default=[], help="np. CONFIRM_MB_GRONINGEN=4321")
         if name == "run":
             p.add_argument("--dry-run", action="store_true", help="tylko lista zadań")
+    p = sub.add_parser("publish", help="wyniki do docs/showcase/ (egmscheck/publish.py)")
+    p.add_argument("--data-dir", default=None, help="katalog danych (z podkatalogiem data/)")
+    p.add_argument("--no-git", action="store_true", help="tylko kopiowanie, bez commit i push")
+    p.add_argument("--message", default=None, help="opis commita")
     sub.add_parser("approvals")
     sub.add_parser("selftest")
     sub.add_parser("test", help="pełny test; opcje (--work, --keep, --skip-selftest, --no-stage-b) idą do "
@@ -487,6 +501,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     if a.cmd == "test":
         cmd = [sys.executable, str(CODE_DIR / "tests" / "local_harness" / "run_local_test.py"), *extra]
         return subprocess.run(cmd, cwd=CODE_DIR).returncode
+    if a.cmd == "publish":
+        from egmscheck.publish import publish
+        s = load_settings(data_dir=a.data_dir)
+        print(json.dumps(publish(s, make_config(s), do_git=not a.no_git, message=a.message), ensure_ascii=False,
+                         indent=1))
+        return 0
     s = load_settings(data_dir=a.data_dir, secrets_dir=a.secrets_dir, regions=a.region, stage_b=a.stage_b,
                       confirm=parse_confirm(a.confirm))
     if a.cmd == "settings":

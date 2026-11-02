@@ -1,0 +1,53 @@
+[project]
+name = "egmscheck"
+version = "1.0.0"
+description = "Does EGMS (Copernicus, Sentinel-1 InSAR) agree with the ground? Validation against GNSS and state levelling"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "pyproj",
+    "matplotlib",
+    "requests",
+    "pyjwt",
+    "cryptography",
+]
+
+[project.optional-dependencies]
+# etap B: własne przetwarzanie Sentinel-1 (ASF HyP3 + MintPy); MintPy i GDAL najlepiej z conda (environment.yml)
+stage-b = ["hyp3_sdk", "asf_search", "rasterio", "h5py", "shapely"]
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Obliczenia leżą w modułach step_0N w katalogu głównym (ten sam kod co w notatnikach Colab);
+# pakiet egmscheck daje wspólne polecenia (python -m egmscheck) i publikację wyników (D-095).
+packages = ["egmscheck"]
+py-modules = [
+    "step_00_reference_check",
+    "step_01_ingest",
+    "step_02_checks_extract",
+    "step_03_compare_gnss",
+    "step_04_egms_aoi",
+    "step_05_colab_run",
+    "step_06_ground",
+    "step_07_monitoring",
+    "step_08_hyp3_mintpy",
+    "step_09_local",
+]
+
+[tool.ruff]
+line-length = 120
+# Poza lintem: notatniki (generowane przez build_colab_*.py, które są sprawdzane), prototypes/ (archiwum pierwszego
+# etapu) i dwa testy notatników Colab uruchamiane ręcznie na Linuksie (zwarte skrypty z atrapami serwerów i modułu
+# google.colab). Kod produktu, generatory notatników i test lokalny (tests/local_harness) są sprawdzane w CI.
+extend-exclude = ["*.ipynb", "prototypes", "tests/colab_harness", "tests/monitoring_harness"]
+
+[tool.ruff.lint]
+# błędy i pułapki (jak AgriScreen); styl adnotacji i kolejność importów zostają jak w kodzie
+select = ["E4", "E7", "E9", "F", "B"]
+ignore = ["B008", "B023", "B028", "B905"]

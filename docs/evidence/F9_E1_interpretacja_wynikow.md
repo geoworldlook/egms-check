@@ -4,7 +4,7 @@
 > **Przebieg:** Colab, kod `d1bf7d9`, zapis z wynikami w commicie `97a673c`. Liczby **identyczne** z pierwszym przebiegiem
 > z 2026-10-10 (kod `cc3bc93`): wynik jest powtarzalny.
 > **Ryciny:** `docs/evidence/figures/e1_*.png` (kopie wyjść notatnika).
-> Poziom weryfikacji: liczby przeliczone niezależnie z tabeli wyników (`docs/migracja/09_audyt_po_migracji.md`, 9.3);
+> Poziom weryfikacji: liczby przeliczone niezależnie z tabeli wyników (`docs/archive/migracja/09_audyt_po_migracji.md`, 9.3);
 > interpretacje oznaczone „hipoteza” nie były osobno testowane.
 
 ---
@@ -15,7 +15,7 @@
 - **Odpowiedź:** tak dla **tempa** (trendu): 91% par stacja × ścieżka różni się o ≤ 1,5 mm/rok; nachylenie 0,96.
   Gorzej dla **przebiegu w czasie** (K2 na granicy progu) i dla **stacji „stabilnych”** (K3 niespełnione).
 - **Wniosek formalny** (reguła zapisana przed obliczeniami): **CZĘŚCIOWO**.
-- **Zdanie na slajd:** „Na 24 stacjach GNSS w Groningen pomiar naziemny potwierdza tempo osiadania widoczne w EGMS
+- **Jedno zdanie:** „Na 24 stacjach GNSS w Groningen pomiar naziemny potwierdza tempo osiadania widoczne w EGMS
   (2019–2023) z dokładnością ok. 1,5 mm/rok.”
 
 Analogia do całości: porównujemy dwie wagi. GNSS waży codziennie w jednym punkcie, EGMS co 6–12 dni w tysiącach
@@ -93,7 +93,7 @@ Wszystkie przeszły — błąd znaku albo układu w danych EGMS jest wykluczony 
    na wstępujących ten sam punkt ma tylko −0,8 do −3 mm/rok. Ruch jest więc silnie zależny od kierunku patrzenia
    (duża składowa pozioma), a **EGMS odtwarza to na wszystkich czterech ścieżkach** (|dv| ≤ 1,2). To najmocniejszy
    pojedynczy dowód w danych (sekcja 7). Przyczyna osiadania w Veendam: według wiedzy ogólnej wydobycie soli
-   (ługowanie) — potwierdzić źródłem przed slajdem.
+   (ługowanie) — potwierdzić źródłem przed publikacją.
 4. **Puste znaczniki (stabilne) skupiają się przy 0, ale nie na 0**: do −2,2 mm/rok w EGMS — i GNSS pokazuje podobnie
    (mediana −0,8). Stąd K3 (sekcja 5).
 5. **Kółka leżą przeważnie nad linią, kwadraty pod nią** — systematyczna różnica orbit (sekcja 6).
@@ -167,9 +167,9 @@ to podpis składowej **wschód–zachód**, a nie pionu: różnica ok. 0,9 mm/ro
 
 ---
 
-## 7. Czy wynik obroni się na spotkaniu?
+## 7. Mocne i słabe strony wyniku
 
-### Mocne strony (mów śmiało)
+### Mocne strony
 
 1. **Procedura uczciwa i powtarzalna:** reguła stacji i progi zapisane w kodzie przed obliczeniami; dwa przebiegi
    (10 i 12 października) dają identyczne liczby; kontrole konwencji przeszły.
@@ -179,9 +179,9 @@ to podpis składowej **wschód–zachód**, a nie pionu: różnica ok. 0,9 mm/ro
    ścieżkach i w obu geometriach. Kalibracja EGMS (siatka ok. 50 km) nie mogła wytworzyć sygnału o skali kilku km,
    więc tu zgodność pochodzi z radaru.
 
-### Słabe strony (powiedz sam, zanim ktoś zapyta)
+### Słabe strony i odpowiedzi na typowe zastrzeżenia
 
-| Pytanie, które może paść | Odpowiedź |
+| Zastrzeżenie | Odpowiedź |
 |---|---|
 | „Czy to nie kółko — EGMS jest kalibrowany GNSS-em?” | Częściowo tak: absolutny poziom prędkości jest dowiązany do modelu GNSS (Even i in. 2024). Lokalne różnice (VEEN, różnice między stacjami w odległości kilku km) pochodzą z radaru. Test w pełni niezależny to niwelacja NRW (etap 2020–2024). |
 | „95 par to dużo, ale ile niezależnych pomiarów?” | 24 stacje osiadające; część stoi parami obok siebie (DZYL/DZY1). Podajemy liczbę stacji, nie tylko par. |
@@ -191,21 +191,21 @@ to podpis składowej **wschód–zachód**, a nie pionu: różnica ok. 0,9 mm/ro
 | „Jaka jest niepewność prędkości?” | Niepewności z dopasowania są formalne (szum biały) i zaniżone; nie używamy ich do testów istotności. |
 | „Czy to działa wszędzie?” | Jeden region, jedno wydanie, płaski teren, osiadanie 2–12 mm/rok. Nie uogólniamy na szybkie lub nagłe ruchy. |
 
-### Czego nie mówić
+### Sformułowania
 
-- „EGMS wykrył osiadanie” → mów: **„pomiar naziemny potwierdza tempo osiadania widoczne w EGMS”**.
+- zamiast „EGMS wykrył osiadanie”: **„pomiar naziemny potwierdza tempo osiadania widoczne w EGMS”**.
 - „EGMS mierzy z dokładnością do dnia / co 6 dni” → EGMS to produkt archiwalny, aktualizowany raz w roku;
   pojedyncza data ma szum kilku mm.
 - „Osuwisko” → mówimy „osiadanie”.
 
 ### Ocena
 
-**Obroni się**, jeśli przedstawisz go jako: „zgodność tempa osiadania potwierdzona, z jawnymi ograniczeniami”.
-Nie obroni się jako „pełna, niezależna walidacja EGMS” — na to potrzebna jest niwelacja (NRW) i etap 2020–2024.
+Wynik jest mocny jako „zgodność tempa osiadania potwierdzona, z jawnymi ograniczeniami”. Nie jest „pełną, niezależną
+walidacją EGMS” — do tego potrzebna jest niwelacja (NRW) i etap 2020–2024.
 
 ---
 
-## 8. Proponowany układ trzech slajdów
+## 8. Wynik w trzech punktach
 
 1. **Pytanie i dane:** mapa/lista 24 + 8 stacji, EGMS L2b 2019–2023, metoda w 5 krokach (sekcja 2).
 2. **Wynik:** wykres 1 + tabela K1–K4; jedno zdanie wniosku; VEEN jako przykład.

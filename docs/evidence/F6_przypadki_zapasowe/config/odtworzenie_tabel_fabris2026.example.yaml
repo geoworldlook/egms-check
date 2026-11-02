@@ -46,7 +46,7 @@ temporal:
   interpolation: TODO          # decyzja zespołu (Plan_v1_otwarte_pytania, E3)
   velocity_model: TODO         # linear | linear_plus_annual (Plan_v1_otwarte_pytania, E1)
 
-acceptance:                    # docs/plans/Plan_v1_kryteria_akceptacji.md; pola [propozycja] wymagają zatwierdzenia
+acceptance:                    # docs/archive/plans/Plan_v1_kryteria_akceptacji.md; pola [propozycja] wymagają zatwierdzenia
   velocity_difference_threshold_mm_yr: 1.5
   table3_count_tolerance_fraction: TODO
   table3_velocity_tolerance_mm_yr: TODO

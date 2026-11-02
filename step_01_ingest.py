@@ -17,7 +17,7 @@ Status: kod napisany według oficjalnego notatnika, NIE był uruchamiany z prawd
 (serwer EGMS niedostępny ze środowiska, w którym powstał). Pierwsze uruchomienie: Colab.
 Token jest kluczem prywatnym: nie drukujemy go, nie zapisujemy w repozytorium ani w logach.
 
-Literatura i źródła: docs/evidence/F5_zrodla_danych.md (sekcja 1), docs/plans/Plan_v1_wdrozenie.md.
+Literatura i źródła: docs/evidence/F5_zrodla_danych.md (sekcja 1), docs/archive/plans/Plan_v1_wdrozenie.md.
 ================================================================================
 """
 

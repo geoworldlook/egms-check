@@ -32,7 +32,7 @@ Stan na 2026-10-09. Kolumny: co ustalić, jak sprawdzić, co od tego zależy.
 
 | # | Pytanie | Jak sprawdzić |
 |---|---|---|
-| B1 | Instytucja i opis przetwarzania zbioru PANGAEA (do slajdu o źródle) | strona zbioru i artykuł powiązany, doi:10.3389/feart.2022.907897 |
+| B1 | Instytucja i opis przetwarzania zbioru PANGAEA (do opisu źródła) | strona zbioru i artykuł powiązany, doi:10.3389/feart.2022.907897 |
 | B2 | Dziennik stacji PTO1: wymiany anteny, operator | strona operatora sieci |
 | B3 | Czy PTO1 weszła do modelu GNSS użytego w EGMS? | EGMS GNSS Calibration Report, lista stacji |
 | B4 | Czy potrzebne jest kryterium wysokości punktów? | rozkład `height` w buforze |
@@ -43,7 +43,7 @@ Stan na 2026-10-09. Kolumny: co ustalić, jak sprawdzić, co od tego zależy.
 
 | # | Pytanie | Jak sprawdzić |
 |---|---|---|
-| C1 | Przyczyna osiadania i opis obszaru (do slajdu) | plan pomiarów Twenthe-Rijn na NLOG; raporty Nobian |
+| C1 | Przyczyna osiadania i opis obszaru (do opisu przypadku) | plan pomiarów Twenthe-Rijn na NLOG; raporty Nobian |
 | C2 | Czy są wcześniejsze i późniejsze rejestry tej sieci (2022, 2024)? | strona NLOG „Meetplannen en Meetregisters" |
 | C3 | Położenie reperów względem budynków (grunt czy konstrukcja) | załącznik 1 (mapa), opis reperów |
 | C4 | Czy wydanie EGMS 2020–2024 jest już dostępne? | strona produktu CLMS |
@@ -57,7 +57,7 @@ Stan na 2026-10-09. Kolumny: co ustalić, jak sprawdzić, co od tego zależy.
 4. Sposób odczytu EGMS w dacie epoki niwelacji.
 5. Odniesienie w Hengelo, gdy przy reperze 000A2890 brak punktów EGMS.
 6. Repery 300 i 301: włączać czy nie (decyzja przed obliczeniami).
-7. Progi oznaczone **[propozycja]** w `docs/plans/Plan_v1_kryteria_akceptacji.md`.
+7. Progi oznaczone **[propozycja]** w `docs/archive/plans/Plan_v1_kryteria_akceptacji.md`.
 
 ## E. Czego nie udało mi się sprawdzić i dlaczego
 

@@ -1,7 +1,7 @@
 # F1 — Przegląd literatury: walidacja EGMS względem GNSS i niwelacji
 
 > **Data:** 2026-10-09 · **Status:** `Draft`
-> **Powiązane:** `docs/plans/Plan_v1_walidacja_EGMS.md`, `docs/evidence/F4_metodyka.md`
+> **Powiązane:** `docs/archive/plans/Plan_v1_walidacja_EGMS.md`, `docs/evidence/F4_metodyka.md`
 
 **Poziomy weryfikacji źródeł:**
 - `pełny tekst` — przeczytane w całości (pozycje 1–6; teksty w `docs/evidence/literatura_txt/`).

@@ -2,7 +2,7 @@
 
 > **Data:** 2026-10-10 · **Status:** `Draft` — zestawienie przypadków rozważanych w projekcie (stare konto),
 > z przyczyną osiadania i stanem prac. Źródła: `F2`, `F3`, `F6_przypadki_zapasowe/`, `Plan_v1_eksperymenty.md`,
-> `docs/migracja/`. Poziom weryfikacji w kolumnie „Źródło”.
+> `docs/archive/migracja/`. Poziom weryfikacji w kolumnie „Źródło”.
 
 ## 1. Zestawienie
 
@@ -16,11 +16,11 @@
 | 6 | **Schiermonnikoog (NL)** — kontrola negatywna | brak istotnego ruchu (rejestr NAM) | ≈ 0 | niwelacja, 59 reperów, epoki co 3 lata 2006–2024, CSV w załączniku (NLOG) | brak | tak | pomysł; dobry do pokazania „EGMS nie widzi ruchu tam, gdzie go nie ma” |
 
 ¹ Przyczyna z wiedzy ogólnej (Groningen, delta Padu) — powszechnie opisana, ale w repozytorium nie ma cytatu;
-potwierdzić źródłem przed slajdem. Przyczyny dla 3–6 pochodzą z dokumentów w `docs/evidence/`.
-² Prędkości LOR1 i LRC1 z listy MIDAS NGL (sesja 2026-10-10, `docs/migracja/06_otwarte_decyzje.md`); dostępność
+potwierdzić źródłem przed publikacją. Przyczyny dla 3–6 pochodzą z dokumentów w `docs/evidence/`.
+² Prędkości LOR1 i LRC1 z listy MIDAS NGL (sesja 2026-10-10, `docs/archive/migracja/06_otwarte_decyzje.md`); dostępność
 szeregów w oknie 2019–2023 sprawdzić regułą z E1 przed decyzją.
 
-## 2. Ocena na spotkanie
+## 2. Ocena przypadków
 
 | Przypadek | Siła sygnału | Niezależność | Gotowość | Komentarz |
 |---|---|---|---|---|

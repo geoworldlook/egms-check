@@ -2,8 +2,8 @@
 ================================================================================
 EGMS Check - KROK 8: ETAP B: WŁASNE PRZETWORZENIE SENTINEL-1 (ASF HyP3 + MintPy) CO 6/12 DNI I DOWIĄZANIE DO EGMS
 ================================================================================
-Etap B pokazu (docs/plans/Plan_v2_pokaz_EGMS_monitoring.md, sekcja 4), interfejs według
-docs/plans/Plan_v2_implementacja.md, sekcja 4.4. Kontynuacja kodu E1: manifest i SHA-256 z step_01_ingest,
+Etap B pokazu (docs/archive/plans/Plan_v2_pokaz_EGMS_monitoring.md, sekcja 4), interfejs według
+docs/archive/plans/Plan_v2_implementacja.md, sekcja 4.4. Kontynuacja kodu E1: manifest i SHA-256 z step_01_ingest,
 prędkość (fit_velocity) i mediana w oknie wokół daty (gnss_at_dates) z step_03_compare_gnss, bez zmian.
 
   I.    Dane logowania NASA Earthdata (JSON: username+password albo token; nic nie drukujemy) i klient HyP3.

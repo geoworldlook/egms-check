@@ -20,11 +20,11 @@ Kroki 3–4 można odłożyć do sesji 2. Krok 6 jest potrzebny dopiero w sesji 
 ## B. Praca w Claude Code
 
 1. Otwórz katalog `egms-check` w Claude Code. Plik `CLAUDE.md` wczyta się sam.
-2. Wklejaj prompty z `docs/plans/Prompty_Claude_Code.md` po kolei, jeden na sesję lub etap.
+2. Wklejaj prompty z `docs/archive/plans/Prompty_Claude_Code.md` po kolei, jeden na sesję lub etap.
 3. Nie przechodź do następnego promptu, dopóki nie jest spełniony warunek „Gotowe, gdy" z poprzedniego.
 4. Gdy Claude Code zada pytanie o decyzję metodyczną, odpowiedz i dopisz decyzję z datą do
-   `docs/plans/Plan_v1_otwarte_pytania.md`.
-5. Progi z `docs/plans/Plan_v1_kryteria_akceptacji.md` zatwierdź **przed** sesją 5 (pierwsze porównanie).
+   `docs/archive/plans/Plan_v1_otwarte_pytania.md`.
+5. Progi z `docs/archive/plans/Plan_v1_kryteria_akceptacji.md` zatwierdź **przed** sesją 5 (pierwsze porównanie).
 
 ## C. Kolejność sesji
 

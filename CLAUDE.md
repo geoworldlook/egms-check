@@ -1,7 +1,8 @@
 # CLAUDE.md — EGMS Check (GeoWorldLook)
 
-> **Stan bieżący (2026-10-10), migracja i audyt: `docs/MIGRACJA_stan_i_audyt.md` — czytaj najpierw.**
-> Sekcja „Dwa przypadki” niżej opisuje plan z 2026-10-09; przypadek GNSS to obecnie region Groningen.
+> **Stan bieżący: `docs/STAN_I_PLAN.md` (wersja 1.0.0, 2026-11-02) — czytaj najpierw**, potem
+> `docs/ARCHITEKTURA.md` i `docs/evidence/karta_wynikow.md`. Sekcja „Dwa przypadki” niżej opisuje plan z 2026-10-09;
+> obecne przypadki: Groningen (GNSS) i zachodnia NRW (niwelacja). Historia: `docs/archive/`.
 
 ## Cel projektu
 
@@ -18,22 +19,26 @@ zastosowania na blogu GeoWorldLook. Wszystko na danych otwartych.
    porównana z EGMS Ortho (pion); dodatkowo prognoza z wcześniejszego wydania.
    Specyfikacja: `docs/evidence/F3_przypadek_repery_Hengelo.md`. Fakty z raportu: `data/04_Reference/hengelo_*.csv`.
 
-Oba są częścią testu z `docs/plans/Plan_v1_test_EGMS.md`. Kolejność: najpierw 1, potem 2.
+Oba są częścią testu z `docs/archive/plans/Plan_v1_test_EGMS.md`. Kolejność: najpierw 1, potem 2.
 Przypadki zapasowe (`docs/evidence/F6_przypadki_zapasowe/`) tylko na wyraźną prośbę.
 
 ## Struktura: jak w AgriWatch
 
 Repozytorium ma ten sam układ co `agriscreen`. Trzymaj się go:
 
-- skrypty w katalogu głównym: `step_NN_<cel>.py`; generator notatnika `build_colab_master.py`;
-- jeden notatnik `notebooks/EGMS_Check.ipynb`, generowany, nie edytowany ręcznie;
+- skrypty w katalogu głównym: `step_NN_<cel>.py`; generatory notatników `build_colab_*.py`;
+- pakiet `egmscheck/` (D-095): polecenia `python -m egmscheck run | publish | selftest | settings` (ten sam parser co
+  `step_09_local.py`) i publikacja wyników do `docs/showcase/`; moduły `step_NN` zostają w katalogu głównym,
+  bo importują je notatniki Colab;
+- notatniki w `notebooks/` generowane, nie edytowane ręcznie;
 - sterowanie przez `step_05_colab_run.py`: `setup_runtime`, `run_task`, zadania `task_*`, `--selftest`;
 - konfiguracja w jednym miejscu: `CHECK_CONFIG` w `step_05_colab_run.py`;
 - wyniki tabelaryczne w rejestrze `data/registry/gwl_*.csv` (schemat z AgriWatch), pliki w
   `data/05_Final_Outputs/egmscheck/`, na końcu `run_summary.md`;
 - katalogi danych z prefiksem liczbowym (`00_Metadata` … `05_Final_Outputs`);
-- dokumenty: `docs/ARCHITEKTURA.md` (stan kodu), `docs/plans/Plan_v*.md` (ze statusem i datą),
-  `docs/evidence/F*_*.md` (przeglądy i analizy, z poziomem weryfikacji źródeł);
+- dokumenty: `docs/STAN_I_PLAN.md` (jedna strona), `docs/ARCHITEKTURA.md` (stan kodu), `docs/plans/` (tylko aktywne
+  plany, decyzje D-xxx), `docs/evidence/` (przeglądy, analizy, `karta_wynikow.md`), `docs/archive/` (historia);
+  po każdej zmianie wersji wpis w `CHANGELOG.md`;
 - nagłówek modułu: blok „EGMS Check - KROK N: …" po polsku z metodą i literaturą;
 - dokumentacja, docstringi i komentarze po polsku; nazwy w kodzie i opisy osi wykresów po angielsku;
   komunikaty commitów po angielsku w stylu `feat(...)`, `fix(...)`.
@@ -46,9 +51,9 @@ Szczegóły: `docs/ARCHITEKTURA.md`. Zanim skopiujesz mechanizm `run_task` i rej
 - wykresy „EGMS kontra pomiar naziemny" dla obu przypadków,
 - `bulletin.md`, `egmscheck_latest.json` i ryciny PNG dla strony,
 - notatnik wykonujący się od góry do dołu; EGMS pobiera przez API, gdy jest token, a bez tokenu czyta `data/03_Extracts/`,
-- wpis na blog: `docs/plans/Plan_v1_wpis_na_blog.md`.
+- wpis na blog: `docs/archive/plans/Plan_v1_wpis_na_blog.md`.
 
-Lista danych do pobrania: `docs/plans/Plan_v1_dane_do_pobrania.md`.
+Lista danych do pobrania: `docs/archive/plans/Plan_v1_dane_do_pobrania.md`.
 
 ## Zasady pracy (obowiązują zawsze)
 
@@ -56,7 +61,7 @@ Lista danych do pobrania: `docs/plans/Plan_v1_dane_do_pobrania.md`.
    Jeśli metoda z publikacji jest niejasna, przeczytaj publikację w `docs/evidence/literatura_txt/`, nie zgaduj.
 2. **Pytaj, nie zgaduj.** Zatrzymaj się i zapytaj przy każdej decyzji o: wydaniu EGMS, oknie czasowym,
    modelu prędkości, agregacji GNSS, obsłudze braków i skoków, promieniu bufora, punkcie odniesienia, progach.
-   Lista znanych decyzji: `docs/plans/Plan_v1_otwarte_pytania.md`.
+   Lista znanych decyzji: `docs/archive/plans/Plan_v1_otwarte_pytania.md`.
 3. **Błąd głośny, nigdy cichy.** Bez `except Exception`, bez wartości zastępczych. Brak pliku, brak kolumny,
    pusty bufor, brak punktów przy reperze odniesienia — to wyjątek albo jawny `NaN` z powodem, nigdy zero.
    (`run_task` zapisuje błąd zadania w `gwl_runs`; wynik zadania, które się nie powiodło, nie może wyglądać jak prawdziwy.)
@@ -70,7 +75,7 @@ Lista danych do pobrania: `docs/plans/Plan_v1_dane_do_pobrania.md`.
 7. **Odtwarzalność.** `run_summary.md` zapisuje wersje bibliotek, konfigurację, wydanie EGMS, commit.
 8. **Waliduj względem rzeczywistości.** Najpierw kontrole konwencji na danych (`docs/evidence/F4_metodyka.md`,
    sekcja 2), potem porównanie z liczbami z `data/04_Reference/`.
-9. **Uczciwość statystyczna.** Progi z `docs/plans/Plan_v1_kryteria_akceptacji.md` autor zatwierdza przed pierwszym
+9. **Uczciwość statystyczna.** Progi z `docs/archive/plans/Plan_v1_kryteria_akceptacji.md` autor zatwierdza przed pierwszym
    przebiegiem. Nie zmieniaj ich po zobaczeniu wyników. Rozbieżność raportuj tak samo jak zgodność;
    nie dobieraj reperów ani buforów pod wynik.
 10. **Nie wymyślaj danych.** Współrzędnych stacji i reperów, dat epok i wartości referencyjnych nie uzupełniaj
@@ -86,7 +91,7 @@ Lista danych do pobrania: `docs/plans/Plan_v1_dane_do_pobrania.md`.
 - tabela reperów z załącznika 5 raportu z Hengelo (współrzędne, wysokości, dokładne daty epok),
 - gęstość punktów EGMS wokół reperów w Hengelo i przy reperze odniesienia.
 
-Pełna lista: `docs/plans/Plan_v1_otwarte_pytania.md`.
+Pełna lista: `docs/archive/plans/Plan_v1_otwarte_pytania.md`.
 
 ## Sformułowania do wpisu i raportu
 

@@ -8,8 +8,8 @@ Każdy prompt wklej w całości. Zasady stałe są w `CLAUDE.md`, więc prompty 
 ## Sesja 0 — orientacja
 
 ```text
-Przeczytaj CLAUDE.md, README.md, docs/ARCHITEKTURA.md i docs/plans/Plan_v1_walidacja_EGMS.md.
-Potem docs/plans/Plan_v1_test_EGMS.md, Plan_v1_kryteria_akceptacji.md i Plan_v1_otwarte_pytania.md.
+Przeczytaj CLAUDE.md, README.md, docs/ARCHITEKTURA.md i docs/archive/plans/Plan_v1_walidacja_EGMS.md.
+Potem docs/archive/plans/Plan_v1_test_EGMS.md, Plan_v1_kryteria_akceptacji.md i Plan_v1_otwarte_pytania.md.
 Uruchom: python step_00_reference_check.py
 
 Nie pisz jeszcze kodu. Odpowiedz:
@@ -61,7 +61,7 @@ Zadanie w step_01_ingest.py:
 3. search_egms(query) zwracająca hits i id; bez pobierania plików.
 
 Uruchom i pokaż mi: listę wydań (czy jest 2018-2022, 2019-2023, 2020-2024 i w jakim zapisie),
-listę poziomów i typów produktów. Zapisz odpowiedź w docs/plans/Plan_v1_otwarte_pytania.md (pytanie A2).
+listę poziomów i typów produktów. Zapisz odpowiedź w docs/archive/plans/Plan_v1_otwarte_pytania.md (pytanie A2).
 Jeśli wydania 2018-2022 nie ma, zatrzymaj się i zapytaj, co dalej.
 ```
 
@@ -72,7 +72,7 @@ Gotowe, gdy: znamy listę wydań i poprawny zapis filtrów.
 ## Sesja 3 — pobranie danych przypadku 1
 
 ```text
-Przeczytaj docs/evidence/F2_przypadek_GNSS_PTO1.md i docs/plans/Plan_v1_dane_do_pobrania.md.
+Przeczytaj docs/evidence/F2_przypadek_GNSS_PTO1.md i docs/archive/plans/Plan_v1_dane_do_pobrania.md.
 Plik data/02_Raw_Ground/1_gnss_pangaea/PTO1.txt jest na miejscu.
 
 1. read_pangaea_gnss: wczytaj plik, pokaż nagłówek, zakres dat, liczbę dni, przerwy dłuższe niż 30 dni,
@@ -114,7 +114,7 @@ Gotowe, gdy: kontrole przechodzą, wycinki są w repozytorium, a różnice wzgl�
 ## Sesja 5 — porównanie z GNSS
 
 ```text
-Progi w docs/plans/Plan_v1_kryteria_akceptacji.md są zatwierdzone (data w protokole w Plan_v1_test_EGMS.md).
+Progi w docs/archive/plans/Plan_v1_kryteria_akceptacji.md są zatwierdzone (data w protokole w Plan_v1_test_EGMS.md).
 Nie zmieniaj ich.
 
 Zanim napiszesz kod, zapytaj mnie o: model prędkości (liniowy czy liniowy + sinusoida roczna),
@@ -138,7 +138,7 @@ Gotowe, gdy: jest tabela kryteriów T1 dla trzech ścieżek i wykres główny.
 ## Sesja 6 — wykresy, biuletyn, notatnik
 
 ```text
-Przeczytaj docs/plans/Plan_v1_wpis_na_blog.md i docs/evidence/F2 (sekcja o wykresach).
+Przeczytaj docs/archive/plans/Plan_v1_wpis_na_blog.md i docs/evidence/F2 (sekcja o wykresach).
 
 1. step_06_figures_bulletin.py: wykres główny, wykres różnicy, trzy ścieżki obok siebie, mapa punktów wokół stacji;
    bulletin.md, egmscheck_latest.json, run_summary.md (wersje bibliotek, konfiguracja, wydanie EGMS, commit,
@@ -156,7 +156,7 @@ Gotowe, gdy: notatnik przechodzi bez tokenu na świeżym klonie repozytorium.
 ## Sesja 7 — szkic wpisu na blog (przypadek 1)
 
 ```text
-Na podstawie notatnika i bulletin.md przygotuj szkic wpisu według docs/plans/Plan_v1_wpis_na_blog.md:
+Na podstawie notatnika i bulletin.md przygotuj szkic wpisu według docs/archive/plans/Plan_v1_wpis_na_blog.md:
 nagłówek (title, date, tags, summary, readTime), sekcje z tabeli "Proponowany układ wpisu" dla przypadku 1,
 komórki kodu z notatnika, ryciny PNG, źródła i atrybucje.
 Język tekstu: <POLSKI / ANGIELSKI>.
@@ -220,7 +220,7 @@ Gotowe, gdy: jest tabela kryteriów T2, wykres rozrzutu i wynik testu prognozy.
 ```text
 1. Zaktualizuj docs/ARCHITEKTURA.md tak, żeby opisywała stan faktyczny kodu (moduły, funkcje, zadania, rejestr),
    a nie plan. Usuń oznaczenia [plan] z README dla plików, które istnieją; dodaj odznakę "Open in Colab".
-2. W docs/plans/ ustaw statusy: co wykonane, co odłożone. W Plan_v1_test_EGMS.md wypełnij regułę decyzji
+2. W docs/archive/plans/ ustaw statusy: co wykonane, co odłożone. W Plan_v1_test_EGMS.md wypełnij regułę decyzji
    wynikami T1 i T2 (T3 tylko jeśli był liczony).
 3. Uzupełnij wpis na blog o przypadek 2 albo przygotuj drugi wpis, według mojej decyzji.
 4. Wypisz, co pozostaje niezweryfikowane (licencja danych NLOG, formuła atrybucji Copernicus, inne).

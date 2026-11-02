@@ -1,7 +1,7 @@
 # Plan v2 — pokaz EGMS (Groningen, zachodnia NRW) i droga do monitoringu co 6/12 dni
 
 > **Status:** PROPOSED, 2026-10-11. Decyzje w sekcji 7 czekają na autora; bez nich nie ma kodu ani pobierania.
-> **Powiązane:** `docs/migracja/09_audyt_po_migracji.md` (wynik E1), `docs/evidence/F8_przeglad_przypadkow.md`,
+> **Powiązane:** `docs/archive/migracja/09_audyt_po_migracji.md` (wynik E1), `docs/evidence/F8_przeglad_przypadkow.md`,
 > `docs/evidence/F6_przypadki_zapasowe/zapas_nrw_niwelacja.md`.
 
 ## 1. Cel i pytanie
@@ -121,7 +121,7 @@ Dane Sentinel-1: Copernicus Data Space Ecosystem (CDSE). **Sekret CDSE z poprzed
 | 5 | `step_06_show_egms.py` + sekcja w notatniku + test offline (atrapy jak `tests/colab_harness`) | — |
 | 6 | Etap B: zakładka 2024 → przedłużenie 2025–2026 | decyzja 6, konto CDSE / Earthdata |
 
-Krok 2 daje wykresy na spotkanie najszybciej: dane już są, potrzebny jest tylko nowy kod rysowania.
+Krok 2 daje wykresy najszybciej: dane już są, potrzebny jest tylko nowy kod rysowania.
 Uwaga: wycinek E1 jest z wydania **2019–2023**; przejście na 2020–2024 wymaga ponownego pobrania L2b (ok. 4–5 GB).
 
 ## 7. Decyzje autora (zasada 2 `CLAUDE.md`)
@@ -130,7 +130,7 @@ Uwaga: wycinek E1 jest z wydania **2019–2023**; przejście na 2020–2024 wyma
 2. **Obszar NRW:** odkrywki (Garzweiler / Hambach / Inden), strefa wypiętrzania na zachodzie, czy oba?
    Epe (kawerny, ruch nieliniowy) — wykluczyć (rekomendacja) czy pokazać jako ograniczenie?
 3. **Pomiar naziemny w NRW:** GNSS NGL (najlepszy do pokazu co 6/12 dni), niwelacja, czy sam EGMS bez porównania?
-4. **Produkt do szeregów:** L2b (LOS, natywne daty, wymaga rzutu GNSS) czy L3 pion (prostszy opis na slajdzie)?
+4. **Produkt do szeregów:** L2b (LOS, natywne daty, wymaga rzutu GNSS) czy L3 pion (prostszy opis)?
    Do sprawdzenia na danych: czy L3 ma natywne daty, czy próbkowanie przeliczone.
 5. **Reguła wyboru punktów szeregów** (proponowana: największe osiadanie, mediana, stabilny — wewnątrz obszaru).
 6. **Etap B — narzędzie:** HyP3 + MintPy (rekomendacja: najmniej pracy ręcznej, Python), LiCSBAS czy SNAP + StaMPS?
