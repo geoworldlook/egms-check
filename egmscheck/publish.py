@@ -309,9 +309,13 @@ def publish(settings: Dict[str, Any], cfg: Dict[str, Any], do_git: bool = True, 
           "REGISTRY_DIR": str(data_dir / "data" / "registry")}
     items = showcase_items(rt, cfg)
     dest = code_dir / SHOWCASE
+    old_path = dest / RESULTS_JSON
+    old = json.loads(old_path.read_text(encoding="utf-8")) if old_path.exists() else {}
     copied, removed = copy_showcase(items, dest)
     results = build_results(rt, cfg, items, code_dir)
-    (dest / RESULTS_JSON).write_text(json.dumps(results, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    if old.get("published") and {**old, "published": None} == {**results, "published": None}:
+        results["published"] = old["published"]      # te same wyniki: bez nowej daty i bez pustego commita
+    old_path.write_text(json.dumps(results, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     for name in results["missing_optional"]:
         print(f"[BRAK, opcjonalny] {name}")
     summary = {"showcase": str(dest), "copied": copied, "removed": removed,
@@ -370,6 +374,11 @@ def _selftest() -> None:
         assert res["removed"] == ["stary_wynik.png"] and (dest / "README.md").exists(), res
         assert set(res["missing_optional"]) == {"run_summary.md", "run_summary.json"}, res
         js = json.loads((dest / RESULTS_JSON).read_text(encoding="utf-8"))
+        # Ponowna publikacja tych samych wyników nie zmienia pliku (data zostaje), więc nie daje pustego commita.
+        js_old = dict(js, published="2000-01-01")
+        (dest / RESULTS_JSON).write_text(json.dumps(js_old, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+        publish({"data_dir": str(data)}, cfg, do_git=False, code_dir=code)
+        assert json.loads((dest / RESULTS_JSON).read_text(encoding="utf-8"))["published"] == "2000-01-01"
         assert js["files"] == sorted(res["copied"]) and "stary_wynik.png" not in js["files"]
         g = next(r for r in js["results"] if r["id"] == "groningen_verdict_l2b")
         assert [c["code"] for c in g["criteria"]] == ["K1", None, "K3"], g["criteria"]
